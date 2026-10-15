@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main  # Triggers deployment on push to the main branch
+permissions:
+  contents: write
 
 env:
   REGISTRY: ghcr.io

@@ -1,84 +1,122 @@
-# nomad-plugin-template
-A template repository for creating a repository with a NOMAD plugin package.
+# DIFFER-PLD4E-schemas
 
+NOMAD schema package for provenance-centered sputter deposition records. Substrates, individual thin-film layers, and completed thin-film stacks are represented as sample entities, while deposition steps retain the process parameters and layer provenance.
 
-## Getting started
+## Development
 
-1. Click on the `Use this template` button and create a new plugin repository. The form will ask you to fill out the name for the new plugin repository.
-
-2. In the newly created repository, start a new Github Codespace and generate the plugin structure.
-
-Run the following command to create a new NOMAD plugin project using cookiecutter-nomad-plugin:
-
+For local development, create and activate a Python 3.9+ virtual environment:
 ```sh
-cruft create https://github.com/FAIRmat-NFDI/cookiecutter-nomad-plugin
+git clone https://github.com/timval-differ/DIFFER-PLD4E-schemas.git
+cd DIFFER-PLD4E-schemas
+python3 -m venv .venv
+. .venv/bin/activate
 ```
 
-Cookiecutter prompts you for information regarding your plugin:
-
-```no-highlight
-full_name [John Doe]: Citizen Kane
-email [john.doe@physik.hu-berlin.de]: citizen@kane.de
-github_username [foo]: kane
-plugin_name [foobar]: awesome-tools
-module_name [awesome_tools]: awesome_tools
-short_description [NOMAD example template]: An awesome plugin for NOMAD
-version [0.1.0]:
-Select license:
-1 - MIT
-2 - BSD-3
-3 - GNU GPL v3.0+
-Choose from 1, 2, 3 [1]: 2
-include_schema_package [y/n] (y): y
-include_normalizer [y/n] (y): n
-include_parser [y/n] (y): y
-include_app [y/n] (y): n
-
-INFO:post_gen_project:Initializing python for package - src
-..
-INFO:post_gen_project:Remove temporary folder: licenses
-INFO:post_gen_project:Remove temporary folder: macros
-INFO:post_gen_project:Remove temporary folder: py_sources
-```
-
-
-
-
-There you go - you just created a minimal NOMAD plugin:
-
-> [!NOTE]
-> In the above prompt, we pressed `y` for schema_package and parser, this creates a python package with two plugin entry points: one for parser and one for schema_package.
-
-```no-highlight
-nomad-awesome-tools/
-├── LICENSE
-├── README.rst
-├── pyproject.toml
-├── move_template_files.sh
-├── src
-│   └── nomad_awesome_tools
-│       ├── __init__.py
-|       ├── schema_packages
-│       |   ├── __init__.py
-│       |   └── plugin.py
-|       └── parsers
-│           ├── __init__.py
-│           └── plugin.py
-|
-├── tests
-│   ├── conftest.py
-│   └── test_awesome.py
-└── MANIFEST.in
-```
-
-
-> [!NOTE]
-> The project `nomad-awesome-tools` is created in a new directory, we have included a helper script to move all the files to the parent level of the repository.
-
-
+Make sure to have `pip` upgraded:
 ```sh
-sh CHANGE_TO_PLUGIN_NAME/move_template_files.sh
+pip install --upgrade pip
 ```
 
-> [!IMPORTANT]
-> The `CHANGE_TO_PLUGIN_NAME` should be substituted by the name of the plugin you've created. In the above case it'll be `sh nomad-awesome-tools/move_template_files.sh`. 
+We recommend installing `uv` for fast pip installation of the packages:
+```sh
+pip install uv
+```
+
+Install the plugin and its development dependencies:
+```sh
+python -m pip install --upgrade pip
+python -m pip install -e '.[dev]'
+```
+
+The example archive uses placeholder references for its substrate and target. Replace them with references to existing NOMAD entries before uploading.
+
+### Run the tests
+
+You can run locally the tests:
+```sh
+python -m pytest -sv tests
+```
+
+where the `-s` and `-v` options toggle the output verbosity.
+
+Our CI/CD pipeline produces a more comprehensive test report using the `pytest-cov` package. You can generate a local coverage report:
+```sh
+uv pip install pytest-cov
+python -m pytest --cov=src tests
+```
+
+### Run linting and auto-formatting
+
+We use [Ruff](https://docs.astral.sh/ruff/) for linting and formatting the code. Ruff auto-formatting is also a part of the GitHub workflow actions. You can run locally:
+```sh
+ruff check .
+ruff format . --check
+```
+
+### Debugging
+
+For interactive debugging of the tests, use `pytest` with the `--pdb` flag. We recommend using an IDE for debugging, e.g., _VSCode_. If that is the case, add the following snippet to your `.vscode/launch.json`:
+```json
+{
+  "configurations": [
+      {
+        "name": "<descriptive tag>",
+        "type": "debugpy",
+        "request": "launch",
+        "cwd": "${workspaceFolder}",
+        "program": "${workspaceFolder}/.pyenv/bin/pytest",
+        "justMyCode": true,
+        "env": {
+            "_PYTEST_RAISE": "1"
+        },
+        "args": [
+            "-sv",
+            "--pdb",
+            "<path-to-plugin-tests>",
+        ]
+    }
+  ]
+}
+```
+
+where `<path-to-plugin-tests>` must be changed to the local path to the test module to be debugged.
+
+The settings configuration file `.vscode/settings.json` automatically applies the linting and formatting upon saving the modified file.
+
+### Documentation on Github pages
+
+To view the documentation locally, install the related packages using:
+```sh
+uv pip install -r requirements_docs.txt
+```
+
+Run the documentation server:
+```sh
+mkdocs serve
+```
+
+## Adding this plugin to NOMAD
+
+Currently, NOMAD has two distinct flavors that are relevant depending on your role as an user:
+1. [A NOMAD Oasis](#adding-this-plugin-in-your-nomad-oasis): any user with a NOMAD Oasis instance.
+2. [Local NOMAD installation and the source code of NOMAD](#adding-this-plugin-in-your-local-nomad-installation-and-the-source-code-of-nomad): internal developers.
+
+### Adding this plugin in your NOMAD Oasis
+
+Read the [NOMAD plugin documentation](https://nomad-lab.eu/prod/v1/staging/docs/howto/oasis/plugins_install.html) for all details on how to deploy the plugin on your NOMAD instance.
+
+### Adding this plugin in your local NOMAD installation and the source code of NOMAD
+
+We now recommend using the dedicated [`nomad-distro-dev`](https://github.com/FAIRmat-NFDI/nomad-distro-dev) repository to simplify the process. Please refer to that repository for detailed instructions.
+
+## Publish note
+In the [GitHub actions workflow](./.github/workflows/publish.yml) for publishing the DIFFER-PLD4E-schemas plugin to PyPI, we commented out the `deploy` job . If you want to publish the plugin to `PyPI`, you need to set up your project in `PyPI`. There are several online tutorials on publishing a Python package to PyPI, e.g., [How to Publish a Python Package to PyPI](https://realpython.com/pypi-publish-python-package/). After that, you can uncomment the `deploy` job in the workflow file and push the changes to GitHub. The workflow will be triggered and the package will be published to `PyPI` when you create a new release on GitHub.
+
+### Template update
+
+We use [`cruft`](https://github.com/cruft/cruft) to update the project based on template changes. To run the check for updates locally, run `cruft update` in the root of the project. More details see the instructions on [`cruft` website](https://cruft.github.io/cruft/#updating-a-project).
+
+## Main contributors
+| Name | E-mail     |
+|------|------------|
+| Tim van Alphen | [t.j.j.vanalphen@differ.nl](mailto:t.j.j.vanalphen@differ.nl)

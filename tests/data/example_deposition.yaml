@@ -1,0 +1,29 @@
+data:
+  m_def: differ_pld4e_schemas.sputter_deposition.Deposition
+  name: Multilayer Ti/Pt deposition
+  # Replace these example paths with references to existing NOMAD entries.
+  substrate: /uploads/0123456789abcdef0123456789abcdef/archive/fedcba9876543210fedcba9876543210#/data
+  steps:
+    - name: Ti adhesion layer
+      sputtering_technique: DC
+      deposition_time: 60
+      source:
+        target: /uploads/0123456789abcdef0123456789abcdef/archive/00112233445566778899aabbccddeeff#/data
+        cathode_voltage: 350
+        cathode_current: 1
+      chamber_environment:
+        base_pressure: 0.000002
+        working_gas: Ar
+        working_pressure: 0.3
+        working_gas_flow: 25
+      deposited_layer:
+        layer_name: Ti layer
+        material: Ti
+        thickness: 0.00000002
+    - name: Pt electrode
+      sputtering_technique: DC
+      deposition_time: 120
+      deposited_layer:
+        layer_name: Pt layer
+        material: Pt
+        thickness: 0.00000005

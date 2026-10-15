@@ -1,0 +1,5 @@
+plugins:
+  schema_packages:
+    - id: differ_pld4e_schemas.schema_packages:schema_package_entry_point
+      name: Sputter Deposition Schemas
+      description: Schemas for sputter deposition processes and thin-film samples.

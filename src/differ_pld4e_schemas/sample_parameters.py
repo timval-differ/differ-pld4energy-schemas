@@ -1,16 +1,17 @@
-from nomad.datamodel.data import ArchiveSection
 from nomad.datamodel.metainfo.annotations import ELNAnnotation, ELNComponentEnum
-from nomad.metainfo import Quantity, Section
+from nomad.metainfo import Quantity
+from nomad_material_processing.vapor_deposition.general import (
+    SampleParameters as MaterialProcessingSampleParameters,
+)
 
 from differ_pld4e_schemas import m_package
 
 __all__ = ['SampleParameters', 'm_package']
 
 
-class SampleParameters(ArchiveSection):
+class SampleParameters(MaterialProcessingSampleParameters):
     """Sample-specific parameters recorded for a deposition step."""
 
-    m_def = Section()
     sample_id = Quantity(
         type=str,
         a_eln=ELNAnnotation(component=ELNComponentEnum.StringEditQuantity),

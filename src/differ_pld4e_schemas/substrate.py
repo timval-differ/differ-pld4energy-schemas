@@ -1,16 +1,15 @@
 from nomad.datamodel.metainfo.annotations import ELNAnnotation, ELNComponentEnum
-from nomad.metainfo import MEnum, Quantity, Section
+from nomad.metainfo import MEnum, Quantity
+from nomad_material_processing.general import Substrate as MaterialProcessingSubstrate
 
 from differ_pld4e_schemas import m_package
-from differ_pld4e_schemas.base_sections import Entity
 
 __all__ = ['Substrate', 'm_package']
 
 
-class Substrate(Entity):
+class Substrate(MaterialProcessingSubstrate):
     """Physical substrate loaded into the sputtering chamber."""
 
-    m_def = Section()
     sample_id = Quantity(
         type=str,
         a_eln=ELNAnnotation(component=ELNComponentEnum.StringEditQuantity),

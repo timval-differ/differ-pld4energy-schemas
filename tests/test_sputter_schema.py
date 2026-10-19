@@ -1,5 +1,16 @@
-from nomad.datamodel import EntryArchive
-from nomad.datamodel.data import ArchiveSection
+from nomad.datamodel import EntryArchive, ArchiveSection
+from nomad_material_processing.general import (
+    Substrate as MaterialProcessingSubstrate,
+)
+from nomad_material_processing.general import (
+    ThinFilm as MaterialProcessingThinFilm,
+)
+from nomad_material_processing.general import (
+    ThinFilmStack as MaterialProcessingThinFilmStack,
+)
+from nomad_material_processing.vapor_deposition.general import (
+    SampleParameters as MaterialProcessingSampleParameters,
+)
 from structlog.testing import CapturingLogger
 
 import differ_pld4e_schemas.schema_packages.schema_package  # noqa: F401
@@ -18,6 +29,11 @@ EXPECTED_LAYER_THICKNESS = 5e-8
 
 
 def test_schema_sections_instantiate():
+    assert issubclass(Substrate, MaterialProcessingSubstrate)
+    assert issubclass(ThinFilm, MaterialProcessingThinFilm)
+    assert issubclass(ThinFilmStack, MaterialProcessingThinFilmStack)
+    assert issubclass(SampleParameters, MaterialProcessingSampleParameters)
+
     assert Substrate(material='Si', rotation_speed=20).material == 'Si'
     assert (
         Substrate(material='Si', datetime='2024-01-01T00:00:00Z').datetime is not None
@@ -71,12 +87,17 @@ def test_normalization_builds_ordered_stack():
     normalize_deposition(deposition, EntryArchive(), CapturingLogger())
 
     assert deposition.resulting_stack is not None
-    assert [layer.material for layer in deposition.resulting_stack.layers] == [
+    assert [
+        layer.reference.material for layer in deposition.resulting_stack.layers
+    ] == [
         'Ti',
         'Pt',
     ]
-    assert deposition.resulting_stack.layers[0] is not first_layer
-    assert deposition.resulting_stack.layers[0].deposition_step_reference == 'adhesion'
+    assert deposition.resulting_stack.layers[0].reference is not first_layer
+    assert (
+        deposition.resulting_stack.layers[0].reference.deposition_step_reference
+        == 'adhesion'
+    )
     assert (
         deposition.resulting_stack.total_thickness.to('m').magnitude
         == EXPECTED_LAYER_THICKNESS

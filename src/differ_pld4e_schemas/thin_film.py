@@ -1,5 +1,17 @@
 from nomad.datamodel.metainfo.annotations import ELNAnnotation, ELNComponentEnum
-from nomad.metainfo import Quantity, Reference, Section, SubSection
+from nomad.metainfo import Quantity, Reference, SubSection
+from nomad_material_processing.general import (
+    SubstrateReference as MaterialProcessingSubstrateReference,
+)
+from nomad_material_processing.general import (
+    ThinFilm as MaterialProcessingThinFilm,
+)
+from nomad_material_processing.general import (
+    ThinFilmReference as MaterialProcessingThinFilmReference,
+)
+from nomad_material_processing.general import (
+    ThinFilmStack as MaterialProcessingThinFilmStack,
+)
 
 from differ_pld4e_schemas import m_package
 from differ_pld4e_schemas.base_sections import Entity
@@ -9,7 +21,7 @@ from differ_pld4e_schemas.target import Target
 __all__ = ['ThinFilm', 'ThinFilmStack', 'm_package']
 
 
-class ThinFilm(Entity):
+class ThinFilm(MaterialProcessingThinFilm):
     """A single thin-film layer produced by one deposition step."""
 
     m_def = Section()
@@ -39,7 +51,15 @@ class ThinFilm(Entity):
     deposition_step_reference = Quantity(type=str)
 
 
-class ThinFilmStack(Entity):
+class SputterThinFilmReference(MaterialProcessingThinFilmReference):
+    reference = Quantity(type=ThinFilm)
+
+
+class SputterSubstrateReference(MaterialProcessingSubstrateReference):
+    reference = Quantity(type=Substrate)
+
+
+class ThinFilmStack(MaterialProcessingThinFilmStack):
     """Output sample containing an ordered substrate and deposited layers."""
 
     m_def = Section()
@@ -52,7 +72,5 @@ class ThinFilmStack(Entity):
         unit='m',
         a_eln=ELNAnnotation(component=ELNComponentEnum.NumberEditQuantity),
     )
-    substrate = Quantity(type=Reference(Substrate.m_def), 
-        a_eln=ELNAnnotation(component=ELNComponentEnum.ReferenceEditQuantity),
-    )
-    layers = SubSection(section_def=ThinFilm.m_def, repeats=True)
+    substrate = SubSection(section_def=SputterSubstrateReference)
+    layers = SubSection(section_def=SputterThinFilmReference, repeats=True)

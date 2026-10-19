@@ -1,4 +1,9 @@
-from differ_pld4e_schemas.thin_film import ThinFilm, ThinFilmStack
+from differ_pld4e_schemas.thin_film import (
+    SputterSubstrateReference,
+    SputterThinFilmReference,
+    ThinFilm,
+    ThinFilmStack,
+)
 
 
 def normalize_deposition(deposition, archive, logger):
@@ -76,6 +81,6 @@ def normalize_deposition(deposition, archive, logger):
     stack.stack_name = stack.stack_name or (
         f'Stack on {deposition.substrate.sample_id or "Substrate"}'
     )
-    stack.substrate = deposition.substrate
-    stack.layers = layers
+    stack.substrate = SputterSubstrateReference(reference=deposition.substrate)
+    stack.layers = [SputterThinFilmReference(reference=layer) for layer in layers]
     stack.total_thickness = total_thickness

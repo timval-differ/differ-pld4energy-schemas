@@ -2,12 +2,14 @@
 
 NOMAD schema package for provenance-centered sputter deposition records. Substrates, individual thin-film layers, and completed thin-film stacks are represented as sample entities, while deposition steps retain the process parameters and layer provenance.
 
+The local `Substrate`, `ThinFilm`, `ThinFilmStack`, and `SampleParameters` sections specialize their corresponding base sections from `nomad-material-processing`. The dependency is declared in the project dependencies.
+
 ## Development
 
 For local development, create and activate a Python 3.9+ virtual environment:
 ```sh
-git clone https://github.com/timval-differ/DIFFER-PLD4E-schemas.git
-cd DIFFER-PLD4E-schemas
+git clone https://github.com/timval-differ/differ-pld4energy-schemas.git
+cd differ-pld4energy-schemas
 python3 -m venv .venv
 . .venv/bin/activate
 ```

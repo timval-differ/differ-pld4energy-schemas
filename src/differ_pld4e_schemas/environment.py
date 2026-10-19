@@ -1,3 +1,4 @@
+from nomad.datamodel.data import ArchiveSection
 from nomad.datamodel.metainfo.annotations import ELNAnnotation, ELNComponentEnum
 from nomad.metainfo import Quantity, Section
 from nomad.units import ureg
@@ -13,7 +14,7 @@ except UndefinedUnitError:
     ureg.define('sccm = centimeter ** 3 / minute')
 
 
-class ChamberEnvironment(Section):
+class ChamberEnvironment(ArchiveSection):
     """Manual and log-derived conditions inside the deposition chamber."""
 
     m_def = Section()

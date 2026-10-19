@@ -1,3 +1,4 @@
+from nomad.datamodel.data import ArchiveSection
 from nomad.datamodel.metainfo.annotations import ELNAnnotation, ELNComponentEnum
 from nomad.metainfo import Quantity, Section
 
@@ -6,7 +7,7 @@ from differ_pld4e_schemas import m_package
 __all__ = ['Target', 'm_package']
 
 
-class Target(Section):
+class Target(ArchiveSection):
     """Sputtering target material and geometry."""
 
     m_def = Section()

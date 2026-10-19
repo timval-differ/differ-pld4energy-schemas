@@ -1,4 +1,5 @@
 from nomad.datamodel import EntryArchive
+from nomad.datamodel.data import ArchiveSection
 from structlog.testing import CapturingLogger
 
 import differ_pld4e_schemas.schema_packages.schema_package  # noqa: F401
@@ -44,6 +45,16 @@ def test_inherited_sections_are_owned_by_plugin_package():
     assert ProcessStep.m_def.m_parent.name.startswith('differ_pld4e_schemas')
     assert 'name' in Substrate.m_def.all_quantities
     assert 'duration' in SputterDepositionStep.m_def.all_quantities
+
+
+def test_data_sections_are_archive_sections():
+    for section in (
+        SampleParameters,
+        SputterDepositionSource,
+        Target,
+        ChamberEnvironment,
+    ):
+        assert issubclass(section, ArchiveSection)
 
 
 def test_normalization_builds_ordered_stack():

@@ -1,3 +1,4 @@
+from nomad.datamodel.data import ArchiveSection
 from nomad.datamodel.metainfo.annotations import ELNAnnotation, ELNComponentEnum
 from nomad.metainfo import Quantity, Reference, Section
 
@@ -7,7 +8,7 @@ from differ_pld4e_schemas.target import Target
 __all__ = ['SputterDepositionSource', 'm_package']
 
 
-class SputterDepositionSource(Section):
+class SputterDepositionSource(ArchiveSection):
     """Sputtering source and electrical operating conditions."""
 
     m_def = Section()

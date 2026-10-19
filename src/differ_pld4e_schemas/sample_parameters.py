@@ -1,3 +1,4 @@
+from nomad.datamodel.data import ArchiveSection
 from nomad.datamodel.metainfo.annotations import ELNAnnotation, ELNComponentEnum
 from nomad.metainfo import Quantity, Section
 
@@ -6,7 +7,7 @@ from differ_pld4e_schemas import m_package
 __all__ = ['SampleParameters', 'm_package']
 
 
-class SampleParameters(Section):
+class SampleParameters(ArchiveSection):
     """Sample-specific parameters recorded for a deposition step."""
 
     m_def = Section()

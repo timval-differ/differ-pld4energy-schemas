@@ -1,4 +1,4 @@
-from nomad.datamodel import EntryArchive, ArchiveSection
+from nomad.datamodel import ArchiveSection, EntryArchive
 from nomad_material_processing.general import (
     Substrate as MaterialProcessingSubstrate,
 )

@@ -16,6 +16,7 @@ except UndefinedUnitError:
 class ChamberEnvironment(Section):
     """Manual and log-derived conditions inside the deposition chamber."""
 
+    m_def = Section()
     base_pressure = Quantity(
         type=float,
         unit='Pa',

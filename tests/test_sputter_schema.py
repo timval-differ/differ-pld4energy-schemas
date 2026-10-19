@@ -17,6 +17,9 @@ EXPECTED_LAYER_THICKNESS = 5e-8
 
 def test_schema_sections_instantiate():
     assert Substrate(material='Si', rotation_speed=20).material == 'Si'
+    assert (
+        Substrate(material='Si', datetime='2024-01-01T00:00:00Z').datetime is not None
+    )
     assert Target(material='Ti').material == 'Ti'
     assert (
         SputterDepositionSource(cathode_voltage=350).cathode_voltage.to('V').magnitude
@@ -30,7 +33,7 @@ def test_schema_sections_instantiate():
         == EXPECTED_LAYER_THICKNESS
     )
     assert ThinFilmStack(stack_name='Au/Si').stack_name == 'Au/Si'
-    assert SputterDepositionStep(sputtering_technique='DC').sputtering_technique == 'DC'
+    assert SputterDepositionStep(name='step', sputtering_technique='DC').name == 'step'
 
 
 def test_normalization_builds_ordered_stack():

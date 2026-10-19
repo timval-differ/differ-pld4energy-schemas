@@ -1,7 +1,7 @@
 from importlib import import_module
 
 from nomad.datamodel.metainfo.annotations import ELNAnnotation, ELNComponentEnum
-from nomad.metainfo import MEnum, Quantity
+from nomad.metainfo import MEnum, Quantity, Section
 
 try:
     Entity = import_module('nomad_material_processing.sample').Entity
@@ -16,6 +16,7 @@ __all__ = ['Substrate', 'm_package']
 class Substrate(Entity):
     """Physical substrate loaded into the sputtering chamber."""
 
+    m_def = Section()
     sample_id = Quantity(
         type=str,
         a_eln=ELNAnnotation(component=ELNComponentEnum.StringEditQuantity),

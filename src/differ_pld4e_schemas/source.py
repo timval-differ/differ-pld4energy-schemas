@@ -10,6 +10,7 @@ __all__ = ['SputterDepositionSource', 'm_package']
 class SputterDepositionSource(Section):
     """Sputtering source and electrical operating conditions."""
 
+    m_def = Section()
     target = Quantity(type=Reference(Target.m_def))
     cathode_voltage = Quantity(
         type=float,

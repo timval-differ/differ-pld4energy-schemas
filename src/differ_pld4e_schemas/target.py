@@ -9,6 +9,7 @@ __all__ = ['Target', 'm_package']
 class Target(Section):
     """Sputtering target material and geometry."""
 
+    m_def = Section()
     material = Quantity(
         type=str,
         a_eln=ELNAnnotation(component=ELNComponentEnum.StringEditQuantity),

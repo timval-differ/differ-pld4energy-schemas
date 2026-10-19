@@ -1,7 +1,7 @@
 from importlib import import_module
 
 from nomad.datamodel.metainfo.annotations import ELNAnnotation, ELNComponentEnum
-from nomad.metainfo import Quantity, Reference, SubSection
+from nomad.metainfo import Quantity, Reference, Section, SubSection
 
 try:
     Entity = import_module('nomad_material_processing.sample').Entity
@@ -18,6 +18,7 @@ __all__ = ['ThinFilm', 'ThinFilmStack', 'm_package']
 class ThinFilm(Entity):
     """A single thin-film layer produced by one deposition step."""
 
+    m_def = Section()
     layer_name = Quantity(
         type=str,
         a_eln=ELNAnnotation(component=ELNComponentEnum.StringEditQuantity),
@@ -47,6 +48,7 @@ class ThinFilm(Entity):
 class ThinFilmStack(Entity):
     """Output sample containing an ordered substrate and deposited layers."""
 
+    m_def = Section()
     stack_name = Quantity(
         type=str,
         a_eln=ELNAnnotation(component=ELNComponentEnum.StringEditQuantity),

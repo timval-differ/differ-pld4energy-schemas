@@ -9,6 +9,7 @@ __all__ = ['SampleParameters', 'm_package']
 class SampleParameters(Section):
     """Sample-specific parameters recorded for a deposition step."""
 
+    m_def = Section()
     sample_id = Quantity(
         type=str,
         a_eln=ELNAnnotation(component=ELNComponentEnum.StringEditQuantity),

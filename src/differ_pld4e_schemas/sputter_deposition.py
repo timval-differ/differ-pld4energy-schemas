@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from nomad.datamodel.data import EntryData
 from nomad.datamodel.metainfo.annotations import ELNAnnotation, ELNComponentEnum
-from nomad.metainfo import MEnum, Quantity, Reference, SubSection
+from nomad.metainfo import MEnum, Quantity, Reference, Section, SubSection
 from nomad_material_processing.general import Process, ProcessStep
 
 if TYPE_CHECKING:
@@ -22,6 +22,7 @@ from differ_pld4e_schemas.thin_film import ThinFilm, ThinFilmStack
 class SputterDepositionStep(ProcessStep):
     """One sputtering operation that produces a thin-film layer."""
 
+    m_def = Section()
     deposition_time = Quantity(
         type=float,
         unit='s',
@@ -44,6 +45,7 @@ class SputterDepositionStep(ProcessStep):
 class Deposition(Process, EntryData):
     """A complete sputter deposition run and its resulting sample."""
 
+    m_def = Section()
     substrate = Quantity(type=Reference(Substrate.m_def))
     resulting_stack = Quantity(type=Reference(ThinFilmStack.m_def))
     steps = SubSection(section_def=SputterDepositionStep.m_def, repeats=True)

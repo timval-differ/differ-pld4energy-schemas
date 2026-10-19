@@ -14,7 +14,6 @@ from nomad_material_processing.general import (
 )
 
 from differ_pld4e_schemas import m_package
-from differ_pld4e_schemas.base_sections import Entity
 from differ_pld4e_schemas.substrate import Substrate
 from differ_pld4e_schemas.target import Target
 
@@ -24,7 +23,6 @@ __all__ = ['ThinFilm', 'ThinFilmStack', 'm_package']
 class ThinFilm(MaterialProcessingThinFilm):
     """A single thin-film layer produced by one deposition step."""
 
-    m_def = Section()
     layer_name = Quantity(
         type=str,
         a_eln=ELNAnnotation(component=ELNComponentEnum.StringEditQuantity),
@@ -62,7 +60,6 @@ class SputterSubstrateReference(MaterialProcessingSubstrateReference):
 class ThinFilmStack(MaterialProcessingThinFilmStack):
     """Output sample containing an ordered substrate and deposited layers."""
 
-    m_def = Section()
     stack_name = Quantity(
         type=str,
         a_eln=ELNAnnotation(component=ELNComponentEnum.StringEditQuantity),

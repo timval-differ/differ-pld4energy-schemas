@@ -34,6 +34,6 @@ class ChamberEnvironment(ArchiveSection):
     )
     working_gas_flow = Quantity(
         type=float,
-        unit='sccm',
+        unit='cm^3 / minute',
         a_eln=ELNAnnotation(component=ELNComponentEnum.NumberEditQuantity),
     )

@@ -33,10 +33,11 @@ class SputterDepositionStep(ProcessStep):
         type=MEnum('DC', 'RF', 'Pulsed_DC', 'Magnetron', 'Reactive', 'CoSputtering'),
         a_eln=ELNAnnotation(component=ELNComponentEnum.EnumEditQuantity),
     )
-    general_remarks = Quantity(
-        type=str,
-        a_eln=ELNAnnotation(component=ELNComponentEnum.RichTextEditQuantity),
-    )
+    # The inherited 'comments' field already fills this role
+    # general_remarks = Quantity(
+    #     type=str,
+    #     a_eln=ELNAnnotation(component=ELNComponentEnum.RichTextEditQuantity),
+    # )
     source = SubSection(section_def=SputterDepositionSource.m_def)
     sample_parameters = SubSection(section_def=SampleParameters.m_def)
     chamber_environment = SubSection(section_def=ChamberEnvironment.m_def)
@@ -47,8 +48,13 @@ class Deposition(Process, EntryData):
     """A complete sputter deposition run and its resulting sample."""
 
     m_def = Section()
-    substrate = Quantity(type=Reference(Substrate.m_def))
-    resulting_stack = Quantity(type=Reference(ThinFilmStack.m_def))
+    substrate = Quantity(
+        type=Reference(Substrate.m_def),
+        a_eln=ELNAnnotation(component=ELNComponentEnum.ReferenceEditQuantity),
+    )
+    resulting_stack = Quantity(type=Reference(ThinFilmStack.m_def), 
+        a_eln=ELNAnnotation(component=ELNComponentEnum.ReferenceEditQuantity),
+    )
     steps = SubSection(section_def=SputterDepositionStep.m_def, repeats=True)
 
     def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:

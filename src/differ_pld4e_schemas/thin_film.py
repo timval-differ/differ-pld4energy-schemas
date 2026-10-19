@@ -52,5 +52,7 @@ class ThinFilmStack(Entity):
         unit='m',
         a_eln=ELNAnnotation(component=ELNComponentEnum.NumberEditQuantity),
     )
-    substrate = Quantity(type=Reference(Substrate.m_def))
+    substrate = Quantity(type=Reference(Substrate.m_def), 
+        a_eln=ELNAnnotation(component=ELNComponentEnum.ReferenceEditQuantity),
+    )
     layers = SubSection(section_def=ThinFilm.m_def, repeats=True)

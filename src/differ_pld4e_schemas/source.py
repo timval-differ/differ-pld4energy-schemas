@@ -12,7 +12,10 @@ class SputterDepositionSource(ArchiveSection):
     """Sputtering source and electrical operating conditions."""
 
     m_def = Section()
-    target = Quantity(type=Reference(Target.m_def))
+    target = Quantity(
+        type=Reference(Target.m_def),
+        a_eln=ELNAnnotation(component=ELNComponentEnum.ReferenceEditQuantity),
+        )
     cathode_voltage = Quantity(
         type=float,
         unit='V',

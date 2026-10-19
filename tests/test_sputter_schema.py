@@ -2,6 +2,7 @@ from nomad.datamodel import EntryArchive
 from structlog.testing import CapturingLogger
 
 import differ_pld4e_schemas.schema_packages.schema_package  # noqa: F401
+from differ_pld4e_schemas.base_sections import Entity, ProcessStep
 from differ_pld4e_schemas.environment import ChamberEnvironment
 from differ_pld4e_schemas.normalizers import normalize_deposition
 from differ_pld4e_schemas.sample_parameters import SampleParameters
@@ -34,6 +35,15 @@ def test_schema_sections_instantiate():
     )
     assert ThinFilmStack(stack_name='Au/Si').stack_name == 'Au/Si'
     assert SputterDepositionStep(name='step', sputtering_technique='DC').name == 'step'
+
+
+def test_inherited_sections_are_owned_by_plugin_package():
+    assert Substrate.m_def.m_parent.name.startswith('differ_pld4e_schemas')
+    assert SputterDepositionStep.m_def.m_parent.name.startswith('differ_pld4e_schemas')
+    assert Entity.m_def.m_parent.name.startswith('differ_pld4e_schemas')
+    assert ProcessStep.m_def.m_parent.name.startswith('differ_pld4e_schemas')
+    assert 'name' in Substrate.m_def.all_quantities
+    assert 'duration' in SputterDepositionStep.m_def.all_quantities
 
 
 def test_normalization_builds_ordered_stack():

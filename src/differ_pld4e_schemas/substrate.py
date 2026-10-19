@@ -1,14 +1,8 @@
-from importlib import import_module
-
 from nomad.datamodel.metainfo.annotations import ELNAnnotation, ELNComponentEnum
 from nomad.metainfo import MEnum, Quantity, Section
 
-try:
-    Entity = import_module('nomad_material_processing.sample').Entity
-except ImportError:
-    Entity = import_module('nomad_material_processing.vapor_deposition.general').Entity
-
 from differ_pld4e_schemas import m_package
+from differ_pld4e_schemas.base_sections import Entity
 
 __all__ = ['Substrate', 'm_package']
 

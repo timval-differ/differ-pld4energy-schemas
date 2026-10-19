@@ -1,4 +1,5 @@
 from differ_pld4e_schemas import (
+    base_sections,
     environment,
     m_package,
     sample_parameters,
@@ -11,6 +12,7 @@ from differ_pld4e_schemas import (
 
 __all__ = [
     'environment',
+    'base_sections',
     'm_package',
     'sample_parameters',
     'source',

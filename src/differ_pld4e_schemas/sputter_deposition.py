@@ -5,7 +5,8 @@ from typing import TYPE_CHECKING
 from nomad.datamodel.data import EntryData
 from nomad.datamodel.metainfo.annotations import ELNAnnotation, ELNComponentEnum
 from nomad.metainfo import MEnum, Quantity, Reference, Section, SubSection
-from nomad_material_processing.general import Process, ProcessStep
+
+from differ_pld4e_schemas.base_sections import Process, ProcessStep
 
 if TYPE_CHECKING:
     from nomad.datamodel.datamodel import EntryArchive

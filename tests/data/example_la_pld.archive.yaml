@@ -1,0 +1,80 @@
+# Example LA-PLD logbook. Values are stored in SI units (shown in mbar, mJ, mm,
+# degrees Celsius etc. in the ELN). Replace the target and substrate references
+# with references to existing entries in your upload.
+data:
+  m_def: differ_pld4e_schemas.pld_deposition.LAPLDLogbook
+  name: SrTiO3 on Si
+  datetime: '2026-10-22T09:00:00+00:00'
+  base_pressure: 1.0e-6  # 1e-8 mbar
+  substrate_carrier: 4" wafer carrier
+  particle_reduction_plate: in use
+  laser_details:
+    energy_before_chamber: 0.5  # 500 mJ
+    energy_after_chamber: 0.42  # 420 mJ
+    transmission_window_2: 92
+  targets:
+    - target_number: 2
+      material: SrTiO3
+  substrates:
+    - sample_name: Si_STO-20nm
+      run_number: '1'
+      sample_number: '1'
+      size: 10x10 mm
+      substrate_material: Si
+  steps:
+    - m_def: differ_pld4e_schemas.pld_deposition.LAPLDPreAblationStep
+      pressure: 10  # 0.1 mbar
+      substrate_temperature: 298.15
+      background_gases:
+        - gas: O2
+          flow_setpoint: 5
+          flow_readout: 4.9
+          valve_position: 30
+          valve_position_fixed: false
+      laser:
+        laser_mode: HV NGR
+        laser_voltage: 22000
+        magnification: 5X
+        mask_size: 4x12
+        spot_size: 2.0e-6  # 2 mm^2
+        laser_frequency: 5
+        number_of_laser_pulses: 1000
+    - m_def: differ_pld4e_schemas.pld_deposition.LAPLDHeatingStep
+      ramp_rate: 10
+      temperature_setpoint: 973.15
+      pressure: 10
+    - m_def: differ_pld4e_schemas.pld_deposition.LAPLDDepositionStep
+      pressure: 10
+      substrate_temperature: 973.15
+      heater_stage_position:
+        x: 0.0
+        y: 0.0
+        z: 0.05
+        tilt: 0
+        spin: 0
+      heater_scan_type: Polar scan
+      polar_scan:
+        radius_start: 0.0
+        radius_stop: 0.04
+        pulse_spacing: 0.0005
+        max_laser_frequency: 50
+        number_of_scans: 10
+      background_gases:
+        - gas: O2
+          flow_setpoint: 5
+          flow_readout: 5.1
+          valve_position: 30
+          valve_position_fixed: true
+      laser:
+        magnification: 5X
+        mask_size: 4x12
+        spot_size: 2.0e-6
+        laser_fluence: 15000  # 1.5 J/cm^2
+        laser_energy: 0.03
+        attenuator_position: 60
+        laser_frequency: 1
+        number_of_laser_pulses: 3000
+    - m_def: differ_pld4e_schemas.pld_deposition.LAPLDCoolDownStep
+      ramp_rate: 10
+      temperature_setpoint: 298.15
+      pressure: 10000  # 100 mbar

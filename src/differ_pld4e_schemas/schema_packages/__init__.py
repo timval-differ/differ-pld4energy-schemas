@@ -9,6 +9,7 @@ class SputterSchemasEntryPoint(SchemaPackageEntryPoint):
 
 
 schema_package_entry_point = SputterSchemasEntryPoint(
-    name='Sputter Deposition Schemas',
-    description='Schemas for sputter deposition processes and thin-film samples.',
+    name='PLD4Energy Schemas',
+    description='Schemas for the SA-PLD and LA-PLD logbooks, in-situ techniques, '
+    'sputter deposition processes and thin-film samples.',
 )

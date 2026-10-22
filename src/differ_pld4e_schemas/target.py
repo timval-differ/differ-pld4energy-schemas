@@ -1,10 +1,18 @@
-from nomad.datamodel.data import ArchiveSection
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from nomad.datamodel.data import ArchiveSection, EntryData
 from nomad.datamodel.metainfo.annotations import ELNAnnotation, ELNComponentEnum
-from nomad.metainfo import Quantity, Section
+from nomad.metainfo import Datetime, Quantity, Section
 
 from differ_pld4e_schemas import m_package
 
-__all__ = ['Target', 'm_package']
+if TYPE_CHECKING:
+    from nomad.datamodel.datamodel import EntryArchive
+    from structlog.stdlib import BoundLogger
+
+__all__ = ['PLDTarget', 'Target', 'm_package']
 
 
 class Target(ArchiveSection):
@@ -34,3 +42,29 @@ class Target(ArchiveSection):
         description='Target purity, for example 99.999%.',
         a_eln=ELNAnnotation(component=ELNComponentEnum.StringEditQuantity),
     )
+
+
+class PLDTarget(Target, EntryData):
+    """
+    A target in the PLD target database. The entry is named after the target
+    material only: the position of a target in the system changes, so the target
+    number is entered per run in the logbook.
+    """
+
+    m_def = Section(label='PLD Target')
+    name = Quantity(
+        type=str,
+        description='Display name, e.g. Fe2O3. Defaults to the target material.',
+        a_eln=ELNAnnotation(component=ELNComponentEnum.StringEditQuantity),
+    )
+    purchase_date = Quantity(
+        type=Datetime,
+        a_eln=ELNAnnotation(component=ELNComponentEnum.DateTimeEditQuantity),
+    )
+
+    def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
+        super().normalize(archive, logger)
+        if not self.name and self.material:
+            self.name = self.material
+        if self.name and archive is not None and archive.metadata is not None:
+            archive.metadata.entry_name = self.name

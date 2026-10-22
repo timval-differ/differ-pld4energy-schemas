@@ -10,7 +10,8 @@ nav:
   - Tutorial: tutorial/tutorial.md
   - How-to guides:
       - Install this Plugin: how_to/install_this_plugin.md
-      - Use this Plugin: how_to/use_this_plugin.md
+      - Use the PLD logbooks: how_to/use_this_plugin.md
+      - Reproduce a run with a recipe: how_to/reuse_a_recipe.md
       - Contribute to this plugin: how_to/contribute_to_this_plugin.md
       - Contribute to the documentation: how_to/contribute_to_the_documentation.md
   - Explanation: explanation/explanation.md

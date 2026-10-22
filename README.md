@@ -1,8 +1,27 @@
 # DIFFER-PLD4E-schemas
 
-NOMAD schema package for provenance-centered sputter deposition records. Substrates, individual thin-film layers, and completed thin-film stacks are represented as sample entities, while deposition steps retain the process parameters and layer provenance.
+NOMAD schemas for the electronic lab notebook of the PLD4Energy lab at DIFFER.
 
-The local `Substrate`, `ThinFilm`, `ThinFilmStack`, and `SampleParameters` sections specialize their corresponding base sections from `nomad-material-processing`. The dependency is declared in the project dependencies.
+**PLD logbooks.** The `SA-PLD Logbook` and `LA-PLD Logbook` entry types record
+one pulsed laser deposition run each: laser calibration (with the automatic 1st
+window transmission), the targets and substrates used, the process steps
+(pre-ablation, heating, deposition, cool-down, with background gases, laser
+settings and stage positions) and in-situ data (RHEED, MIC, SE, LA-EDS, OES,
+SHG). Targets (`PLD Target`) and substrates (`PLD Substrate`) are separate
+entries that the logbooks refer to. An earlier logbook can be used as a recipe
+to repeat a run on another substrate. In-situ measurements outside a run go in a
+`PLD In-situ Techniques` entry.
+
+**Sputter deposition.** Provenance-centered sputter deposition records.
+Substrates, individual thin-film layers and completed thin-film stacks are
+represented as sample entities, while deposition steps retain the process
+parameters and layer provenance. The local `Substrate`, `ThinFilm`,
+`ThinFilmStack` and `SampleParameters` sections specialize their corresponding
+base sections from `nomad-material-processing`.
+
+See the [documentation](docs/index.md): a tutorial, how-to guides (including
+[recipes](docs/how_to/reuse_a_recipe.md)), an explanation of the design and a
+field reference. Example entries are in `tests/data/`.
 
 ## Development
 

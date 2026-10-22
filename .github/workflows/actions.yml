@@ -4,7 +4,7 @@ on: [push]
 
 env:
   UV_VERSION: 0.9
-  PYTHON_VERSION: 3.12
+  PYTHON_VERSION: 3.11
   UV_SYSTEM_PYTHON: true
 
 jobs:

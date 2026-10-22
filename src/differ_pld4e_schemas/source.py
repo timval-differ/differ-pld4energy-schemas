@@ -1,4 +1,3 @@
-from nomad.datamodel.data import ArchiveSection
 from nomad.datamodel.metainfo.annotations import ELNAnnotation, ELNComponentEnum
 from nomad.metainfo import Quantity, Reference, Section
 from nomad_material_processing.vapor_deposition.general import (

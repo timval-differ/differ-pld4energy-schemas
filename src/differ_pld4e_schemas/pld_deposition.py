@@ -349,6 +349,10 @@ class PLDLogbook(Process, EntryData):
     def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
         if self.datetime is None:
             self.datetime = datetime.now(timezone.utc)
+        # Store the system: NOMAD does not show a default as a value.
+        pvd_system = self.m_def.all_quantities['pvd_system']
+        if not self.m_is_set(pvd_system) and pvd_system.default is not None:
+            self.pvd_system = pvd_system.default
         if self.laser_details is None:
             self.laser_details = LaserCalibration()
         self._normalize_targets(logger)

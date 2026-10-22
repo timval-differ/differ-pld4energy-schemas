@@ -418,3 +418,11 @@ def test_incomplete_substrates_are_not_reported_as_duplicates():
     logbook = SAPLDLogbook(substrates=[NewSubstrate(), NewSubstrate()])
     _, records = _normalize(logbook)
     assert not any('defined twice' in message for _, message in records)
+
+
+def test_pvd_system_is_stored_on_save():
+    logbook = LAPLDLogbook()
+    assert not logbook.m_is_set(LAPLDLogbook.m_def.all_quantities['pvd_system'])
+    archive, _ = _normalize(logbook)
+    assert logbook.m_is_set(LAPLDLogbook.m_def.all_quantities['pvd_system'])
+    assert archive.data.m_to_dict()['pvd_system'] == 'LA-PLD'

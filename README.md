@@ -19,6 +19,12 @@ parameters and layer provenance. The local `Substrate`, `ThinFilm`,
 `ThinFilmStack` and `SampleParameters` sections specialize their corresponding
 base sections from `nomad-material-processing`.
 
+**PLD logbook dashboard.** A guided form for SA-PLD and LA-PLD runs, served by
+NOMAD at `<NOMAD URL>/dashboards/differ_pld4e_schemas-pld-logbook/`. It shows
+only the fields that apply to the choices made (system, scan type, gases,
+in-situ techniques), saves only complete logbooks, and writes them as entries of
+the schemas above. See [Use the PLD logbook dashboard](docs/how_to/use_the_dashboard.md).
+
 See the [documentation](docs/index.md): a tutorial, how-to guides (including
 [recipes](docs/how_to/reuse_a_recipe.md)), an explanation of the design and a
 field reference. Example entries are in `tests/data/`.

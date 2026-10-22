@@ -1,1 +1,2 @@
 graft src/differ_pld4e_schemas/example_uploads
+graft src/differ_pld4e_schemas/dashboards/pld_logbook/static

@@ -16,6 +16,10 @@ The plugin adds these entry types to NOMAD:
 | **PLD In-situ Techniques** | In-situ measurements (RHEED, MIC, SE, LA-EDS, OES, SHG) that are not part of a new deposition run, e.g. post-processing of an older sample. |
 | **Deposition** | A sputter deposition run (the original sputter schemas of this plugin). |
 
+It also adds the **PLD logbook dashboard**: a guided form for SA-PLD and LA-PLD
+runs that shows only the fields that apply and only saves complete logbooks.
+See [Use the PLD logbook dashboard](how_to/use_the_dashboard.md).
+
 <div markdown="block" class="home-grid">
 <div markdown="block">
 
@@ -33,6 +37,7 @@ Record your first PLD run from start to finish.
 Step-by-step instructions for specific tasks:
 
 - [Use the PLD logbooks](how_to/use_this_plugin.md)
+- [Use the PLD logbook dashboard](how_to/use_the_dashboard.md)
 - [Reproduce a run with a recipe](how_to/reuse_a_recipe.md)
 - [Install this plugin](how_to/install_this_plugin.md)
 - [Contribute to this plugin](how_to/contribute_to_this_plugin.md)

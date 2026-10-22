@@ -184,3 +184,85 @@ separately where both exist. The LA-EDS energy axis is not stored in the
 `.sp0` file and is rebuilt from E0 and the energy per channel. The `.sp0` reader
 is still to be written; the LA-EDS spectrum supplier changes from RSX1000 to
 RaySpec RSX2000, so the reader is kept separate and easy to replace.
+
+## The PLD logbook dashboard
+
+The dashboard lives in `src/differ_pld4e_schemas/dashboards/pld_logbook/`. It is part of this plugin, so the form and the schemas it writes are always released together.
+
+### Why a dashboard
+
+The NOMAD entry editor shows every field of a schema section and lets you save
+at any time. It cannot hide a field depending on another field, and it cannot
+refuse to save an incomplete entry. For the PLD logbooks this means users see
+LA-PLD fields on SA-PLD runs, polar and cartesian scan fields at the same time,
+and logbooks can be saved half-empty.
+
+A dashboard plugin is a FastAPI app that NOMAD mounts under
+`<NOMAD URL>/dashboards/<id>/`, so it runs on the same origin as NOMAD and can
+use the NOMAD API with the user's session. The PLD logbook dashboard uses that
+to offer its own form with conditional fields and a completeness check, and
+then writes normal NOMAD entries of the PLD4Energy schemas.
+
+### How it fits together
+
+```
+browser (static/app.js)                     dashboard app (FastAPI)
+  form, live checks  ── GET  api/spec ──►     spec.py   form definition
+                     ── POST api/archive ─►   rules.py  validation (again)
+                     ◄─ archive files ────    convert.py form ⇄ archive (SI units)
+                     ── POST api/form-from-archive (open logbook / recipe)
+
+browser ──► NOMAD API (with the user's session)
+  /users/me, /uploads, /entries/query, /entries/archive/query,
+  PUT /uploads/<id>/raw/   (in-situ files, substrate and logbook archives)
+```
+
+- **`spec.py`** is the single definition of the form: sections, fields, units,
+  choices, which fields are required and when a field is shown (`visible_if`).
+  The browser renders the form from it and the server validates against it.
+- **`rules.py`** evaluates conditions, computed values (1st window
+  transmission, sample user ID) and validates a form. `static/app.js` contains
+  the same rules so problems show while typing; the server always validates
+  again before it builds anything.
+- **`convert.py`** turns a complete form into archive files, converting values
+  from the unit of the form field to the unit of the schema quantity with pint,
+  and reads saved logbooks back into a form.
+
+### Completeness
+
+A field is required when it is visible and marked `required`. Hidden fields are
+never required, so choosing *Cartesian scan* makes the cartesian fields required
+and the polar fields irrelevant. Lists have a minimum number of items, unique
+values (targets, target numbers, sample user IDs), and the steps need at least
+one deposition step. A ticked in-situ technique needs at least one file.
+
+The save button stays disabled while anything is missing, and `api/archive`
+refuses to build archive files for an incomplete form, so incomplete logbooks
+cannot be written through the dashboard.
+
+### Saving
+
+1. The form is validated by the server, which also returns the file name of the
+   logbook (`<system>_<date>_<run name>.archive.json`).
+2. In-situ files are uploaded to `pld_files/<logbook file name>/`.
+3. One PLD Substrate archive is written per new substrate, named after its sample
+   user ID, and the logbook archive refers to it by file name. A substrate that
+   already has an entry is not written again.
+4. The logbook is written. A new logbook never overwrites an existing file; an
+   opened logbook is overwritten.
+
+Each file is written with `wait_for_processing=true`, so NOMAD's processing
+errors and warnings are shown in the log.
+
+### Conditional fields
+
+Conditions are small JSON objects, evaluated in the browser and on the server:
+
+```python
+{'key': 'heater_scan_type', 'equals': 'Polar scan'}       # same step
+{'key': '/run/system', 'equals': 'LA-PLD'}                # anywhere in the form
+{'all': [...]} / {'any': [...]}                           # combinations
+```
+
+Choices can also depend on another field (`options_by`), e.g. the substrate
+carriers depend on the PVD system.

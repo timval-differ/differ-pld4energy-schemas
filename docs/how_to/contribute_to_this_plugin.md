@@ -13,6 +13,7 @@
 | `in_situ.py` | In-situ techniques, the LA-EDS energy axis and plot |
 | `sputter_deposition.py`, `source.py`, `thin_film.py`, ... | Sputter deposition schemas |
 | `schema_packages/schema_package.py` | Imports all modules and initialises the schema package |
+| `dashboards/pld_logbook/` | The PLD logbook dashboard, see [below](#the-pld-logbook-dashboard) |
 
 ## Develop and test
 
@@ -73,3 +74,51 @@ rename a section, entries that already use the old name no longer load.
 
 NOMAD normalizes sub-sections before their parents, so step-level logic (scan
 sub-sections, T1) has already run when the logbook's `normalize` runs.
+
+## The PLD logbook dashboard
+
+Code: `src/differ_pld4e_schemas/dashboards/pld_logbook/`
+
+| File | Contents |
+| --- | --- |
+| `__init__.py` | Dashboard entry point |
+| `app.py` | FastAPI app: serves the page, `api/spec`, `api/validate`, `api/archive`, `api/form-from-archive` |
+| `spec.py` | Form definition |
+| `rules.py` | Conditions, computed values, validation |
+| `convert.py` | Form ⇄ archive conversion |
+| `static/` | Page (`index.html`, `app.js`, `style.css`), no build step |
+
+### Add or change a dashboard field
+
+Most changes only touch `spec.py`:
+
+```python
+number(
+    'spot_size',               # key in the form data
+    'Spot size',               # label
+    'mm^2',                    # unit the user types in (pint)
+    unit_label='mm²',          # how the unit is shown
+    archive='laser.spot_size', # quantity path in the schema section
+    visible_if={'key': '/run/system', 'equals': 'LA-PLD'},  # optional
+)
+```
+
+- The quantity must exist in the PLD schemas; values are converted to its
+  unit. `test_spec_archive_paths_exist_in_schema` checks every step field.
+- Fields are required unless `required=False` (comments, booleans and computed
+  fields are optional by default).
+- Choices that also exist in the schema are checked against it by
+  `test_spec_choices_match_schema`.
+
+If you add a new kind of rule or computed value, implement it in both
+`rules.py` and `static/app.js`, and add a test.
+
+### Run the dashboard
+
+- Tests: `uv run pytest tests/dashboards`
+- In NOMAD: restart `uv run poe start` and open
+  <http://localhost:8000/nomad-oasis/dashboards/differ_pld4e_schemas-pld-logbook/>.
+  Changes to `static/` only need a browser reload; Python changes need a restart.
+
+When you change a schema quantity the form uses (rename, unit, choices), update
+`spec.py` in the same change; the dashboard tests fail until both agree.

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PLD logbook</title>
+  <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+  <header class="appbar">
+    <div class="appbar-title">
+      <span class="appbar-brand">PLD4Energy</span>
+      <span class="appbar-sep">/</span>
+      <span>PLD logbook</span>
+      <span id="system-chip" class="chip" hidden></span>
+      <span id="mode-chip" class="chip chip-outline" hidden></span>
+    </div>
+    <div class="appbar-actions">
+      <button type="button" class="btn btn-text" id="btn-new">New logbook</button>
+      <button type="button" class="btn btn-text" id="btn-open">Open logbook</button>
+      <button type="button" class="btn btn-text" id="btn-recipe">Load recipe</button>
+      <span id="user" class="appbar-user"></span>
+    </div>
+  </header>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <div class="layout">
+    <nav class="sidenav" aria-label="Logbook sections">
+      <ol id="nav"></ol>
+      <p id="draft-status" class="muted small"></p>
+    </nav>
+    <main>
+      <div id="section"></div>
+      <div class="pager">
+        <button type="button" class="btn btn-outlined" id="btn-prev">Back</button>
+        <button type="button" class="btn btn-contained" id="btn-next">Next</button>
+      </div>
+    </main>
+  </div>
+
+  <div id="dialog" class="dialog-backdrop" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+      <h2 id="dialog-title"></h2>
+      <div id="dialog-body"></div>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-text" id="dialog-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="static/app.js"></script>
+</body>
+</html>

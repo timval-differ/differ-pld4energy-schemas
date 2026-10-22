@@ -56,6 +56,9 @@ Then rebuild and restart the Oasis. Read the
 [NOMAD plugin documentation](https://nomad-lab.eu/prod/v1/staging/docs/howto/oasis/plugins_install.html)
 for the details.
 
-The plugin registers one schema package entry point,
-`differ_pld4e_schemas.schema_packages:schema_package_entry_point`
-("PLD4Energy Schemas").
+The plugin registers two entry points:
+
+| Entry point | What it adds |
+| --- | --- |
+| `differ_pld4e_schemas.schema_packages:schema_package_entry_point` | The schemas ("PLD4Energy Schemas") |
+| `differ_pld4e_schemas.dashboards:pld_logbook_dashboard_entry_point` | The PLD logbook dashboard, at `<NOMAD URL>/dashboards/differ_pld4e_schemas-pld-logbook/` |

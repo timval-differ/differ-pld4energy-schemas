@@ -1,0 +1,1498 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="A plugin for specialized schema's for the PLD4Energy lab at DIFFER">
+      
+      
+        <meta name="author" content="Tim van Alphen">
+      
+      
+      
+        <link rel="prev" href="../how_to/contribute_to_the_documentation.html">
+      
+      
+        <link rel="next" href="../reference/references.html">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+    
+    
+      
+        <title>Explanation - DIFFER-PLD4E-schemas</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Titillium+Web:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Titillium Web";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="#2A4CDF" data-md-color-accent="#008A67">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#explanation" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="header.title">
+    <a href="https://nomad-lab.eu" title="DIFFER-PLD4E-schemas" class="md-header__button md-logo" aria-label="DIFFER-PLD4E-schemas" data-md-component="logo">
+      
+  <img src="../assets/nomad-plugin-logo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            DIFFER-PLD4E-schemas
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Explanation
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/timval-differ/DIFFER-PLD4E-schemas" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="https://nomad-lab.eu" title="DIFFER-PLD4E-schemas" class="md-nav__button md-logo" aria-label="DIFFER-PLD4E-schemas" data-md-component="logo">
+      
+  <img src="../assets/nomad-plugin-logo.png" alt="logo">
+
+    </a>
+    DIFFER-PLD4E-schemas
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/timval-differ/DIFFER-PLD4E-schemas" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../index.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tutorial/tutorial.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How-to guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    How-to guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how_to/install_this_plugin.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Install this Plugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how_to/use_this_plugin.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Use the PLD logbooks
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how_to/use_the_dashboard.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Use the PLD logbook dashboard
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how_to/reuse_a_recipe.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reproduce a run with a recipe
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how_to/contribute_to_this_plugin.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contribute to this plugin
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how_to/contribute_to_the_documentation.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contribute to the documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Explanation
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="explanation.html" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Explanation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#from-the-mock-up-to-nomad" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        From the mock-up to NOMAD
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#entries-and-how-they-refer-to-each-other" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Entries and how they refer to each other
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Entries and how they refer to each other">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#samples-and-substrates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Samples and substrates
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sa-pld-and-la-pld" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SA-PLD and LA-PLD
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#generated-read-only-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generated (read-only) fields
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#laser-calibration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Laser calibration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recipes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recipes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#units" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Units
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#in-situ-techniques" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In-situ techniques
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-pld-logbook-dashboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The PLD logbook dashboard
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The PLD logbook dashboard">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-a-dashboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why a dashboard
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-it-fits-together" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it fits together
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#laser-and-targets-follow-the-process-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Laser and targets follow the process steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#completeness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Completeness
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#drafts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Drafts
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#saving" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Saving
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#conditional-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conditional fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/references.html" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#from-the-mock-up-to-nomad" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        From the mock-up to NOMAD
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#entries-and-how-they-refer-to-each-other" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Entries and how they refer to each other
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Entries and how they refer to each other">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#samples-and-substrates" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Samples and substrates
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sa-pld-and-la-pld" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SA-PLD and LA-PLD
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#generated-read-only-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generated (read-only) fields
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#laser-calibration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Laser calibration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recipes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recipes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#units" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Units
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#in-situ-techniques" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In-situ techniques
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-pld-logbook-dashboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The PLD logbook dashboard
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The PLD logbook dashboard">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#why-a-dashboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why a dashboard
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-it-fits-together" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it fits together
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#laser-and-targets-follow-the-process-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Laser and targets follow the process steps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#completeness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Completeness
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#drafts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Drafts
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#saving" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Saving
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#conditional-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conditional fields
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="explanation">Explanation<a class="headerlink" href="#explanation" title="Permanent link">&para;</a></h1>
+<p>This page explains how the PLD schemas are put together and why. It is
+background for users who want to understand the behaviour, and for maintainers
+who change the schemas.</p>
+<h2 id="from-the-mock-up-to-nomad">From the mock-up to NOMAD<a class="headerlink" href="#from-the-mock-up-to-nomad" title="Permanent link">&para;</a></h2>
+<p>The schemas started from the PLD4Energy ELN mock-up (an HTML form) and the
+users' feedback on it. The mock-up is a form, not a data model, so repeated
+parts of the form became reusable sections:</p>
+<table>
+<thead>
+<tr>
+<th>In the mock-up</th>
+<th>In the schema</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The gas checkboxes and flow fields, repeated in every step</td>
+<td>One <code>BackgroundGas</code> section, repeated per gas in every step; the shared valve and the <code>UHV</code> / <code>Background gas</code> choice on the step</td>
+</tr>
+<tr>
+<td>Laser fields, repeated in pre-ablation and deposition</td>
+<td>One <code>LaserParameters</code> section (<code>laser</code>)</td>
+</tr>
+<tr>
+<td>"Substrate stage start x/y/z/tilt/spin-position"</td>
+<td>One <code>HeaterStagePosition</code> section with <code>x</code>, <code>y</code>, <code>z</code>, <code>tilt</code>, <code>spin</code></td>
+</tr>
+<tr>
+<td>Target stage fields</td>
+<td>One <code>TargetStage</code> section</td>
+</tr>
+<tr>
+<td>Laser details in the system details</td>
+<td><code>LaserCalibration</code> (<code>laser_details</code>)</td>
+</tr>
+<tr>
+<td>Fields shown only for a choice (scan yes/no, polar/cartesian)</td>
+<td>Optional sub-sections, added on save for the chosen option</td>
+</tr>
+<tr>
+<td>"Number of targets/samples" counters</td>
+<td>Repeating sub-sections: add as many as you need</td>
+</tr>
+<tr>
+<td>In-situ techniques inside the deposition step</td>
+<td>A separate <code>in_situ_techniques</code> section and a stand-alone entry type</td>
+</tr>
+</tbody>
+</table>
+<p>NOMAD forms cannot show or hide a field depending on another field. Conditional
+fields are therefore optional sub-sections. The section for the chosen option is
+added on save, so its fields appear without having to add it by hand.</p>
+<h2 id="entries-and-how-they-refer-to-each-other">Entries and how they refer to each other<a class="headerlink" href="#entries-and-how-they-refer-to-each-other" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>SA-PLD / LA-PLD Logbook (entry)
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── samples[]
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>│   ├── substrate ──────────► Substrate type (entry)
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>│   ├── layers[] ── target ─► PLD Target (entry)
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>│   └── sample ─────────────► Sample (entry; new and external samples: created on save)
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│                               ├── substrate ──► Substrate type
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│                               └── layers[] ── target ──► PLD Target
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>├── laser_details
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>├── targets[] ── target ────► PLD Target
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>├── load_recipe ── recipe ──► earlier logbook of the same system
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>├── steps[]
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│   ├── Pre-ablation step ── target ──► PLD Target
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>│   ├── Heating step
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>│   ├── Annealing step
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│   ├── Pulsed laser deposition step ── target, samples[] ──► PLD Target, Sample
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>│   └── Cool-down step
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>└── in_situ_techniques
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>PLD In-situ Techniques (entry) ── sample ──► Sample
+</code></pre></div>
+<p>Targets, substrate types, samples and logbooks are separate entries because each one has its
+own life:</p>
+<ul>
+<li>A <strong>target</strong> is used in many runs. Storing it once means its material,
+  manufacturer and purchase date are entered once, and every run that used it
+  can be found from the target.</li>
+<li>A <strong>sample</strong> outlives the run that made it: it is measured later,
+  post-processed, gets another film in a later run, or is used with a recipe.
+  In-situ measurements and later runs refer to it.</li>
+<li>A <strong>logbook</strong> is one run.</li>
+</ul>
+<p>NOMAD's reference picker searches for other entries; it cannot pick a section
+inside the entry being edited. This is a second reason why targets and
+samples are their own entries: steps can then pick them from a drop-down.</p>
+<h3 id="samples-and-substrates">Samples and substrates<a class="headerlink" href="#samples-and-substrates" title="Permanent link">&para;</a></h3>
+<p>A substrate is the template a film is grown on; after the deposition the
+<strong>sample</strong> is the substrate with its films. Researchers start a run from the
+samples they will make or process, so a logbook starts with a list of
+<code>samples</code> (<code>SampleInRun</code>). Each is one of:</p>
+<ul>
+<li>a <strong>new sample</strong>: a substrate from the substrate database;</li>
+<li>an <strong>external sample</strong>: prepared elsewhere, without a sample ID, so its
+  substrate can also be described freely, together with the films it already
+  has (<code>prior_layers</code>);</li>
+<li>an <strong>existing sample</strong>: made earlier in a PLD4Energy system and referenced, for
+  an extra deposition, an annealing or only characterisation.</li>
+</ul>
+<p>New and external samples get a sample ID <code>&lt;system&gt;_&lt;yyyy-mm-dd&gt;_&lt;hh:mm&gt;_S&lt;nn&gt;</code>
+from the start of the run, numbered in the order of the list, and a name made
+from the substrate and films (<code>SrTiO3_YSZ-20nm_SrRuO3-50nm</code>). The ID identifies
+the sample and never changes once its entry exists; the name describes it. On
+save the logbook creates a <strong>Sample</strong> entry for each of them (using
+<code>create_archive</code> from <code>nomad-material-processing</code>) and links it. The file is
+named after the sample ID. If a file with that name already exists, it is linked
+rather than overwritten, so Sample entries are never replaced by accident. An
+existing sample's entry is never changed by a logbook: it may be in another or
+in a published upload. The films grown on it in this run are recorded in the
+logbook.</p>
+<p>Substrates and film materials come from databases, like the targets: a
+<strong>Substrate type</strong> entry per kind of substrate (material and size), and each
+film refers to the target it is grown from, which gives its material.</p>
+<p>The films are not entered with the samples: each deposition step grows one film
+on its samples, from the step's target and with its film thickness. The
+dashboard derives the films of every sample from the steps, in order. The
+targets of a run are therefore selected once, under <em>Targets</em>, and the sample
+name always follows what was deposited. New
+substrates and targets can so be added by the users, without a change to the
+plugin, and the sample names always use the materials as entered there.</p>
+<p>The <code>Sample</code> section (<code>sample.py</code>) knows nothing about PLD: it records the
+system it was made in as text. The same section and the <code>SampleRun</code> base of the
+logbook can therefore be used by the sputter logbook and by later diagnostics,
+so a sample made in one system can be processed and measured in another.</p>
+<h2 id="sa-pld-and-la-pld">SA-PLD and LA-PLD<a class="headerlink" href="#sa-pld-and-la-pld" title="Permanent link">&para;</a></h2>
+<p>Both logbooks share the <code>PLDLogbook</code> base: samples, system details, laser
+details, targets, recipe, in-situ techniques and all step logic. They differ
+only in:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>SA-PLD</th>
+<th>LA-PLD</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Substrate carriers</td>
+<td>Omicron, 1"</td>
+<td>Omicron, 1", 4" wafer, sample select</td>
+</tr>
+<tr>
+<td>Particle reduction plate</td>
+<td>–</td>
+<td><code>in use</code> / <code>not in use</code></td>
+</tr>
+<tr>
+<td>Samples of a deposition step</td>
+<td>all samples loaded in the chamber</td>
+<td>the chosen sample</td>
+</tr>
+<tr>
+<td>Deposition step scan</td>
+<td>substrate stage scan yes/no + scan width and speed</td>
+<td>heater scan type: polar (default) or cartesian</td>
+</tr>
+</tbody>
+</table>
+<p>Each system has its own step classes (<code>SAPLDStep</code> and <code>LAPLDStep</code> and their
+subclasses). When you add a step, NOMAD offers all sections that inherit from
+the step type of the <code>steps</code> sub-section. Separate step classes mean an SA-PLD
+logbook offers only SA-PLD steps. It also means the sputter deposition step,
+which belongs to the separate sputter schema, is never offered in a PLD
+logbook. The shared content of the steps (pre-ablation, heating, annealing,
+deposition, cool-down) lives in common base classes, so it is defined only once.</p>
+<h2 id="generated-read-only-fields">Generated (read-only) fields<a class="headerlink" href="#generated-read-only-fields" title="Permanent link">&para;</a></h2>
+<p>Some fields have no input box: they are filled in by the plugin on save. This is
+on purpose: these values are derived from other fields or from another entry,
+and typing them by hand would let them disagree with their source.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Where</th>
+<th>Why it is read-only</th>
+<th>How to change it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PVD system</td>
+<td>logbook</td>
+<td>Fixed by the logbook type. A free choice would allow an "SA-PLD" logbook with LA-PLD carriers and steps.</td>
+<td>Use the other logbook type.</td>
+</tr>
+<tr>
+<td>Sample ID</td>
+<td>samples in the logbook, Sample</td>
+<td>Built as <code>&lt;system&gt;_&lt;yyyy-mm-dd&gt;_&lt;hh:mm&gt;_S&lt;nn&gt;</code>, so IDs always follow the same pattern. Kept once filled in, because labels and later runs refer to it.</td>
+<td>Before the first save: change the system, start or order of the samples.</td>
+</tr>
+<tr>
+<td>Sample UUID</td>
+<td>samples in the logbook, Sample</td>
+<td>Generated once and never changed, because it is printed on QR labels. Editing it would break the link between a label and its sample.</td>
+<td>Not changeable.</td>
+</tr>
+<tr>
+<td>Substrate material and size</td>
+<td>Sample</td>
+<td>Taken from the substrate.</td>
+<td>Change the substrate.</td>
+</tr>
+<tr>
+<td>Material, manufacturer, purchase date</td>
+<td>targets in the logbook</td>
+<td>Copied from the PLD Target entry, for checking your selection.</td>
+<td>Correct the PLD Target entry.</td>
+</tr>
+<tr>
+<td>Target number</td>
+<td>pre-ablation and deposition steps</td>
+<td>Copied from the target details, so the steps always show the number the target has in this run.</td>
+<td>Change it in the target details.</td>
+</tr>
+<tr>
+<td>Data status</td>
+<td>in-situ techniques</td>
+<td>Whether a data file has been added.</td>
+<td>Add a data file.</td>
+</tr>
+<tr>
+<td>Applied recipe</td>
+<td>load recipe</td>
+<td>A record of what was applied.</td>
+<td>Apply a recipe.</td>
+</tr>
+<tr>
+<td>Energy, intensity</td>
+<td>LA-EDS</td>
+<td>Calculated from / read from the spectrum.</td>
+<td>Change E0 or the energy per channel.</td>
+</tr>
+</tbody>
+</table>
+<p>The sample <strong>name</strong> is generated too, but can be overwritten: it only describes
+the sample.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The 1st window transmission is calculated but <strong>not</strong> read-only: you can
+override it, see <a href="#laser-calibration">below</a>.</p>
+</div>
+<h2 id="laser-calibration">Laser calibration<a class="headerlink" href="#laser-calibration" title="Permanent link">&para;</a></h2>
+<p>The laser energy is measured before and after the chamber, so the beam passes
+both windows between the two readings:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>E_after = E_before × T1 × T2   →   T1 = E_after / (E_before × T2)
+</code></pre></div>
+<p>T2 (the 2nd window) is 92 % by default. T1 is calculated on every save unless
+<strong>transmission window 1 manual</strong> is ticked and a value is entered; then the
+typed value is kept. With a missing energy, or an energy before the chamber of
+0, nothing is calculated.</p>
+<p>The calibration and the targets are only needed when a step of the run uses the
+laser. See <a href="#laser-and-targets-follow-the-process-steps">Laser and targets follow the process steps</a>.</p>
+<div class="admonition warning">
+<p class="admonition-title">Formula to be confirmed</p>
+<p>The mock-up wrote the formula as <code>E_after / E_before × T₂</code>. Read literally
+(<code>(E_after / E_before) × T2</code>) that contradicts <code>E_after = E_before × T1 × T2</code>,
+so the schema uses <code>E_after / (E_before × T2)</code>. If the literal formula is
+meant, change <code>transmission_window_1()</code> in <code>laser.py</code>.</p>
+</div>
+<h2 id="recipes">Recipes<a class="headerlink" href="#recipes" title="Permanent link">&para;</a></h2>
+<p>A recipe is not a separate entry type: any earlier logbook of the same system
+can be used as one. Applying it copies the process steps into the current
+logbook. Copying a snapshot, rather than linking to the recipe, means:</p>
+<ul>
+<li>the new logbook records exactly what was done in this run, even if the recipe
+  logbook is edited later;</li>
+<li>the copied steps can be changed for this run without changing the recipe.</li>
+</ul>
+<p>The <code>recipe</code> field keeps the link to where the steps came from.</p>
+<p>The copy keeps references to targets, but replaces the samples of deposition
+steps with the samples of this run (or the one chosen in the recipe loader).
+This is how "do not copy the sample identity" is implemented. References to
+entries in the recipe's upload are rewritten to absolute references, so they
+still point to the right entry when the recipe comes from another upload.</p>
+<p>The copy is triggered by a tick box (<code>apply_recipe</code>) that is unticked after the
+copy. Saving again therefore does not copy again. See
+<a href="../how_to/reuse_a_recipe.html">Reproduce a run with a recipe</a> for the details.</p>
+<h2 id="units">Units<a class="headerlink" href="#units" title="Permanent link">&para;</a></h2>
+<p>Values are stored in SI units (Pa, J, m, K, s, ...) and shown in the units of
+the lab (mbar, mJ, mm, nm, °C, min, ...). You type values in the shown unit in
+the form. In archive files (YAML/JSON) values must be given in the SI unit.</p>
+<p>Exceptions, stored as plain numbers:</p>
+<ul>
+<li>percentages (window transmissions, attenuator position, valve position,
+  heater output), in %;</li>
+<li>gas flows are stored in cm³/min, which is the same number as sccm.</li>
+</ul>
+<p>Ramp rates are in K/min, which is the same number as °C/min. Temperatures are
+stored in K and shown in °C.</p>
+<h2 id="in-situ-techniques">In-situ techniques<a class="headerlink" href="#in-situ-techniques" title="Permanent link">&para;</a></h2>
+<p>In-situ techniques are their own section and not part of a deposition step,
+because a sample can be measured outside a deposition run, e.g. during
+post-processing of an older sample. They can be recorded in the logbook of the
+run or in a stand-alone <strong>PLD In-situ Techniques</strong> entry. Both have optional
+links to a sample and to a run.</p>
+<p>For each technique the native file (which only the instrument software can
+open) and the exported file (which other programs can read) are stored
+separately where both exist. The data are often collected from several computers
+after the run, so a technique can be saved without files: its <code>data_status</code> is
+then <code>awaiting data</code>, with a warning on every save, until a file is added. The
+run's metadata is safe in NOMAD in the meantime, and the missing data stays
+visible.</p>
+<p>The LA-EDS energy axis is not stored in the <code>.sp0</code> file and is rebuilt from E0
+and the energy per channel. The <code>.sp0</code> reader is still to be written; the LA-EDS
+spectrum supplier changes from RSX1000 to RaySpec RSX2000, so the reader is kept
+separate and easy to replace.</p>
+<h2 id="the-pld-logbook-dashboard">The PLD logbook dashboard<a class="headerlink" href="#the-pld-logbook-dashboard" title="Permanent link">&para;</a></h2>
+<p>The dashboard lives in <code>src/differ_pld4e_schemas/dashboards/pld_logbook/</code>. It is part of this plugin, so the form and the schemas it writes are always released together.</p>
+<h3 id="why-a-dashboard">Why a dashboard<a class="headerlink" href="#why-a-dashboard" title="Permanent link">&para;</a></h3>
+<p>The NOMAD entry editor shows every field of a schema section and lets you save
+at any time. It cannot hide a field depending on another field, and it cannot
+refuse to save an incomplete entry. For the PLD logbooks this means users see
+LA-PLD fields on SA-PLD runs, polar and cartesian scan fields at the same time,
+and logbooks can be saved half-empty.</p>
+<p>A dashboard plugin is a FastAPI app that NOMAD mounts under
+<code>&lt;NOMAD URL&gt;/dashboards/&lt;id&gt;/</code>, so it runs on the same origin as NOMAD and can
+use the NOMAD API with the user's session. The PLD logbook dashboard uses that
+to offer its own form with conditional fields and a completeness check, and
+then writes normal NOMAD entries of the PLD4Energy schemas.</p>
+<h3 id="how-it-fits-together">How it fits together<a class="headerlink" href="#how-it-fits-together" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>browser (static/app.js)                     dashboard app (FastAPI)
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>  form, live checks  ── GET  api/spec ──►     spec.py   form definition
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>                     ── POST api/archive ─►   rules.py  validation (again)
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>                     ◄─ archive files ────    convert.py form ⇄ archive (SI units)
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>                     ── POST api/draft-name   (where a draft is kept)
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>                     ── POST api/form-from-archive (open logbook / recipe)
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>browser ──► NOMAD API (with the user's session)
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>  /users/me, /uploads, /entries/query, /entries/archive/query,
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>  PUT/GET/DELETE /uploads/&lt;id&gt;/raw/...  (in-situ files, drafts, archives)
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>  GET /uploads/&lt;id&gt;/rawdir/pld_drafts   (list drafts)
+</code></pre></div>
+<ul>
+<li><strong><code>spec.py</code></strong> is the single definition of the form: sections, fields, units,
+  choices, which fields are required and when a field is shown (<code>visible_if</code>).
+  The browser renders the form from it and the server validates against it.</li>
+<li><strong><code>rules.py</code></strong> computes values (1st window transmission, sample IDs and
+  names), how much of a section the process steps need, and validates a form.
+  <code>static/app.js</code> contains the same rules so problems show while typing; the
+  server always validates again before it builds anything.</li>
+<li><strong><code>convert.py</code></strong> turns a complete form into archive files and reads saved
+  logbooks back into a form.</li>
+</ul>
+<p>The parts that do not depend on PLD are in <code>dashboards/common/</code>, so a sputter
+logbook dashboard can reuse them:</p>
+<ul>
+<li><code>fields.py</code> builds field definitions;</li>
+<li><code>values.py</code> evaluates conditions and reads form values;</li>
+<li><code>archive.py</code> maps form values to archive quantities, converting from the unit
+  of the form field to the unit of the schema quantity with pint;</li>
+<li><code>samples.py</code> is the <em>Samples</em> section: its fields, sample IDs and names, and
+  the Sample files.</li>
+</ul>
+<h3 id="laser-and-targets-follow-the-process-steps">Laser and targets follow the process steps<a class="headerlink" href="#laser-and-targets-follow-the-process-steps" title="Permanent link">&para;</a></h3>
+<p>Each step type declares whether it needs the laser: <code>required</code> (pre-ablation,
+deposition), <code>optional</code> or <code>none</code> (heating, annealing, cool-down). A section with
+<code>requirement: {'from_steps': 'laser'}</code>, the laser details and the targets, is
+needed as much as the step that needs it most:</p>
+<table>
+<thead>
+<tr>
+<th>Steps of the run</th>
+<th>Laser details and targets</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>at least one step needs the laser</td>
+<td>required</td>
+</tr>
+<tr>
+<td>a step may use the laser</td>
+<td>optional: saved if filled in</td>
+</tr>
+<tr>
+<td>no step uses the laser</td>
+<td>not needed: not checked and not saved</td>
+</tr>
+</tbody>
+</table>
+<p>A step type with an optional laser gets a <em>Laser used</em> switch in front of its
+laser fields; once switched on, that step counts as needing the laser. No PLD
+step uses this yet; it is there for step types to come.</p>
+<h3 id="completeness">Completeness<a class="headerlink" href="#completeness" title="Permanent link">&para;</a></h3>
+<p>A field is required when it is visible and marked <code>required</code>. Hidden fields are
+never required, so choosing <em>Cartesian scan</em> makes the cartesian fields required
+and the polar fields irrelevant. Lists have a minimum number of items and unique
+values (targets, target numbers, sample IDs, existing samples). In-situ data
+files are not required: a technique without files is saved as awaiting data.</p>
+<p>The save button stays disabled while anything is missing, and <code>api/archive</code>
+refuses to build archive files for an incomplete form, so incomplete logbooks
+cannot be written through the dashboard.</p>
+<h3 id="drafts">Drafts<a class="headerlink" href="#drafts" title="Permanent link">&para;</a></h3>
+<p>Users must log every step of a run, also external users of the facility, but a
+run is often filled in on several computers. Saving incomplete logbooks would
+let half-logged runs end up in NOMAD as data. Instead, an unfinished run can be
+saved as a <strong>draft</strong>: the form state as a plain JSON file,
+<code>pld_drafts/&lt;system&gt;_&lt;date&gt;_&lt;hhmm&gt;[_&lt;run name&gt;].draft.json</code>, in the upload.</p>
+<ul>
+<li>No NOMAD parser reads <code>.draft.json</code> files, so a draft is never an entry: it is
+  not searchable, creates no Sample entries and does not count as logged.</li>
+<li>Any computer can continue it (the start page lists the drafts in the user's
+  unpublished uploads). In-situ files picked for a draft are uploaded with it.</li>
+<li>Before a draft is overwritten, it is read again: if another computer saved it
+  in the meantime, the user chooses which version to keep.</li>
+<li>The final save creates the entries and deletes the draft.</li>
+</ul>
+<p>A draft only needs the system, date and start time, which name the file. The
+form is also kept in the browser's local storage, as a safeguard on the same
+computer.</p>
+<h3 id="saving">Saving<a class="headerlink" href="#saving" title="Permanent link">&para;</a></h3>
+<ol>
+<li>The form is validated by the server, which also returns the file name of the
+   logbook (<code>&lt;system&gt;_&lt;date&gt;_&lt;hhmm&gt;[_&lt;run name&gt;].archive.json</code>).</li>
+<li>In-situ files are uploaded to <code>pld_files/&lt;logbook file name&gt;/</code>.</li>
+<li>One Sample archive is written per new or external sample, named after its
+   sample ID, and the logbook archive refers to it by file name. A Sample that
+   this logbook created before is written again (overwritten), so corrections
+   made in the dashboard reach it; existing samples of other runs are never
+   written.</li>
+<li>The logbook is written. A new logbook never overwrites an existing file; an
+   opened logbook is overwritten.</li>
+<li>The draft of the run, if any, is deleted.</li>
+</ol>
+<p>Each file is written with <code>wait_for_processing=true</code>, so NOMAD's processing
+errors and warnings are shown in the log.</p>
+<p>The start of the run is saved with the browser's UTC offset. NOMAD stores it in
+UTC, so the dashboard shows it in local time again when a logbook is opened. The
+sample IDs use the local time and are kept once their entries exist.</p>
+<h3 id="conditional-fields">Conditional fields<a class="headerlink" href="#conditional-fields" title="Permanent link">&para;</a></h3>
+<p>Conditions are small JSON objects, evaluated in the browser and on the server:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span><span class="s1">'key'</span><span class="p">:</span> <span class="s1">'heater_scan_type'</span><span class="p">,</span> <span class="s1">'equals'</span><span class="p">:</span> <span class="s1">'Polar scan'</span><span class="p">}</span>  <span class="c1"># same step</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="p">{</span><span class="s1">'key'</span><span class="p">:</span> <span class="s1">'/run/system'</span><span class="p">,</span> <span class="s1">'equals'</span><span class="p">:</span> <span class="s1">'LA-PLD'</span><span class="p">}</span>  <span class="c1"># anywhere in the form</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="p">{</span><span class="s1">'key'</span><span class="p">:</span> <span class="s1">'origin'</span><span class="p">,</span> <span class="s1">'in'</span><span class="p">:</span> <span class="p">[</span><span class="s1">'New sample'</span><span class="p">,</span> <span class="s1">'External sample'</span><span class="p">]}</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="p">{</span><span class="s1">'key'</span><span class="p">:</span> <span class="s1">'/steps'</span><span class="p">,</span> <span class="s1">'has_type'</span><span class="p">:</span> <span class="p">[</span><span class="s1">'deposition'</span><span class="p">]}</span>  <span class="c1"># a step of a type exists</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="p">{</span><span class="s1">'all'</span><span class="p">:</span> <span class="p">[</span><span class="o">...</span><span class="p">]}</span> <span class="o">/</span> <span class="p">{</span><span class="s1">'any'</span><span class="p">:</span> <span class="p">[</span><span class="o">...</span><span class="p">]}</span>  <span class="c1"># combinations</span>
+</code></pre></div>
+<p>Choices can also depend on another field (<code>options_by</code>), e.g. the substrate
+carriers depend on the PVD system.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant"], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.c21346df.min.js"></script>
+      
+        <script src="../javascript.js"></script>
+      
+        <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      
+    
+  </body>
+</html>

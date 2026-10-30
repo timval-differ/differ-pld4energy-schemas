@@ -1055,10 +1055,10 @@ function runLabel(form) {
 }
 
 /* Starting or opening another logbook replaces the one in the form. */
-function confirmReplace() {
-  return !app.started || window.confirm(
+async function confirmReplace() {
+  return !app.started || askConfirm('Replace the logbook in the form?',
     `Replace the logbook you are working on (${runLabel(app.form)})? `
-    + 'What is not saved as a draft or logbook is lost.');
+    + 'What is not saved as a draft or logbook is lost.', 'Replace');
 }
 
 function entryList(id, empty) {
@@ -1175,7 +1175,7 @@ function itemCard(s, list, index, bodyFill, options = {}) {
 function countControl(s, list) {
   const count = list.filter(madeHere).length;
   const input = el('input', {type: 'number', min: 0, max: 99, value: count, class: 'count-input'});
-  const apply = () => {
+  const apply = async () => {
     const wanted = Math.max(0, Math.min(99, Number(input.value) || 0));
     let made = list.filter(madeHere);
     while (made.length < wanted) {
@@ -1184,7 +1184,8 @@ function countControl(s, list) {
     }
     const extra = made.slice(wanted);
     const filled = extra.filter((item) => item.substrate || (item.layers || []).length || item.comments);
-    if (filled.length && !window.confirm(`Remove ${extra.length} sample(s), of which ${filled.length} filled in?`)) {
+    if (filled.length && !(await askConfirm('Remove samples?',
+      `Remove ${extra.length} sample(s), of which ${filled.length} filled in?`, 'Remove'))) {
       input.value = made.length;
       return;
     }
@@ -1255,12 +1256,37 @@ function renderSteps(container, s) {
 
 function openDialog(title, content) {
   document.getElementById('dialog-title').textContent = title;
+  document.getElementById('dialog-cancel').textContent = 'Cancel';
   document.getElementById('dialog-body').replaceChildren(...[content].flat());
   document.getElementById('dialog').hidden = false;
 }
 
 function closeDialog() {
   document.getElementById('dialog').hidden = true;
+  const cancelled = app.dialogCancelled;
+  app.dialogCancelled = null;
+  if (cancelled) cancelled();
+}
+
+/*
+ * A yes/no question in the page's own dialog, resolving to true for yes.
+ * (window.confirm() does nothing in the sandboxed frame NOMAD shows us in.)
+ */
+function askConfirm(title, question, yes, no = 'Cancel') {
+  return new Promise((resolve) => {
+    const answer = (value) => {
+      app.dialogCancelled = null;
+      closeDialog();
+      resolve(value);
+    };
+    openDialog(title, [
+      el('p', {}, question),
+      el('div', {class: 'btn-row'},
+        el('button', {type: 'button', class: 'btn btn-contained', onclick: () => answer(true)}, yes)),
+    ]);
+    document.getElementById('dialog-cancel').textContent = no;
+    app.dialogCancelled = () => resolve(false);
+  });
 }
 
 function pickList(entries, onPick) {
@@ -1295,7 +1321,7 @@ async function fetchLogbook(entry) {
 }
 
 async function openLogbook(picked) {
-  if (!confirmReplace()) return;
+  if (!(await confirmReplace())) return;
   try {
     const data = await fetchLogbook(picked.entry);
     const form = await dashboard('api/form-from-archive', {data, mode: 'edit'});
@@ -1691,11 +1717,11 @@ async function saveLogbook() {
   }
 }
 
-/* ---------------------------------------------------- PDF export (print) */
+/* ------------------------------------------------------------ PDF export */
 
 /*
- * The logbook as a report, printed with the browser's "Save as PDF". Only the
- * fields that apply and are filled in are listed, like in the saved logbook.
+ * The logbook as a PDF report (pdf.js). Only the fields that apply and are
+ * filled in are listed, like in the saved logbook.
  */
 
 function displayValue(field, local) {
@@ -1728,7 +1754,7 @@ function displayValue(field, local) {
 }
 
 function reportFields(fields, local) {
-  const table = el('table', {class: 'report-fields'});
+  const blocks = [];
   let group = null;
   for (const field of fields) {
     if (!evaluate(field.visible_if, local, app.form)) continue;
@@ -1736,55 +1762,58 @@ function reportFields(fields, local) {
     if (value === null) continue;
     if (field.group && field.group !== group) {
       group = field.group;
-      if (field.label !== group) table.append(el('tr', {}, el('th', {class: 'report-group', colspan: 2}, group)));
+      if (field.label !== group) blocks.push({kind: 'group', text: group});
     }
-    table.append(el('tr', {}, el('th', {}, field.label), el('td', {}, value)));
+    blocks.push({kind: 'row', label: field.label, value});
   }
-  return table.rows.length ? table : el('p', {class: 'muted'}, 'Nothing filled in.');
+  return blocks.length ? blocks : [{kind: 'note', text: 'Nothing filled in.'}];
 }
 
-function buildReport() {
+function reportBlocks() {
   const form = app.form;
   const complete = Boolean(app.edit) && !app.errors.length;
-  const status = complete
-    ? `Saved logbook ${app.edit.mainfile}`
-    : 'DRAFT / INCOMPLETE: this is not a logged logbook'
-      + (app.errors.length ? ` (${app.errors.length} thing${app.errors.length === 1 ? '' : 's'} still missing)` : '');
-  const report = document.getElementById('report');
-  report.replaceChildren(
-    el('header', {class: 'report-header'},
-      el('h1', {}, `PLD logbook · ${runLabel(form)}`),
-      el('p', {class: 'report-status' + (complete ? '' : ' draft')}, status),
-      el('p', {class: 'muted'}, [
-        form.run.operator_name && `Operator: ${form.run.operator_name}`,
-        `Exported ${new Date().toLocaleString()}`,
-      ].filter(Boolean).join(' · '))),
-  );
+  const missing = app.errors.length;
+  const blocks = [
+    {kind: 'title', text: `PLD logbook · ${runLabel(form)}`},
+    complete
+      ? {kind: 'status', text: `Saved logbook ${app.edit.mainfile}`}
+      : {kind: 'alert', text: 'DRAFT / INCOMPLETE: this is not a logged logbook'
+        + (missing ? ` (${missing} thing${missing === 1 ? '' : 's'} still missing)` : '')},
+    {kind: 'note', text: [
+      form.run.operator_name && `Operator: ${form.run.operator_name}`,
+      `Exported ${new Date().toLocaleString()}`,
+    ].filter(Boolean).join(' · ')},
+  ];
   for (const s of app.spec.sections) {
     if (sectionRequirement(s, form) === 'none') continue;
-    const part = el('section', {class: 'report-section'}, el('h2', {}, s.title));
+    blocks.push({kind: 'heading', text: s.title});
     if (s.kind === 'object') {
-      part.append(reportFields(s.fields, form[s.key] || {}));
-    } else {
-      const items = form[s.key] || [];
-      if (!items.length) part.append(el('p', {class: 'muted'}, 'None.'));
-      items.forEach((item, index) => {
-        const fields = s.kind === 'variant_list' ? (s.variants[item.type] || {fields: []}).fields : s.fields;
-        part.append(el('div', {class: 'report-item'},
-          el('h3', {}, itemTitle(`${s.key}.${index}`)), reportFields(fields, item)));
-      });
+      blocks.push(...reportFields(s.fields, form[s.key] || {}));
+      continue;
     }
-    report.append(part);
+    const items = form[s.key] || [];
+    if (!items.length) blocks.push({kind: 'note', text: 'None.'});
+    items.forEach((item, index) => {
+      const fields = s.kind === 'variant_list' ? (s.variants[item.type] || {fields: []}).fields : s.fields;
+      blocks.push({kind: 'subheading', text: itemTitle(`${s.key}.${index}`)}, ...reportFields(fields, item));
+    });
   }
+  return blocks;
 }
 
+/*
+ * A PDF file made in the browser and downloaded. NOMAD shows the dashboard in a
+ * sandboxed frame in which browsers ignore window.print(), but allow downloads.
+ */
 function exportPdf() {
-  buildReport();
-  const title = document.title;
-  // The browser suggests the page title as the file name.
-  document.title = `PLD logbook ${runLabel(app.form)}`.replace(/[^\w .-]+/g, '_');
-  window.print();
-  document.title = title;
+  const title = `PLD logbook ${runLabel(app.form)}`;
+  const blob = makePdf(reportBlocks(), title);
+  const fileName = title.replace(/ · /g, ' ').replace(/:/g, '-').replace(/[^\w .-]+/g, '_') + '.pdf';
+  const link = el('a', {href: URL.createObjectURL(blob), download: fileName});
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 60000);
 }
 
 /* ---------------------------------------------------- drafts on NOMAD */
@@ -1833,10 +1862,11 @@ async function saveDraftToNomad() {
     const stored = await readNomadDraft(uploadId, path);
     if (stored && (!app.draft || stored.savedAt !== app.draft.savedAt)) {
       const by = stored.savedBy ? ` by ${stored.savedBy}` : '';
-      const overwrite = window.confirm(`This draft was saved${by} on ${new Date(stored.savedAt).toLocaleString()}, `
-        + 'after you opened it here. Overwrite it with this form? Cancel to load that version instead.');
+      const overwrite = await askConfirm('Draft changed elsewhere',
+        `This draft was saved${by} on ${new Date(stored.savedAt).toLocaleString()}, after you opened it here. `
+        + 'Overwrite it with this form, or load that version instead?', 'Overwrite', 'Load that version');
       if (!overwrite) {
-        openNomadDraft(uploadId, path, stored);
+        openNomadDraft(uploadId, path, stored, true);
         return;
       }
     }
@@ -1881,9 +1911,9 @@ async function deleteNomadDraft() {
   app.draft = null;
 }
 
-function openNomadDraft(uploadId, path, stored) {
+async function openNomadDraft(uploadId, path, stored, force) {
   const same = app.draft && app.draft.upload_id === uploadId && app.draft.path === path;
-  if (!same && !confirmReplace()) return;
+  if (!force && !same && !(await confirmReplace())) return;
   app.form = stored.form;
   app.edit = stored.edit || null;
   app.draft = {upload_id: uploadId, path, savedAt: stored.savedAt};
@@ -1927,8 +1957,8 @@ async function findDrafts() {
 
 /* ----------------------------------------------------------- lifecycle */
 
-function newLogbook(force) {
-  if (!force && !confirmReplace()) return;
+async function newLogbook(force) {
+  if (!force && !(await confirmReplace())) return;
   app.form = newForm();
   app.edit = null;
   app.draft = null;

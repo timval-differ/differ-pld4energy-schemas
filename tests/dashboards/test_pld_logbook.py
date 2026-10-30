@@ -798,11 +798,17 @@ def test_page_loads_current_assets(client):
 
 
 def test_page_offers_pdf_export(client):
+    """
+    The PDF is made in the browser and downloaded: NOMAD shows dashboards in a
+    sandboxed frame, where window.print() and window.confirm() are ignored.
+    """
     page = client.get('/').text
     assert 'id="btn-pdf"' in page
-    assert 'id="report"' in page
-    css = client.get('/static/style.css').text
-    assert '@media print' in css
+    assert re.search(r'static/pdf\.js\?v=[0-9a-f]{12}"', page)
+    assert page.index('static/pdf.js') < page.index('static/app.js')
+    assert 'function makePdf(' in client.get('/static/pdf.js').text
+    script = client.get('/static/app.js').text
+    assert not re.search(r'window\.(print|confirm|alert|prompt)\([^)]', script)
 
 
 def test_page_and_server_report_the_same_script_version(client):

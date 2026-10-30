@@ -22,7 +22,7 @@ from .rules import validate, validate_draft
 from .spec import form_spec
 
 STATIC = Path(__file__).parent / 'static'
-ASSETS = ('app.js', 'style.css')
+ASSETS = ('app.js', 'pdf.js', 'style.css')
 
 
 def asset_version(name: str) -> str:

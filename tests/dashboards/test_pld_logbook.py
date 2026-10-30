@@ -18,12 +18,13 @@ from differ_pld4e_schemas.dashboards.pld_logbook.rules import (
     validate,
 )
 from differ_pld4e_schemas.dashboards.pld_logbook.spec import form_spec
-from differ_pld4e_schemas.laser import LaserParameters
+from differ_pld4e_schemas.laser import LaserCalibration, LaserParameters
 from differ_pld4e_schemas.pld_deposition import (
     LAPLDDepositionStep,
     LAPLDLogbook,
     SAPLDLogbook,
 )
+from differ_pld4e_schemas.pld_substrate import NewSubstrate
 from differ_pld4e_schemas.stages import PolarHeaterScan
 
 SPEC = form_spec()
@@ -180,6 +181,23 @@ def test_spec_archive_paths_exist_in_schema():
                 assert resolved, field['key']
             else:
                 assert len(resolved) == len(variant['sections']), field['key']
+
+
+@pytest.mark.parametrize(
+    'section_key, section_cls',
+    [('laser', LaserCalibration), ('substrates', NewSubstrate)],
+)
+def test_spec_section_archive_paths_exist_in_schema(section_key, section_cls):
+    from differ_pld4e_schemas.dashboards.pld_logbook.convert import (
+        SKIPPED_KINDS,
+        _quantity,
+    )
+
+    sections = {s['key']: s for s in SPEC['sections']}
+    for field in sections[section_key]['fields']:
+        if field['archive'] is None or field['kind'] in SKIPPED_KINDS:
+            continue
+        _quantity(section_cls, field['archive'])
 
 
 def test_spec_qualified_names_are_stable():

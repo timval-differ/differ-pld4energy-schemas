@@ -622,7 +622,7 @@ def form_spec() -> dict:
                             'equals': True,
                         },
                     ),
-                    comments(),
+                    comments(archive='comments'),
                 ],
             },
             {

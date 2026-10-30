@@ -287,6 +287,7 @@ Extends the sputter `Target` section.
 | `diameter` | number | m | |
 | `thickness` | number | m | |
 | `purity` | text | | e.g. `99.999%`. |
+| `in_stock` | yes/no | | Default yes. When no, the dashboard no longer offers it; logbooks that used it keep it. |
 
 ### Substrate type
 
@@ -298,6 +299,7 @@ A kind of substrate in the substrate database. Not specific to PLD.
 | `material` | text | | e.g. `SrTiO3`; used in sample names. |
 | `size` | text | | e.g. `10x10 mm` or `1" with flat`. |
 | `supplier` | text | | |
+| `in_stock` | yes/no | | Default yes. When no, the dashboard no longer offers it; logbooks that used it keep it. |
 | `description` | rich text | | |
 
 ### Sample

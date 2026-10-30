@@ -160,6 +160,9 @@ published).
 - New targets and substrates added elsewhere in NOMAD appear when you start a
   new logbook or open *Samples* or *Targets*; *Refresh lists* reloads them at
   any time.
+- Targets and substrates that are switched off as *out of stock* in NOMAD are
+  not offered. A logbook that already uses one keeps it, marked
+  *(out of stock)*.
 - A new logbook never overwrites an existing file: if a logbook with the same
   system, date, time and run name, or a sample with the same sample ID, already
   exists in the upload, saving stops with a message.

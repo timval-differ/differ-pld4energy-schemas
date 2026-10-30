@@ -21,6 +21,10 @@ Every physical target is one **PLD Target** entry.
 - **Two targets of the same material:** give them different names, e.g.
   `Fe2O3 (Praxair 2024)` and `Fe2O3 (Pi-Kem 2025)`, so you can tell them apart
   in the drop-down.
+- **Out of stock:** untick **in stock** when a target is used up or no longer
+  available. It is then no longer offered for new logbooks, but logbooks that
+  used it keep it and their links keep working. Do not delete it: that would
+  break the logbooks and samples that refer to it. Tick it again if it comes back.
 
 ## Manage the substrate database
 
@@ -33,6 +37,10 @@ Samples refer to it.
   sample names, so write it as it should appear there, e.g. `SrTiO3`.
 - **Naming:** the entry is named after the **name** field, or after the
   material and size if the name is empty.
+- **Out of stock:** untick **in stock** when a kind of substrate is used up or no longer
+  available. It is then no longer offered for new logbooks, but logbooks that
+  used it keep it and their links keep working. Do not delete it: that would
+  break the logbooks and samples that refer to it. Tick it again if it comes back.
 
 ## Start a logbook
 

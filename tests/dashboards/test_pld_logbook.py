@@ -797,6 +797,14 @@ def test_page_loads_current_assets(client):
     assert re.search(r'static/style\.css\?v=[0-9a-f]{12}"', response.text)
 
 
+def test_page_offers_pdf_export(client):
+    page = client.get('/').text
+    assert 'id="btn-pdf"' in page
+    assert 'id="report"' in page
+    css = client.get('/static/style.css').text
+    assert '@media print' in css
+
+
 def test_page_and_server_report_the_same_script_version(client):
     page = client.get('/').text
     version = re.search(r'name="script-version" content="([0-9a-f]{12})"', page)

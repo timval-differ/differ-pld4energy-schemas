@@ -129,6 +129,19 @@ you can close the page and continue later on the same computer. Files you chose
 but did not save yet are not kept: choose them again. *New logbook* on the
 start page clears the form.
 
+## Export as PDF
+
+**Export as PDF** (top bar, or *Review and save*) turns the logbook in the form
+into a report and opens the browser's print dialog: choose *Save as PDF* (or
+*Microsoft Print to PDF*) as the printer. The report lists every section and
+step with the values that apply, in lab units. Sections the steps do not need
+are left out.
+
+Any logbook can be exported, saved or not. Unless it is a complete logbook that
+was saved to NOMAD, the report says **DRAFT / INCOMPLETE: this is not a logged
+logbook** at the top, with the number of things still missing. The PDF is saved
+on your computer only; the logbook in NOMAD remains the record.
+
 ## Add in-situ data later
 
 In-situ data often has to be collected from other computers after the run. Save

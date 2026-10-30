@@ -968,6 +968,7 @@ function renderChips() {
   chip.hidden = home || !system;
   mode.hidden = home || mode.hidden;
   document.getElementById('btn-draft-save').hidden = home;
+  document.getElementById('btn-pdf').hidden = home;
   document.getElementById('btn-home').hidden = home;
 }
 
@@ -1546,7 +1547,8 @@ function renderSave(container) {
 
   const save = el('button', {type: 'button', class: 'btn btn-contained', id: 'btn-save', onclick: saveLogbook}, 'Save logbook to NOMAD');
   const draft = el('button', {type: 'button', class: 'btn btn-outlined', id: 'btn-save-draft', onclick: saveDraftToNomad}, 'Save draft');
-  card.append(el('div', {class: 'btn-row'}, save, draft));
+  const pdf = el('button', {type: 'button', class: 'btn btn-text', onclick: exportPdf}, 'Export as PDF');
+  card.append(el('div', {class: 'btn-row'}, save, draft, pdf));
   card.append(el('p', {class: 'muted small'}, 'A draft keeps an unfinished run in the upload so it can be '
     + 'continued on another computer. Drafts are not logbooks: only a complete, saved logbook counts as logged.'));
   card.append(el('ul', {class: 'log', id: 'save-log'}));
@@ -1687,6 +1689,102 @@ async function saveLogbook() {
     app.saving = false;
     refresh();
   }
+}
+
+/* ---------------------------------------------------- PDF export (print) */
+
+/*
+ * The logbook as a report, printed with the browser's "Save as PDF". Only the
+ * fields that apply and are filled in are listed, like in the saved logbook.
+ */
+
+function displayValue(field, local) {
+  const root = app.form;
+  if (field.kind === 'computed') {
+    const value = compute(field.compute, local, root);
+    if (value === null || value === undefined) return null;
+    return typeof value === 'number' ? `${formatNumber(value)} ${field.unit_label || ''}`.trim() : String(value);
+  }
+  const value = local[field.key];
+  if (field.kind === 'bool') {
+    // Switches that only open a group (a gas, a technique) are shown by their fields.
+    if (!value && field.archive === null) return null;
+    return value ? 'yes' : 'no';
+  }
+  if (isEmpty(value)) return null;
+  if (field.kind === 'rows') {
+    const rows = value.map((row) => field.columns.map((c) => displayValue(c, row)).filter(Boolean).join(', '));
+    return rows.filter(Boolean).join('; ') || null;
+  }
+  if (field.kind === 'reference') return refName(field.reference, value);
+  if (field.kind === 'target_choice') return refName('target', value);
+  if (field.kind === 'sample_choice') {
+    const option = choiceOptions(field, local).find((o) => o.value === value);
+    return option ? option.label : value;
+  }
+  if (field.kind === 'file') return String(value).split('/').pop();
+  const unit = field.unit_label || field.unit;
+  return field.kind === 'number' && unit ? `${value} ${unit}` : String(value);
+}
+
+function reportFields(fields, local) {
+  const table = el('table', {class: 'report-fields'});
+  let group = null;
+  for (const field of fields) {
+    if (!evaluate(field.visible_if, local, app.form)) continue;
+    const value = displayValue(field, local);
+    if (value === null) continue;
+    if (field.group && field.group !== group) {
+      group = field.group;
+      if (field.label !== group) table.append(el('tr', {}, el('th', {class: 'report-group', colspan: 2}, group)));
+    }
+    table.append(el('tr', {}, el('th', {}, field.label), el('td', {}, value)));
+  }
+  return table.rows.length ? table : el('p', {class: 'muted'}, 'Nothing filled in.');
+}
+
+function buildReport() {
+  const form = app.form;
+  const complete = Boolean(app.edit) && !app.errors.length;
+  const status = complete
+    ? `Saved logbook ${app.edit.mainfile}`
+    : 'DRAFT / INCOMPLETE: this is not a logged logbook'
+      + (app.errors.length ? ` (${app.errors.length} thing${app.errors.length === 1 ? '' : 's'} still missing)` : '');
+  const report = document.getElementById('report');
+  report.replaceChildren(
+    el('header', {class: 'report-header'},
+      el('h1', {}, `PLD logbook · ${runLabel(form)}`),
+      el('p', {class: 'report-status' + (complete ? '' : ' draft')}, status),
+      el('p', {class: 'muted'}, [
+        form.run.operator_name && `Operator: ${form.run.operator_name}`,
+        `Exported ${new Date().toLocaleString()}`,
+      ].filter(Boolean).join(' · '))),
+  );
+  for (const s of app.spec.sections) {
+    if (sectionRequirement(s, form) === 'none') continue;
+    const part = el('section', {class: 'report-section'}, el('h2', {}, s.title));
+    if (s.kind === 'object') {
+      part.append(reportFields(s.fields, form[s.key] || {}));
+    } else {
+      const items = form[s.key] || [];
+      if (!items.length) part.append(el('p', {class: 'muted'}, 'None.'));
+      items.forEach((item, index) => {
+        const fields = s.kind === 'variant_list' ? (s.variants[item.type] || {fields: []}).fields : s.fields;
+        part.append(el('div', {class: 'report-item'},
+          el('h3', {}, itemTitle(`${s.key}.${index}`)), reportFields(fields, item)));
+      });
+    }
+    report.append(part);
+  }
+}
+
+function exportPdf() {
+  buildReport();
+  const title = document.title;
+  // The browser suggests the page title as the file name.
+  document.title = `PLD logbook ${runLabel(app.form)}`.replace(/[^\w .-]+/g, '_');
+  window.print();
+  document.title = title;
 }
 
 /* ---------------------------------------------------- drafts on NOMAD */
@@ -1858,6 +1956,7 @@ async function init() {
   document.getElementById('btn-home').addEventListener('click', () => go('home'));
   document.getElementById('brand').addEventListener('click', () => go('home'));
   document.getElementById('btn-draft-save').addEventListener('click', saveDraftToNomad);
+  document.getElementById('btn-pdf').addEventListener('click', exportPdf);
   document.getElementById('btn-prev').addEventListener('click', () => step(-1));
   document.getElementById('btn-next').addEventListener('click', () => step(1));
   document.getElementById('dialog-cancel').addEventListener('click', closeDialog);

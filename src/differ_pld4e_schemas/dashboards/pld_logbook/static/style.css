@@ -394,3 +394,22 @@ legend { padding: 0 6px; font-weight: 600; color: var(--text-secondary); font-si
 }
 .pick-list button:hover { background: var(--primary-light); }
 .pick-list .sub { display: block; color: var(--text-secondary); font-size: 13px; }
+
+/* PDF export: the report is only shown when printing, and then on its own. */
+.report { display: none; }
+@media print {
+  @page { margin: 16mm 14mm; }
+  body { background: #fff; }
+  body > *:not(.report) { display: none !important; }
+  .report { display: block; color: #000; font-size: 10.5pt; }
+  .report h1 { font-size: 16pt; margin: 0 0 4pt; }
+  .report h2 { font-size: 13pt; margin: 14pt 0 4pt; padding-bottom: 2pt; border-bottom: 1px solid #999; break-after: avoid; }
+  .report h3 { font-size: 11pt; margin: 8pt 0 2pt; break-after: avoid; }
+  .report-status { margin: 0 0 2pt; font-weight: 600; }
+  .report-status.draft { color: #b00020; }
+  .report-item, .report-fields tr { break-inside: avoid; }
+  .report-fields { width: 100%; border-collapse: collapse; }
+  .report-fields th, .report-fields td { padding: 1.5pt 6pt 1.5pt 0; text-align: left; vertical-align: top; }
+  .report-fields th { width: 40%; font-weight: 400; color: #444; }
+  .report-fields th.report-group { padding-top: 5pt; font-weight: 600; color: #000; }
+}

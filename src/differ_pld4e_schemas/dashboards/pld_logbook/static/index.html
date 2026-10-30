@@ -18,6 +18,7 @@
     <span id="mode-chip" class="chip chip-outline" hidden></span>
     <div class="appbar-actions">
       <button type="button" class="btn btn-text" id="btn-draft-save">Save draft</button>
+      <button type="button" class="btn btn-text" id="btn-pdf">Export as PDF</button>
       <button type="button" class="btn btn-text" id="btn-home">Start page</button>
       <span id="user" class="appbar-user"></span>
     </div>
@@ -38,6 +39,9 @@
       </div>
     </main>
   </div>
+
+  <!-- Filled in just before printing; the only part that is printed. -->
+  <article id="report" class="report" aria-hidden="true"></article>
 
   <div id="dialog" class="dialog-backdrop" hidden>
     <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title">

@@ -311,7 +311,7 @@ saved as a **draft**: the form state as a plain JSON file,
 
 - No NOMAD parser reads `.draft.json` files, so a draft is never an entry: it is
   not searchable, creates no Sample entries and does not count as logged.
-- Any computer can continue it (*Continue draft* lists the drafts in the user's
+- Any computer can continue it (the start page lists the drafts in the user's
   unpublished uploads). In-situ files picked for a draft are uploaded with it.
 - Before a draft is overwritten, it is read again: if another computer saved it
   in the meantime, the user chooses which version to keep.

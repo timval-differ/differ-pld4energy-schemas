@@ -8,19 +8,16 @@
 </head>
 <body>
   <header class="appbar">
-    <div class="appbar-title">
+    <button type="button" class="appbar-title" id="brand" title="Start page">
       <span class="appbar-brand">PLD4Energy</span>
       <span class="appbar-sep">/</span>
       <span>PLD logbook</span>
-      <span id="system-chip" class="chip" hidden></span>
-      <span id="mode-chip" class="chip chip-outline" hidden></span>
-    </div>
+    </button>
+    <span id="system-chip" class="chip" hidden></span>
+    <span id="mode-chip" class="chip chip-outline" hidden></span>
     <div class="appbar-actions">
-      <button type="button" class="btn btn-text" id="btn-new">New logbook</button>
-      <button type="button" class="btn btn-text" id="btn-open">Open logbook</button>
-      <button type="button" class="btn btn-text" id="btn-recipe">Load recipe</button>
-      <button type="button" class="btn btn-text" id="btn-draft-open">Continue draft</button>
       <button type="button" class="btn btn-text" id="btn-draft-save">Save draft</button>
+      <button type="button" class="btn btn-text" id="btn-home">Start page</button>
       <span id="user" class="appbar-user"></span>
     </div>
   </header>

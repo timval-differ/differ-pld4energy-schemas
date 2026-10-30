@@ -28,7 +28,8 @@ const app = {
   draft: null, // {upload_id, path, savedAt} of the draft kept in NOMAD
   upload: '', // selected upload id, or '__new__'
   newUploadName: 'PLD logbooks',
-  current: 'run',
+  current: 'home', // 'home' (start page), a section key, or 'save'
+  started: false, // whether the form holds a logbook being worked on
   user: null,
   uploads: [],
   refs: {target: [], sample: []},
@@ -457,6 +458,7 @@ function errorsFor(prefix) {
 
 let draftTimer = null;
 function changed() {
+  app.started = true;
   app.errors = validate(app.form, app.spec);
   refresh();
   clearTimeout(draftTimer);
@@ -529,11 +531,11 @@ async function loadUser() {
   }
 }
 
-async function searchEntries(qualifiedNames, required) {
+async function searchEntries(qualifiedNames, required, {owner = 'visible', pageSize = 1000} = {}) {
   const body = {
-    owner: 'visible',
+    owner,
     query: {'section_defs.definition_qualified_name:any': qualifiedNames},
-    pagination: {page_size: 1000, order_by: 'entry_create_time', order: 'desc'},
+    pagination: {page_size: pageSize, order_by: 'entry_create_time', order: 'desc'},
   };
   if (required) {
     body.required = required;
@@ -893,8 +895,14 @@ function renderChips() {
   chip.hidden = !system;
   chip.textContent = system || '';
   const mode = document.getElementById('mode-chip');
-  mode.hidden = !app.edit;
-  mode.textContent = app.edit ? `Editing ${app.edit.mainfile}` : '';
+  mode.hidden = !app.edit && !app.draft;
+  mode.textContent = app.edit ? 'Saved logbook' : (app.draft ? 'Draft' : '');
+  mode.title = app.edit ? `Editing ${app.edit.mainfile}; saving overwrites it.` : (app.draft ? app.draft.path : '');
+  const home = app.current === 'home';
+  chip.hidden = home || !system;
+  mode.hidden = home || mode.hidden;
+  document.getElementById('btn-draft-save').hidden = home;
+  document.getElementById('btn-home').hidden = home;
 }
 
 function navSections() {
@@ -940,7 +948,7 @@ function go(key, focusPath) {
     loadReferences();
   }
   app.current = key;
-  window.history.replaceState(null, '', '#' + key);
+  window.history.replaceState(null, '', key === 'home' ? window.location.pathname : '#' + key);
   render();
   window.scrollTo(0, 0);
   if (focusPath) {
@@ -959,7 +967,9 @@ function render() {
   app.rendered = [];
   const container = document.getElementById('section');
   container.replaceChildren();
-  if (app.current === 'save') renderSave(container);
+  document.body.classList.toggle('home', app.current === 'home');
+  if (app.current === 'home') renderHome(container);
+  else if (app.current === 'save') renderSave(container);
   else {
     const s = section(app.current);
     if (s.kind === 'object') renderObject(container, s);
@@ -967,6 +977,69 @@ function render() {
     else renderSteps(container, s);
   }
   refresh();
+}
+
+/* ------------------------------------------------------------ start page */
+
+function runLabel(form) {
+  const run = (form && form.run) || {};
+  const when = [run.date, run.time].filter(Boolean).join(' ');
+  return [run.system || 'No system chosen yet', when, run.name].filter(Boolean).join(' · ');
+}
+
+/* Starting or opening another logbook replaces the one in the form. */
+function confirmReplace() {
+  return !app.started || window.confirm(
+    `Replace the logbook you are working on (${runLabel(app.form)})? `
+    + 'What is not saved as a draft or logbook is lost.');
+}
+
+function entryList(id, empty) {
+  return el('ul', {class: 'pick-list home-list', id}, el('li', {class: 'muted'}, empty));
+}
+
+function fillEntryList(id, entries, empty, onPick) {
+  const list = document.getElementById(id);
+  if (!list) return; // the start page was left meanwhile
+  list.replaceChildren(...(entries.length ? entries.map((e) => el('li', {}, el('button', {
+    type: 'button', onclick: () => onPick(e),
+  }, e.title, el('span', {class: 'sub'}, e.sub)))) : [el('li', {class: 'muted'}, empty)]));
+}
+
+function renderHome(container) {
+  const intro = el('div', {class: 'card'},
+    el('h1', {}, 'PLD logbook'),
+    el('p', {class: 'section-intro'}, 'Log an SA-PLD or LA-PLD run step by step, starting from its samples. '
+      + 'Only the fields that apply are shown, and a logbook is saved once it is complete.'),
+    el('div', {class: 'btn-row'},
+      el('button', {type: 'button', class: 'btn btn-contained', onclick: () => newLogbook(false)}, 'New logbook'),
+      app.started ? el('button', {type: 'button', class: 'btn btn-outlined', onclick: () => go('run')},
+        'Continue current logbook') : null));
+  if (app.started) {
+    const where = app.edit ? `Saved logbook ${app.edit.mainfile}`
+      : (app.draft ? `Draft ${app.draft.path}` : 'Not saved yet: kept in this browser only');
+    intro.append(el('div', {class: 'info'}, el('strong', {}, 'Current logbook: '), runLabel(app.form), el('br'), where));
+  }
+  const drafts = el('div', {class: 'card'},
+    el('h2', {}, 'Drafts'),
+    el('p', {class: 'muted small'}, 'Unfinished runs kept in your uploads, to continue on any computer. '
+      + 'They only count as logged once the logbook is saved.'),
+    entryList('home-drafts', app.user ? 'Looking for drafts…' : 'Log in to NOMAD to see your drafts.'));
+  const recent = el('div', {class: 'card'},
+    el('h2', {}, 'Recent logbooks'),
+    entryList('home-recent', app.user ? 'Loading…' : 'Log in to NOMAD to see your logbooks.'),
+    el('div', {class: 'btn-row'},
+      el('button', {type: 'button', class: 'btn btn-text', onclick: openLogbookDialog}, 'Find a logbook…')));
+  container.append(intro, el('div', {class: 'home-grid'}, drafts, recent));
+  if (!app.user) return;
+  findDrafts().then(
+    (entries) => fillEntryList('home-drafts', entries, 'No drafts.', (e) => openNomadDraft(e.uploadId, e.path, e.stored)),
+    (e) => fillEntryList('home-drafts', [], 'Could not look for drafts: ' + e.message),
+  );
+  searchEntries(Object.values(app.spec.logbook_sections), null, {owner: 'user', pageSize: 8}).then(
+    (entries) => fillEntryList('home-recent', entries.map(logbookItem), 'No logbooks yet.', openLogbook),
+    (e) => fillEntryList('home-recent', [], 'Could not load logbooks: ' + e.message),
+  );
 }
 
 function sectionHeader(s, intro) {
@@ -1101,6 +1174,8 @@ function renderSteps(container, s) {
       onclick: () => { list.push(newItem(s, key, list)); changed(); render(); },
     }, `+ ${variant.label}`));
   }
+  actions.append(el('button', {type: 'button', class: 'btn btn-text', onclick: recipeDialog},
+    'Load steps from a recipe…'));
   card.append(actions);
   container.append(card);
 }
@@ -1132,14 +1207,15 @@ function pickList(entries, onPick) {
   return [el('div', {class: 'input-wrap'}, filter), list];
 }
 
+function logbookItem(e) {
+  const created = String(e.entry_create_time || '').slice(0, 10);
+  if (e.entry_name) return {entry: e, title: e.entry_name, sub: `${e.mainfile} · ${created}`};
+  return {entry: e, title: String(e.mainfile).replace(/\.archive\.(json|yaml)$/, ''), sub: `saved ${created}`};
+}
+
 async function logbookEntries(systems) {
   const names = systems.map((s) => app.spec.logbook_sections[s]);
-  const entries = await searchEntries(names);
-  return entries.map((e) => ({
-    entry: e,
-    title: e.entry_name || e.mainfile,
-    sub: `${e.mainfile} · ${String(e.entry_create_time || '').slice(0, 10)}`,
-  }));
+  return (await searchEntries(names)).map(logbookItem);
 }
 
 async function fetchLogbook(entry) {
@@ -1147,33 +1223,36 @@ async function fetchLogbook(entry) {
   return response.data.archive.data;
 }
 
+async function openLogbook(picked) {
+  if (!confirmReplace()) return;
+  try {
+    const data = await fetchLogbook(picked.entry);
+    const form = await dashboard('api/form-from-archive', {data, mode: 'edit'});
+    localizeRun(form.run);
+    app.form = {recipe: null, ...form};
+    app.edit = {upload_id: picked.entry.upload_id, entry_id: picked.entry.entry_id, mainfile: picked.entry.mainfile};
+    app.draft = null;
+    app.upload = picked.entry.upload_id;
+    app.pendingFiles = {};
+    app.touched.clear();
+    app.shown.clear();
+    closeDialog();
+    changed();
+    go('run');
+    const awaiting = awaitingTechniques(app.form);
+    showBanner(`Opened ${picked.title}. Saving overwrites this logbook.`
+      + (awaiting.length ? ` Awaiting in-situ data: ${awaiting.join(', ')}.` : ''));
+  } catch (e) {
+    showBanner('Could not open the logbook: ' + e.message, 'error');
+  }
+}
+
 async function openLogbookDialog() {
   if (!app.user) return showBanner('Log in to NOMAD to open logbooks.', 'error');
   openDialog('Open logbook', el('p', {class: 'muted'}, 'Loading…'));
   try {
     const entries = await logbookEntries(app.spec.systems);
-    openDialog('Open logbook', pickList(entries, async (picked) => {
-      try {
-        const data = await fetchLogbook(picked.entry);
-        const form = await dashboard('api/form-from-archive', {data, mode: 'edit'});
-        localizeRun(form.run);
-        app.form = {recipe: null, ...form};
-        app.edit = {upload_id: picked.entry.upload_id, entry_id: picked.entry.entry_id, mainfile: picked.entry.mainfile};
-        app.draft = null;
-        app.upload = picked.entry.upload_id;
-        app.pendingFiles = {};
-        app.touched.clear();
-        app.shown.clear();
-        closeDialog();
-        changed();
-        go('run');
-        const awaiting = awaitingTechniques(app.form);
-        showBanner(`Opened ${picked.title}. Saving overwrites this logbook.`
-          + (awaiting.length ? ` Awaiting in-situ data: ${awaiting.join(', ')}.` : ''));
-      } catch (e) {
-        showBanner('Could not open the logbook: ' + e.message, 'error');
-      }
-    }));
+    openDialog('Open logbook', pickList(entries, openLogbook));
   } catch (e) {
     openDialog('Open logbook', el('p', {class: 'error'}, 'Could not load logbooks: ' + e.message));
   }
@@ -1564,7 +1643,7 @@ async function saveDraftToNomad() {
     logLine(`Draft saved as ${path}`, 'ok');
     saveDraft();
     showBanner(`Draft saved in the upload at ${new Date(draft.savedAt).toLocaleTimeString()}. Continue it on any `
-      + 'computer with "Continue draft". It only counts as logged once the logbook is saved.', 'success');
+      + 'computer from the start page. It only counts as logged once the logbook is saved.', 'success');
   } catch (e) {
     logLine('Saving the draft failed: ' + e.message, 'err');
     showBanner('Saving the draft failed: ' + e.message, 'error');
@@ -1586,6 +1665,8 @@ async function deleteNomadDraft() {
 }
 
 function openNomadDraft(uploadId, path, stored) {
+  const same = app.draft && app.draft.upload_id === uploadId && app.draft.path === path;
+  if (!same && !confirmReplace()) return;
   app.form = stored.form;
   app.edit = stored.edit || null;
   app.draft = {upload_id: uploadId, path, savedAt: stored.savedAt};
@@ -1600,46 +1681,37 @@ function openNomadDraft(uploadId, path, stored) {
     + (stored.savedBy ? ` by ${stored.savedBy}` : '') + '.');
 }
 
-async function continueDraftDialog() {
-  if (!app.user) return showBanner('Log in to NOMAD to continue a draft.', 'error');
-  openDialog('Continue draft', el('p', {class: 'muted'}, 'Looking for drafts in your unpublished uploads…'));
-  try {
-    await loadUploads();
-    const found = await Promise.all(app.uploads.map(async (upload) => {
-      let listing;
-      try {
-        listing = await api(`/uploads/${upload.upload_id}/rawdir/${DRAFT_DIR}?page_size=200`);
-      } catch (e) {
-        return [];
-      }
-      const files = ((listing.directory_metadata || {}).content || [])
-        .filter((f) => f.is_file && f.name.endsWith('.draft.json'));
-      return Promise.all(files.map(async (f) => {
-        const path = `${DRAFT_DIR}/${f.name}`;
-        const stored = await readNomadDraft(upload.upload_id, path).catch(() => null);
-        if (!stored || !stored.form) return null;
-        return {
-          title: f.name.replace(/\.draft\.json$/, ''),
-          sub: `${upload.upload_name || upload.upload_id} · saved ${new Date(stored.savedAt).toLocaleString()}`
-            + (stored.savedBy ? ` by ${stored.savedBy}` : ''),
-          uploadId: upload.upload_id, path, stored,
-        };
-      }));
+/* The drafts in the user's unpublished uploads, newest first. */
+async function findDrafts() {
+  await loadUploads();
+  const found = await Promise.all(app.uploads.map(async (upload) => {
+    let listing;
+    try {
+      listing = await api(`/uploads/${upload.upload_id}/rawdir/${DRAFT_DIR}?page_size=200`);
+    } catch (e) {
+      return [];
+    }
+    const files = ((listing.directory_metadata || {}).content || [])
+      .filter((f) => f.is_file && f.name.endsWith('.draft.json'));
+    return Promise.all(files.map(async (f) => {
+      const path = `${DRAFT_DIR}/${f.name}`;
+      const stored = await readNomadDraft(upload.upload_id, path).catch(() => null);
+      if (!stored || !stored.form) return null;
+      return {
+        title: f.name.replace(/\.draft\.json$/, ''),
+        sub: `${upload.upload_name || upload.upload_id} · saved ${new Date(stored.savedAt).toLocaleString()}`
+          + (stored.savedBy ? ` by ${stored.savedBy}` : ''),
+        uploadId: upload.upload_id, path, stored,
+      };
     }));
-    const entries = found.flat().filter(Boolean).sort((a, b) => b.stored.savedAt.localeCompare(a.stored.savedAt));
-    openDialog('Continue draft', [
-      el('p', {class: 'muted'}, 'Drafts are unfinished runs kept in your uploads. The current form is replaced.'),
-      ...pickList(entries, (picked) => openNomadDraft(picked.uploadId, picked.path, picked.stored)),
-    ]);
-  } catch (e) {
-    openDialog('Continue draft', el('p', {class: 'error'}, 'Could not look for drafts: ' + e.message));
-  }
+  }));
+  return found.flat().filter(Boolean).sort((a, b) => b.stored.savedAt.localeCompare(a.stored.savedAt));
 }
 
 /* ----------------------------------------------------------- lifecycle */
 
 function newLogbook(force) {
-  if (!force && !window.confirm('Start a new, empty logbook? The current form is cleared.')) return;
+  if (!force && !confirmReplace()) return;
   app.form = newForm();
   app.edit = null;
   app.draft = null;
@@ -1664,10 +1736,8 @@ function step(offset) {
 }
 
 async function init() {
-  document.getElementById('btn-new').addEventListener('click', () => newLogbook(false));
-  document.getElementById('btn-open').addEventListener('click', openLogbookDialog);
-  document.getElementById('btn-recipe').addEventListener('click', recipeDialog);
-  document.getElementById('btn-draft-open').addEventListener('click', continueDraftDialog);
+  document.getElementById('btn-home').addEventListener('click', () => go('home'));
+  document.getElementById('brand').addEventListener('click', () => go('home'));
   document.getElementById('btn-draft-save').addEventListener('click', saveDraftToNomad);
   document.getElementById('btn-prev').addEventListener('click', () => step(-1));
   document.getElementById('btn-next').addEventListener('click', () => step(1));
@@ -1682,21 +1752,25 @@ async function init() {
     document.getElementById('section').replaceChildren(el('div', {class: 'card'}, 'Could not load the form: ' + e.message));
     return;
   }
+  // The logbook last worked on in this browser is offered on the start page,
+  // or opened straight away when the page is reloaded inside the form.
   const draft = loadDraft();
+  const linked = window.location.hash.slice(1);
   if (draft) {
     app.form = draft.form;
     app.edit = draft.edit || null;
     app.draft = draft.draft || null;
     app.upload = draft.upload || '';
+    app.started = true;
     const dropped = dropPendingFiles(app.form, draft.pending);
-    showBanner(`The form from ${new Date(draft.savedAt).toLocaleString()} was restored from this browser.`
-      + (dropped ? ` Choose the ${dropped} in-situ file(s) again: files are only kept until the page is closed.` : ''),
-    '', {label: 'Discard', run: () => newLogbook(true)});
+    if (dropped) {
+      showBanner(`Choose the ${dropped} in-situ file(s) of the current logbook again: `
+        + 'files are only kept until the page is closed.');
+    }
+    if (navSections().some((s) => s.key === linked)) app.current = linked;
   } else {
     app.form = newForm();
   }
-  const linked = window.location.hash.slice(1);
-  if (navSections().some((s) => s.key === linked)) app.current = linked;
   app.errors = validate(app.form, app.spec);
   render();
   await loadUser();

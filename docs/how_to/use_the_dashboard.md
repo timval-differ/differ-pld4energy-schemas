@@ -23,6 +23,19 @@ Log in to NOMAD first. Then open **PLD logbook** from NOMAD's dashboards menu,
 or go to `<NOMAD URL>/dashboards/differ_pld4e_schemas-pld-logbook/`
 (locally: <http://localhost:8000/nomad-oasis/dashboards/differ_pld4e_schemas-pld-logbook/>).
 
+It opens on the **start page**:
+
+- **New logbook** starts an empty form.
+- **Continue current logbook** returns to the logbook you were working on in this
+  browser, whether saved or not.
+- **Drafts** lists the drafts in your unpublished uploads; click one to continue it.
+- **Recent logbooks** lists your latest logbooks; click one to open it.
+  **Find a logbook…** searches all logbooks you can see.
+
+Opening another logbook or draft asks first if it would replace a logbook you
+are working on. **Start page** in the top bar (or a click on *PLD logbook*)
+takes you back; the form stays as it is.
+
 ## Fill in a run
 
 Work through the sections on the left; **Next** takes you to the next one. The
@@ -98,7 +111,7 @@ save*). It needs the system, date and start time, and an upload.
 - The draft is stored in the upload as `pld_drafts/<run>.draft.json`, together
   with the in-situ files you picked. It is **not** an entry: it does not show up
   in searches and **does not count as logged**. Only the saved logbook does.
-- On another computer, **Continue draft** lists the drafts in your unpublished
+- On another computer, the start page lists the drafts in your unpublished
   uploads; pick one to carry on.
 - If someone saved the same draft elsewhere after you opened it, you are asked
   whether to overwrite it or to load their version.
@@ -106,19 +119,20 @@ save*). It needs the system, date and start time, and an upload.
 
 Independently of drafts, the form is kept in your browser while you work, so
 you can close the page and continue later on the same computer. Files you chose
-but did not save yet are not kept: choose them again. *New logbook* clears the
-form.
+but did not save yet are not kept: choose them again. *New logbook* on the
+start page clears the form.
 
 ## Add in-situ data later
 
 In-situ data often has to be collected from other computers after the run. Save
 the logbook without the files: the techniques show as *awaiting data* in the
-dashboard and in NOMAD. Later, **Open logbook**, add the files under *In-situ
+dashboard and in NOMAD. Later, open the logbook from the start page, add the files under *In-situ
 techniques* and save again.
 
 ## Repeat a run (recipe)
 
-Choose the PVD system, then **Load recipe** and pick an earlier logbook of the
+Choose the PVD system, then under *Process steps* click **Load steps from a
+recipe…** and pick an earlier logbook of the
 same system. Its process steps are added after your current steps; if you have
 not selected any targets yet, its targets are taken over too. Samples are not
 copied: the steps apply to the samples of this run (in the LA-PLD, choose the
@@ -126,7 +140,7 @@ sample of each deposition step).
 
 ## Change a saved logbook
 
-**Open logbook** loads a saved logbook into the form. Saving overwrites it and
+Opening a saved logbook from the start page loads it into the form. Saving overwrites it and
 updates the Sample entries it created; samples from other runs are never
 changed. A sample keeps its ID once its entry exists, even if you change the
 date or time of the run. The logbook must be in an upload you can edit (not

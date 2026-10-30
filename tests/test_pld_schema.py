@@ -9,9 +9,15 @@ from structlog.testing import CapturingLogger
 
 import differ_pld4e_schemas.schema_packages.schema_package  # noqa: F401
 from differ_pld4e_schemas.gas import BackgroundGas
-from differ_pld4e_schemas.in_situ import LAEDS, InSituTechniques, energy_axis
+from differ_pld4e_schemas.in_situ import (
+    LAEDS,
+    RHEED,
+    InSituTechniques,
+    energy_axis,
+)
 from differ_pld4e_schemas.laser import LaserCalibration, LaserParameters
 from differ_pld4e_schemas.pld_deposition import (
+    LAPLDAnnealingStep,
     LAPLDCoolDownStep,
     LAPLDDepositionStep,
     LAPLDHeatingStep,
@@ -19,6 +25,7 @@ from differ_pld4e_schemas.pld_deposition import (
     LAPLDPreAblationStep,
     LAPLDStep,
     RecipeLoader,
+    SAPLDAnnealingStep,
     SAPLDCoolDownStep,
     SAPLDDepositionStep,
     SAPLDHeatingStep,
@@ -27,7 +34,7 @@ from differ_pld4e_schemas.pld_deposition import (
     SAPLDStep,
     SelectedTarget,
 )
-from differ_pld4e_schemas.pld_substrate import NewSubstrate, PLDSubstrate
+from differ_pld4e_schemas.sample import Layer, Sample, SampleInRun, sample_name
 from differ_pld4e_schemas.sputter_deposition import SputterDepositionStep
 from differ_pld4e_schemas.target import PLDTarget
 
@@ -35,16 +42,21 @@ TARGET_NUMBER = 3
 UUID_LENGTH = 36
 NUMBER_OF_CHANNELS = 3
 
-ALL_PLD_STEPS = (
+SA_STEPS = (
     SAPLDPreAblationStep,
     SAPLDHeatingStep,
+    SAPLDAnnealingStep,
     SAPLDDepositionStep,
     SAPLDCoolDownStep,
+)
+LA_STEPS = (
     LAPLDPreAblationStep,
     LAPLDHeatingStep,
+    LAPLDAnnealingStep,
     LAPLDDepositionStep,
     LAPLDCoolDownStep,
 )
+ALL_PLD_STEPS = SA_STEPS + LA_STEPS
 
 
 def _normalize(data):
@@ -153,16 +165,46 @@ def test_every_step_has_gas_block(step):
     assert 'background_gases' in step.m_def.all_sub_sections
 
 
-def test_gas_block_has_valve_and_flow_readout():
-    quantities = BackgroundGas.m_def.all_quantities
-    for name in (
+def test_gas_block_has_flows_and_one_valve_per_step():
+    assert set(BackgroundGas.m_def.all_quantities) == {
         'gas',
         'flow_setpoint',
         'flow_readout',
-        'valve_position',
-        'valve_position_fixed',
-    ):
-        assert name in quantities
+    }
+    for step in ALL_PLD_STEPS:
+        quantities = step.m_def.all_quantities
+        for name in ('atmosphere', 'valve_position', 'valve_position_fixed'):
+            assert name in quantities, (step, name)
+
+
+def test_uhv_with_gases_is_reported():
+    step = SAPLDHeatingStep(
+        atmosphere='UHV', background_gases=[BackgroundGas(gas='O2')]
+    )
+    assert any('UHV' in message for _, message in _normalize_section(step))
+    assert not _normalize_section(SAPLDHeatingStep(atmosphere='UHV'))
+
+
+@pytest.mark.parametrize('step', (SAPLDHeatingStep, SAPLDAnnealingStep))
+def test_heater_output_is_recorded(step):
+    assert 'heater_output' in step.m_def.all_quantities
+
+
+def test_target_stage_has_z_scan_widths_and_speeds():
+    stage = SAPLDPreAblationStep.m_def.all_sub_sections['target_stage'].sub_section
+    quantities = set(stage.all_quantities)
+    assert 'scan_area' not in quantities
+    assert {
+        'start_z_position',
+        'scan_width_x',
+        'scan_width_y',
+        'scan_speed_x',
+        'scan_speed_y',
+    } <= quantities
+
+
+def test_mask_size_5x18():
+    assert '5x18' in LaserParameters.m_def.all_quantities['mask_size'].type._list
 
 
 def test_spot_size_follows_mask_size():
@@ -219,29 +261,27 @@ def test_sputter_step_is_not_offered_for_pld(logbook):
 def test_sa_and_la_steps_are_offered_separately():
     sa_steps = set(SAPLDStep.m_def.all_inheriting_sections)
     la_steps = set(LAPLDStep.m_def.all_inheriting_sections)
-    assert sa_steps == {step.m_def for step in ALL_PLD_STEPS[:4]}
-    assert la_steps == {step.m_def for step in ALL_PLD_STEPS[4:]}
+    assert sa_steps == {step.m_def for step in SA_STEPS}
+    assert la_steps == {step.m_def for step in LA_STEPS}
 
 
 # A3: load recipe
 
 
-def test_recipe_is_copied_onto_chosen_substrate():
+def test_recipe_is_copied_onto_chosen_sample():
     target = PLDTarget(material='Fe2O3')
-    old_substrate = PLDSubstrate(name='old')
-    new_substrate = PLDSubstrate(name='new')
+    old_sample = Sample(sample_id='old')
+    new_sample = Sample(sample_id='new')
     recipe = SAPLDLogbook(
         name='Fe2O3 on STO',
         targets=[SelectedTarget(target_number=1, target=target)],
         steps=[
             SAPLDHeatingStep(temperature_setpoint=973),
-            SAPLDDepositionStep(substrate=old_substrate, target=target),
+            SAPLDDepositionStep(samples=[old_sample], target=target),
         ],
     )
     logbook = SAPLDLogbook(
-        load_recipe=RecipeLoader(
-            recipe=recipe, substrate=new_substrate, apply_recipe=True
-        )
+        load_recipe=RecipeLoader(recipe=recipe, sample=new_sample, apply_recipe=True)
     )
     _normalize(logbook)
 
@@ -249,8 +289,8 @@ def test_recipe_is_copied_onto_chosen_substrate():
         SAPLDHeatingStep,
         SAPLDDepositionStep,
     ]
-    assert logbook.steps[1].substrate is new_substrate
-    assert recipe.steps[1].substrate is old_substrate
+    assert logbook.steps[1].samples == [new_sample]
+    assert recipe.steps[1].samples == [old_sample]
     assert logbook.steps[1].target_number == 1
     assert logbook.load_recipe.apply_recipe is False
     assert logbook.load_recipe.applied_recipe == 'Fe2O3 on STO'
@@ -267,18 +307,86 @@ def test_recipe_from_other_system_is_rejected():
     assert any(level == 'error' for level, _ in records)
 
 
-# Substrates
-
-
-def test_new_substrate_gets_user_id_and_uuid():
-    logbook = LAPLDLogbook(
-        datetime='2026-10-22T09:00:00+00:00',
-        substrates=[NewSubstrate(run_number='12', sample_number='3')],
+def test_recipe_without_sample_uses_all_samples_of_the_run():
+    first, second = Sample(sample_id='a'), Sample(sample_id='b')
+    recipe = SAPLDLogbook(steps=[SAPLDDepositionStep()])
+    logbook = SAPLDLogbook(
+        samples=[SampleInRun(sample=first), SampleInRun(sample=second)],
+        load_recipe=RecipeLoader(recipe=recipe, apply_recipe=True),
     )
     _normalize(logbook)
-    substrate = logbook.substrates[0]
-    assert substrate.sample_user_id == 'LA-PLD_2026-10-22_12_3'
-    assert len(substrate.sample_uuid) == UUID_LENGTH
+    assert logbook.steps[0].samples == [first, second]
+
+
+# Samples
+
+
+def test_new_samples_get_id_name_and_uuid():
+    logbook = LAPLDLogbook(
+        datetime='2026-10-22T09:15:00+00:00',
+        samples=[
+            SampleInRun(
+                origin='New sample',
+                substrate='SrTiO3 10x10 mm',
+                layers=[Layer(material='YSZ', thickness=2e-8)],
+            ),
+            SampleInRun(origin='Existing sample', sample=Sample(sample_id='old')),
+            SampleInRun(origin='External sample', substrate='FTO'),
+        ],
+    )
+    _normalize(logbook)
+    new, existing, external = logbook.samples
+    assert new.sample_id == 'LA-PLD_2026-10-22_09:15_S01'
+    assert new.name == 'SrTiO3_YSZ-20nm'
+    assert len(new.sample_uuid) == UUID_LENGTH
+    assert existing.sample_id == 'old'
+    assert external.sample_id == 'LA-PLD_2026-10-22_09:15_S02'
+
+
+def test_given_sample_id_is_kept():
+    logbook = SAPLDLogbook(
+        datetime='2026-10-22T09:15:00+00:00',
+        samples=[SampleInRun(origin='New sample', sample_id='SA-PLD_x_S01')],
+    )
+    _normalize(logbook)
+    assert logbook.samples[0].sample_id == 'SA-PLD_x_S01'
+
+
+def test_existing_sample_must_be_selected():
+    logbook = SAPLDLogbook(samples=[SampleInRun(origin='Existing sample')])
+    _, records = _normalize(logbook)
+    assert any('existing sample' in message for _, message in records)
+
+
+def test_sample_entry():
+    sample = Sample(
+        sample_id='SA-PLD_2026-10-22_09:15_S01',
+        substrate='Si 1" with flat',
+        layers=[Layer(material='SrTiO3', thickness=2e-8), Layer(material='YSZ')],
+    )
+    archive, _ = _normalize(sample)
+    assert sample.name == 'Si_SrTiO3-20nm_YSZ'
+    assert sample.lab_id == sample.sample_id
+    assert sample.substrate_material == 'Si'
+    assert sample.substrate_size == '1" with flat'
+    assert archive.metadata.entry_name == sample.sample_id
+    assert len(sample.sample_uuid) == UUID_LENGTH
+
+
+def test_sample_name():
+    assert sample_name('FTO', []) == 'FTO'
+    assert sample_name('Other', [('YSZ', 2.5)], 'MgO') == 'MgO_YSZ-2.5nm'
+    assert sample_name(None, [('YSZ', 2.5)]) is None
+
+
+def test_sa_deposition_records_samples_and_stage_scan():
+    step = SAPLDDepositionStep(substrate_stage_scan=True)
+    _normalize_section(step)
+    assert step.substrate_scan is not None
+    assert {'scan_width_x', 'scan_speed_y'} <= set(
+        step.substrate_scan.m_def.all_quantities
+    )
+    assert 'samples' in step.m_def.all_quantities
 
 
 # C2 and C3: LA-PLD
@@ -328,6 +436,16 @@ def test_heater_stage_position_subsection(step):
 # A6 and section 5: in-situ techniques
 
 
+def test_in_situ_technique_awaits_data_until_a_file_is_added():
+    rheed = RHEED()
+    records = _normalize_section(rheed)
+    assert rheed.data_status == 'awaiting data'
+    assert any('no data file' in message for _, message in records)
+    rheed.pattern_export_file = 'pld_files/run/pattern.png'
+    assert not _normalize_section(rheed)
+    assert rheed.data_status == 'complete'
+
+
 def test_in_situ_techniques_are_top_level():
     assert 'in_situ_techniques' in SAPLDLogbook.m_def.all_sub_sections
     assert 'in_situ_techniques' not in SAPLDDepositionStep.m_def.all_sub_sections
@@ -370,7 +488,10 @@ def test_example_logbooks(file_name, system):
     )
     deposition = next(s for s in logbook.steps if 'Deposition' in s.m_def.name)
     assert deposition.laser.spot_size is not None
-    assert deposition.background_gases[0].valve_position_fixed is True
+    assert deposition.valve_position_fixed is True
+    assert logbook.samples[0].sample_id == f'{system}_2026-10-22_09:00_S01'
+    heating = next(s for s in logbook.steps if 'Heating' in s.m_def.name)
+    assert heating.heater_output == pytest.approx(35)
 
 
 # GUI-created entries store m_def as '<package name>.<section name>'
@@ -414,10 +535,23 @@ def test_copied_same_upload_reference_becomes_absolute():
     assert _absolute_reference(unsaved) is unsaved
 
 
-def test_incomplete_substrates_are_not_reported_as_duplicates():
-    logbook = SAPLDLogbook(substrates=[NewSubstrate(), NewSubstrate()])
+def test_incomplete_samples_are_not_reported_as_duplicates():
+    logbook = SAPLDLogbook(samples=[SampleInRun(), SampleInRun()])
     _, records = _normalize(logbook)
-    assert not any('defined twice' in message for _, message in records)
+    assert not any('listed twice' in message for _, message in records)
+
+
+def test_duplicate_sample_is_reported():
+    logbook = SAPLDLogbook(
+        samples=[SampleInRun(sample_id='x'), SampleInRun(sample_id='x')]
+    )
+    _, records = _normalize(logbook)
+    assert any('listed twice' in message for _, message in records)
+
+
+def test_operator_is_recorded():
+    logbook = SAPLDLogbook(operator_name='Ada', operator_email='ada@example.org')
+    assert logbook.m_to_dict()['operator_email'] == 'ada@example.org'
 
 
 def test_pvd_system_is_stored_on_save():

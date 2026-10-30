@@ -76,3 +76,12 @@ class Process(ArchiveSection):
         type=Datetime,
         a_eln=ELNAnnotation(component=ELNComponentEnum.DateTimeEditQuantity),
     )
+    operator_name = Quantity(
+        type=str,
+        description='The person who carried out the process.',
+        a_eln=ELNAnnotation(component=ELNComponentEnum.StringEditQuantity),
+    )
+    operator_email = Quantity(
+        type=str,
+        a_eln=ELNAnnotation(component=ELNComponentEnum.StringEditQuantity),
+    )

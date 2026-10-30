@@ -6,13 +6,21 @@ from differ_pld4e_schemas import m_package
 
 __all__ = ['BackgroundGas', 'm_package']
 
+GASES = ('Ar', 'O2', 'N2')
+UHV = 'UHV'
+BACKGROUND_GAS = 'Background gas'
+ATMOSPHERES = (BACKGROUND_GAS, UHV)
+
 
 class BackgroundGas(ArchiveSection):
-    """One background gas fed into the chamber during a process step."""
+    """
+    One background gas fed into the chamber during a process step. All gases of
+    a step share one valve, so its position is recorded on the step.
+    """
 
     m_def = Section(label_quantity='gas')
     gas = Quantity(
-        type=MEnum('Ar', 'O2', 'N2'),
+        type=MEnum(*GASES),
         a_eln=ELNAnnotation(component=ELNComponentEnum.EnumEditQuantity),
     )
     flow_setpoint = Quantity(
@@ -31,17 +39,4 @@ class BackgroundGas(ArchiveSection):
             component=ELNComponentEnum.NumberEditQuantity,
             label='Read-out flow (sccm)',
         ),
-    )
-    valve_position = Quantity(
-        type=float,
-        description='Position of the gas valve as shown on the controller (%).',
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.NumberEditQuantity,
-            label='Valve position (%)',
-        ),
-    )
-    valve_position_fixed = Quantity(
-        type=bool,
-        description='Whether the valve position was kept fixed during the step.',
-        a_eln=ELNAnnotation(component=ELNComponentEnum.BoolEditQuantity),
     )

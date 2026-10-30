@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
@@ -12,18 +11,15 @@ from nomad.metainfo.metainfo import MetainfoReferenceError
 
 from differ_pld4e_schemas import m_package
 from differ_pld4e_schemas.base_sections import Process, ProcessStep
-from differ_pld4e_schemas.gas import BackgroundGas
+from differ_pld4e_schemas.gas import ATMOSPHERES, BACKGROUND_GAS, UHV, BackgroundGas
 from differ_pld4e_schemas.in_situ import InSituTechniques
 from differ_pld4e_schemas.laser import LaserCalibration, LaserParameters
-from differ_pld4e_schemas.pld_substrate import (
-    NewSubstrate,
-    PLDSubstrate,
-    sample_user_id,
-)
+from differ_pld4e_schemas.sample import Sample, SampleRun
 from differ_pld4e_schemas.stages import (
     CartesianHeaterScan,
     HeaterStagePosition,
     PolarHeaterScan,
+    SubstrateStageScan,
     TargetStage,
 )
 from differ_pld4e_schemas.target import PLDTarget
@@ -43,6 +39,15 @@ __all__ = [
 
 POLAR_SCAN = 'Polar scan'
 CARTESIAN_SCAN = 'Cartesian scan'
+CARRIERS = {
+    'SA-PLD': ('Omicron carrier', '1" carrier'),
+    'LA-PLD': (
+        'Omicron carrier',
+        '1" carrier',
+        '4" wafer carrier',
+        'Sample select carrier',
+    ),
+}
 
 
 def _temperature(**kwargs):
@@ -62,6 +67,16 @@ def _ramp_rate():
         unit='K / minute',
         description='Ramp rate; 1 K/min equals 1 °C/min.',
         a_eln=ELNAnnotation(component=ELNComponentEnum.NumberEditQuantity),
+    )
+
+
+def _heater_output():
+    return Quantity(
+        type=float,
+        description='Heater output (%) once the temperature setpoint is reached.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.NumberEditQuantity, label='Heater output (%)'
+        ),
     )
 
 
@@ -139,10 +154,10 @@ class SelectedTarget(ArchiveSection):
 
 class RecipeLoader(ArchiveSection):
     """
-    Reproduce the process steps of an earlier run on a substrate of this run.
-    Select the recipe and the substrate, tick `apply_recipe` and save: the steps
-    of the recipe are appended to the steps of this logbook and its deposition
-    steps are linked to the chosen substrate. Laser details, substrates and
+    Reproduce the process steps of an earlier run on the samples of this run.
+    Select the recipe (and optionally one sample), tick `apply_recipe` and save:
+    the steps of the recipe are appended to the steps of this logbook and its
+    deposition steps are linked to the samples. Laser details, samples and
     in-situ data of the recipe are not copied.
     """
 
@@ -155,11 +170,11 @@ class RecipeLoader(ArchiveSection):
         """,
         a_eln=ELNAnnotation(component=ELNComponentEnum.ReferenceEditQuantity),
     )
-    substrate = Quantity(
-        type=Reference(PLDSubstrate.m_def),
+    sample = Quantity(
+        type=Reference(Sample.m_def),
         description="""
-        Substrate the copied deposition steps are linked to. If empty, the first
-        substrate created in this logbook is used.
+        Sample the copied deposition steps are linked to. If empty, all samples
+        of this logbook are used.
         """,
         a_eln=ELNAnnotation(component=ELNComponentEnum.ReferenceEditQuantity),
     )
@@ -190,7 +205,34 @@ class PLDProcessStep(ProcessStep):
             component=ELNComponentEnum.NumberEditQuantity, defaultDisplayUnit='mbar'
         ),
     )
+    atmosphere = Quantity(
+        type=MEnum(*ATMOSPHERES),
+        default=BACKGROUND_GAS,
+        description='UHV: no background gas, only the chamber pressure is recorded.',
+        a_eln=ELNAnnotation(component=ELNComponentEnum.RadioEnumEditQuantity),
+    )
     background_gases = SubSection(section_def=BackgroundGas, repeats=True)
+    valve_position = Quantity(
+        type=float,
+        description='Position of the gas valve (shared by all gases), in %.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.NumberEditQuantity,
+            label='Valve position (%)',
+        ),
+    )
+    valve_position_fixed = Quantity(
+        type=bool,
+        description='Whether the valve position was kept fixed during the step.',
+        a_eln=ELNAnnotation(component=ELNComponentEnum.BoolEditQuantity),
+    )
+
+    def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
+        super().normalize(archive, logger)
+        if self.atmosphere == UHV and self.background_gases:
+            logger.warning(
+                f'Step "{self.name or self.m_def.label}" is in UHV but lists '
+                'background gases.'
+            )
 
 
 class TargetedStep(PLDProcessStep):
@@ -219,6 +261,23 @@ class HeatingStep(PLDProcessStep):
     m_def = Section(label='Heating step')
     ramp_rate = _ramp_rate()
     temperature_setpoint = _temperature()
+    heater_output = _heater_output()
+
+
+class AnnealingStep(PLDProcessStep):
+    """Keeping the samples at a temperature, e.g. in a run without deposition."""
+
+    m_def = Section(label='Annealing step')
+    temperature_setpoint = _temperature()
+    heater_output = _heater_output()
+    dwell_time = Quantity(
+        type=float,
+        unit='s',
+        description='Time at the temperature setpoint.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.NumberEditQuantity, defaultDisplayUnit='minute'
+        ),
+    )
 
 
 class CoolDownStep(PLDProcessStep):
@@ -229,8 +288,10 @@ class CoolDownStep(PLDProcessStep):
 
 class PLDDepositionStep(TargetedStep):
     m_def = Section(label='Pulsed laser deposition step')
-    substrate = Quantity(
-        type=Reference(PLDSubstrate.m_def),
+    samples = Quantity(
+        type=Reference(Sample.m_def),
+        shape=['*'],
+        description='The samples deposited on.',
         a_eln=ELNAnnotation(component=ELNComponentEnum.ReferenceEditQuantity),
     )
     heater_stage_position = SubSection(section_def=HeaterStagePosition)
@@ -254,20 +315,26 @@ class SAPLDHeatingStep(HeatingStep, SAPLDStep):
     m_def = Section(label='Heating step')
 
 
+class SAPLDAnnealingStep(AnnealingStep, SAPLDStep):
+    m_def = Section(label='Annealing step')
+
+
 class SAPLDDepositionStep(PLDDepositionStep, SAPLDStep):
+    """Deposits on all samples loaded in the chamber."""
+
     m_def = Section(label='Pulsed laser deposition step')
     substrate_stage_scan = Quantity(
         type=bool,
         default=False,
         a_eln=ELNAnnotation(component=ELNComponentEnum.BoolEditQuantity),
     )
-    cartesian_scan = SubSection(section_def=CartesianHeaterScan)
+    substrate_scan = SubSection(section_def=SubstrateStageScan)
 
     def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
         super().normalize(archive, logger)
-        if self.substrate_stage_scan and self.cartesian_scan is None:
-            self.cartesian_scan = CartesianHeaterScan()
-        elif not self.substrate_stage_scan and self.cartesian_scan is not None:
+        if self.substrate_stage_scan and self.substrate_scan is None:
+            self.substrate_scan = SubstrateStageScan()
+        elif not self.substrate_stage_scan and self.substrate_scan is not None:
             logger.warning('Scan parameters are given but substrate stage scan is off.')
 
 
@@ -287,6 +354,10 @@ class LAPLDPreAblationStep(PreAblationStep, LAPLDStep):
 
 class LAPLDHeatingStep(HeatingStep, LAPLDStep):
     m_def = Section(label='Heating step')
+
+
+class LAPLDAnnealingStep(AnnealingStep, LAPLDStep):
+    m_def = Section(label='Annealing step')
 
 
 class LAPLDDepositionStep(PLDDepositionStep, LAPLDStep):
@@ -324,8 +395,11 @@ class LAPLDCoolDownStep(CoolDownStep, LAPLDStep):
     m_def = Section(label='Cool-down step')
 
 
-class PLDLogbook(Process, EntryData):
-    """Electronic lab notebook of one PLD run. Use SA-PLD or LA-PLD logbook."""
+class PLDLogbook(Process, SampleRun, EntryData):
+    """
+    Electronic lab notebook of one PLD run. Use SA-PLD or LA-PLD logbook. A run
+    starts with the samples it makes or processes (`samples`).
+    """
 
     m_def = Section()
     pvd_system = Quantity(
@@ -342,7 +416,6 @@ class PLDLogbook(Process, EntryData):
     )
     laser_details = SubSection(section_def=LaserCalibration)
     targets = SubSection(section_def=SelectedTarget, repeats=True)
-    substrates = SubSection(section_def=NewSubstrate, repeats=True)
     load_recipe = SubSection(section_def=RecipeLoader)
     in_situ_techniques = SubSection(section_def=InSituTechniques)
 
@@ -356,7 +429,7 @@ class PLDLogbook(Process, EntryData):
         if self.laser_details is None:
             self.laser_details = LaserCalibration()
         self._normalize_targets(logger)
-        self._normalize_substrates(archive, logger)
+        self._normalize_samples(archive, logger, self.pvd_system, self.datetime)
         self._apply_recipe(logger)
         self._normalize_step_targets(logger)
         super().normalize(archive, logger)
@@ -380,36 +453,6 @@ class PLDLogbook(Process, EntryData):
                     )
                 seen_numbers.add(selected.target_number)
 
-    def _normalize_substrates(self, archive: EntryArchive, logger: BoundLogger):
-        seen = set()
-        for new in self.substrates or []:
-            new.sample_user_id = (
-                sample_user_id(
-                    self.pvd_system, self.datetime, new.run_number, new.sample_number
-                )
-                or new.sample_user_id
-            )
-            if not new.sample_uuid:
-                new.sample_uuid = str(uuid.uuid4())
-            if new.sample_user_id is not None:
-                if new.sample_user_id in seen:
-                    logger.warning(f'Substrate {new.sample_user_id} is defined twice.')
-                seen.add(new.sample_user_id)
-            if new.substrate is None and new.sample_user_id:
-                new.substrate = self._create_substrate_entry(new, archive)
-
-    def _create_substrate_entry(self, new: NewSubstrate, archive: EntryArchive):
-        if archive is None or archive.m_context is None or archive.metadata is None:
-            return None
-        if not archive.metadata.upload_id:
-            return None
-        from nomad_material_processing.utils import create_archive
-
-        file_name = re.sub(r'[^\w.-]', '_', new.sample_user_id) + '.archive.json'
-        return create_archive(
-            new.to_substrate(self.pvd_system, self.datetime), archive, file_name
-        )
-
     def _apply_recipe(self, logger: BoundLogger) -> None:
         loader = self.load_recipe
         if loader is None or not loader.apply_recipe:
@@ -426,12 +469,10 @@ class PLDLogbook(Process, EntryData):
                 f'The recipe is from {recipe.m_def.name}, not from {self.m_def.name}.'
             )
             return
-        substrate = loader.substrate
-        if substrate is None:
-            substrate = next(
-                (new.substrate for new in self.substrates or [] if new.substrate),
-                None,
-            )
+        if loader.sample is not None:
+            samples = [loader.sample]
+        else:
+            samples = [item.sample for item in self.samples or [] if item.sample]
         sub_sections = self.m_def.all_sub_sections
         if not self.targets:
             for selected in recipe.targets or []:
@@ -439,7 +480,7 @@ class PLDLogbook(Process, EntryData):
         for step in recipe.steps or []:
             copied = _copy(step)
             if isinstance(copied, PLDDepositionStep):
-                copied.substrate = substrate
+                copied.samples = samples or None
             self.m_add_sub_section(sub_sections['steps'], copied)
         loader.applied_recipe = recipe.name or recipe.lab_id or 'unnamed recipe'
 
@@ -473,7 +514,7 @@ class SAPLDLogbook(PLDLogbook):
         description='Read-only: fixed by the logbook type.',
     )
     substrate_carrier = Quantity(
-        type=MEnum('Omicron carrier', '1" carrier'),
+        type=MEnum(*CARRIERS['SA-PLD']),
         a_eln=ELNAnnotation(component=ELNComponentEnum.EnumEditQuantity),
     )
     steps = SubSection(section_def=SAPLDStep, repeats=True)
@@ -489,9 +530,7 @@ class LAPLDLogbook(PLDLogbook):
         description='Read-only: fixed by the logbook type.',
     )
     substrate_carrier = Quantity(
-        type=MEnum(
-            'Omicron carrier', '1" carrier', '4" wafer carrier', 'Sample select carrier'
-        ),
+        type=MEnum(*CARRIERS['LA-PLD']),
         a_eln=ELNAnnotation(component=ELNComponentEnum.EnumEditQuantity),
     )
     particle_reduction_plate = Quantity(

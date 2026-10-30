@@ -6,11 +6,11 @@ import numpy as np
 from nomad.datamodel.data import ArchiveSection, EntryData
 from nomad.datamodel.metainfo.annotations import ELNAnnotation, ELNComponentEnum
 from nomad.datamodel.metainfo.plot import PlotlyFigure, PlotSection
-from nomad.metainfo import Quantity, Reference, Section, SubSection
+from nomad.metainfo import MEnum, Quantity, Reference, Section, SubSection
 
 from differ_pld4e_schemas import m_package
 from differ_pld4e_schemas.base_sections import Process
-from differ_pld4e_schemas.pld_substrate import PLDSubstrate
+from differ_pld4e_schemas.sample import Sample
 
 if TYPE_CHECKING:
     from nomad.datamodel.datamodel import EntryArchive
@@ -29,6 +29,9 @@ __all__ = [
     'm_package',
 ]
 
+AWAITING_DATA = 'awaiting data'
+DATA_COMPLETE = 'complete'
+
 
 def _file(description):
     return Quantity(
@@ -45,13 +48,37 @@ def energy_axis(number_of_channels, energy_offset, energy_per_channel):
 
 
 class InSituTechnique(ArchiveSection):
-    """Base for one in-situ diagnostic."""
+    """
+    Base for one in-situ diagnostic. Data files are often collected from other
+    computers after the run, so a technique may be saved without them; it then
+    shows as awaiting data until a file is added.
+    """
 
     m_def = Section()
     comments = Quantity(
         type=str,
         a_eln=ELNAnnotation(component=ELNComponentEnum.RichTextEditQuantity),
     )
+    data_status = Quantity(
+        type=MEnum(AWAITING_DATA, DATA_COMPLETE),
+        description='Read-only: whether a data file has been added.',
+    )
+
+    def file_quantities(self) -> list:
+        # Every data file quantity is named `file` or `..._file`.
+        return [
+            quantity
+            for name, quantity in self.m_def.all_quantities.items()
+            if name == 'file' or name.endswith('_file')
+        ]
+
+    def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
+        super().normalize(archive, logger)
+        if any(self.m_get(quantity) for quantity in self.file_quantities()):
+            self.data_status = DATA_COMPLETE
+        else:
+            self.data_status = AWAITING_DATA
+            logger.warning(f'{self.m_def.label}: no data file has been added yet.')
 
 
 class RHEED(InSituTechnique):
@@ -162,7 +189,7 @@ class InSituTechniques(ArchiveSection):
 
     m_def = Section()
     sample = Quantity(
-        type=Reference(PLDSubstrate.m_def),
+        type=Reference(Sample.m_def),
         description='Optional: the sample that was measured.',
         a_eln=ELNAnnotation(component=ELNComponentEnum.ReferenceEditQuantity),
     )

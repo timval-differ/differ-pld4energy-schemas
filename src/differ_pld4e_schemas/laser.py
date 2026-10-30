@@ -20,6 +20,9 @@ __all__ = [
 ]
 
 DEFAULT_TRANSMISSION_WINDOW_2 = 92.0
+LASER_MODES = ('HV NGR', 'HV PGR', 'EGY PGR', 'EGY NGR')
+MAGNIFICATIONS = ('5X', '10X')
+MASK_SIZES = ('3x12', '4x12', '3x15', '4x15', '5x18', '4x2 (5 slits)')
 
 LASER_CALIBRATION_INSTRUCTIONS = (
     'Set the attenuator position 100% open, laser frequency 1 Hz, HV NGR mode with '
@@ -117,7 +120,7 @@ class LaserParameters(ArchiveSection):
 
     m_def = Section()
     laser_mode = Quantity(
-        type=MEnum('HV NGR', 'HV PGR', 'EGY PGR', 'EGY NGR'),
+        type=MEnum(*LASER_MODES),
         a_eln=ELNAnnotation(component=ELNComponentEnum.EnumEditQuantity),
     )
     laser_voltage = Quantity(
@@ -128,11 +131,11 @@ class LaserParameters(ArchiveSection):
         ),
     )
     magnification = Quantity(
-        type=MEnum('5X', '10X'),
+        type=MEnum(*MAGNIFICATIONS),
         a_eln=ELNAnnotation(component=ELNComponentEnum.EnumEditQuantity),
     )
     mask_size = Quantity(
-        type=MEnum('3x12', '4x12', '3x15', '4x15', '4x2 (5 slits)'),
+        type=MEnum(*MASK_SIZES),
         a_eln=ELNAnnotation(component=ELNComponentEnum.EnumEditQuantity),
     )
     spot_size = Quantity(

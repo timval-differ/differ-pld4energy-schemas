@@ -8,6 +8,7 @@ __all__ = [
     'CartesianHeaterScan',
     'HeaterStagePosition',
     'PolarHeaterScan',
+    'SubstrateStageScan',
     'TargetStage',
     'm_package',
 ]
@@ -19,6 +20,17 @@ def _length(**kwargs):
         unit='m',
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.NumberEditQuantity, defaultDisplayUnit='mm'
+        ),
+        **kwargs,
+    )
+
+
+def _speed(**kwargs):
+    return Quantity(
+        type=float,
+        unit='m / s',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.NumberEditQuantity, defaultDisplayUnit='mm/s'
         ),
         **kwargs,
     )
@@ -52,22 +64,30 @@ class TargetStage(ArchiveSection):
     x_offset = _length()
     start_y_position = _length()
     y_offset = _length()
-    scan_area = _length(description='Scan area of the target stage in mm.')
+    start_z_position = _length()
+    scan_width_x = _length(description='Width of the target scan in x.')
+    scan_width_y = _length(description='Width of the target scan in y.')
+    scan_speed_x = _speed()
+    scan_speed_y = _speed()
+
+
+class SubstrateStageScan(ArchiveSection):
+    """Scan of the substrate stage (SA-PLD)."""
+
+    m_def = Section()
+    scan_width_x = _length()
+    scan_width_y = _length()
+    scan_speed_x = _speed()
+    scan_speed_y = _speed()
 
 
 class CartesianHeaterScan(ArchiveSection):
-    """Cartesian scan of the heater (substrate) stage."""
+    """Cartesian scan of the heater (substrate) stage (LA-PLD)."""
 
     m_def = Section()
     x_offset = _length()
     y_offset = _length()
-    scan_rate = Quantity(
-        type=float,
-        unit='m / s',
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.NumberEditQuantity, defaultDisplayUnit='mm/s'
-        ),
-    )
+    scan_rate = _speed()
     rotation_rate = Quantity(
         type=float,
         unit='rpm',

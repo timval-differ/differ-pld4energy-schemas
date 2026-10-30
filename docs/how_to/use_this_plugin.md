@@ -5,7 +5,7 @@ the [tutorial](../tutorial/tutorial.md). For every field and unit, see the
 [reference](../reference/references.md).
 
 !!! note "Save to update"
-    Calculated and copied values (sample IDs, 1st window transmission, target
+    Calculated and copied values (sample IDs and names, 1st window transmission, target
     numbers, copied recipe steps, ...) are updated when the entry is **saved**,
     and the checks run at the same time. Messages appear after saving.
 
@@ -28,10 +28,18 @@ Create an **SA-PLD Logbook** or **LA-PLD Logbook**. Pick the logbook of the
 system you ran on: it decides which carriers, step types and scan options are
 offered, and the **PVD system** field is set by it.
 
-Fill in name, date (defaults to the first save), base pressure (mbar) and
-substrate carrier. For LA-PLD, also set **particle reduction plate**.
+Fill in the operator name and email, the start of the run (**datetime**,
+defaults to the first save) and optionally a name. Then list the
+[samples](#list-the-samples-of-a-run), and fill in the system details: base
+pressure of the main chamber (mbar) and substrate carrier. For LA-PLD, also set
+**particle reduction plate**.
 
 ## Record the laser calibration
+
+The laser details and the targets are only needed for runs with a step that
+uses the laser (pre-ablation or deposition). The
+[dashboard](use_the_dashboard.md) does not ask for them, and does not save them,
+for a run with only annealing or characterisation.
 
 Open **laser details** and enter the energy before and after the chamber (mJ).
 Transmission of the 2nd window is pre-filled with 92 %.
@@ -56,50 +64,73 @@ date are copied in on save so you can check your choice.
 Checks: selecting the same target twice is an **error**; using a target number
 twice is a **warning**.
 
-## Create substrates
+## List the samples of a run
 
-Add one **substrates** entry per substrate, with sample name, run number, sample
-number, size, material and comments, and save. Then:
+A substrate is the template a film is grown on; a sample is the substrate with
+its films. Add one **samples** entry per sample the run makes or processes:
 
-- **sample user ID** becomes `<system>_<date>_<run>_<sample number>` (date as
-  `YYYY-MM-DD`, from the logbook date). It is only filled in once system, date,
-  run number and sample number are all known.
+| Origin | When | Fill in |
+| --- | --- | --- |
+| New sample | most runs | substrate (from the list), films |
+| External sample | prepared elsewhere, no sample ID yet | substrate, or `Other` and substrate details; films; what you know in comments |
+| Existing sample | made earlier in a PLD4Energy system, e.g. for an extra deposition, annealing or characterisation | the Sample entry in **sample**; films grown in this run |
+
+Each film is a **layers** entry with its material (as named in the target
+database) and thickness (nm). On save, for new and external samples:
+
+- **sample ID** becomes `<system>_<yyyy-mm-dd>_<hh:mm>_S<nn>`, from the logbook's
+  start; the new and external samples of the run are numbered S01, S02, ... in
+  order. A sample ID that is already filled in is kept.
+- **name** becomes `Substrate_Film-<t>nm_Film-<t>nm`, e.g.
+  `SrTiO3_YSZ-20nm_SrRuO3-50nm`, unless you entered one. The name describes the
+  sample; the ID identifies it.
 - **sample UUID** is generated once and never changes.
-- a **PLD Substrate** entry is created in the same upload (file
-  `<sample user ID>.archive.json`) and linked in **substrate**.
+- a **Sample** entry is created in the same upload (file
+  `<sample ID>.archive.json`) and linked in **sample**.
 
-Two substrates with the same sample user ID give a warning.
+For an existing sample, its ID and name are copied from its entry; the entry
+itself is not changed. Two samples with the same ID give a warning.
 
-!!! warning "The substrate entry is created once"
-    After the PLD Substrate entry exists, changes to the substrate in the logbook
-    are **not** copied to it. Correct the PLD Substrate entry itself. Clearing
-    the **substrate** field and saving links the existing entry again (found by
-    its file name) without changing it. To have it created anew from the
-    logbook, delete the PLD Substrate entry first, then clear the field and save.
-
-To use a substrate that already exists, e.g. from an earlier run, skip
-**substrates** and pick the PLD Substrate directly in the deposition step (or
-in **load recipe**).
+!!! warning "The sample entry is created once"
+    After the Sample entry exists, changes to the sample in the logbook are
+    **not** copied to it by the entry editor. Correct the Sample entry itself.
+    (The [dashboard](use_the_dashboard.md) does update the Sample entries it
+    created when you save the logbook again.)
 
 ## Add process steps
 
 Add steps under **steps** in the order they were done. Only the steps of the
-logbook's own system are offered: pre-ablation, heating, pulsed laser
+logbook's own system are offered: pre-ablation, heating, annealing, pulsed laser
 deposition and cool-down. There is deliberately no sputter step in the PLD
 logbooks. Add a step type as often as you need; for a multilayer just add
-another deposition step.
+another deposition step. A run without deposition is fine.
 
 ### Background gases (every step)
 
-Add one **background gases** entry per gas that was on:
+Set **atmosphere** to `UHV` when no gas was let in: then only the step's
+**pressure** is recorded. Otherwise leave it at `Background gas` and add one
+**background gases** entry per gas that was on:
 
 | Field | Meaning |
 | --- | --- |
 | gas | `Ar`, `O2` or `N2` |
 | set flow | flow set on the controller (sccm) |
 | read-out flow | flow measured / read out (sccm) |
+
+All gases share one valve, so the valve is recorded once per step:
+
+| Field | Meaning |
+| --- | --- |
 | valve position | valve position on the controller (%) |
 | valve position fixed | ticked if the valve was kept at a fixed position |
+
+Gases listed in a UHV step give a warning.
+
+### Heating and annealing
+
+Heating steps and annealing steps record the **heater output** (%) once the
+temperature setpoint is reached. An annealing step also has the **dwell time**
+at the setpoint.
 
 ### Target of a pre-ablation or deposition step
 
@@ -118,11 +149,12 @@ pulses.
 ### Heater stage
 
 Deposition steps have a **heater stage position** with x, y, z (mm), tilt and
-spin (degrees).
+spin (degrees), and list the **samples** deposited on: in the SA-PLD all samples
+loaded in the chamber, in the LA-PLD the sample of the step.
 
 - **SA-PLD:** tick **substrate stage scan** if the stage scanned. On save a
-  **cartesian scan** sub-section is added for x/y offset (mm), scan rate (mm/s)
-  and rotation rate (rpm). Scan values while the box is unticked give a warning.
+  **substrate scan** sub-section is added for the scan width (mm) and scan speed
+  (mm/s) in x and y. Scan values while the box is unticked give a warning.
 - **LA-PLD:** choose **heater scan type**: `Polar scan` (default) or
   `Cartesian scan`. On save the matching sub-section is added:
 
@@ -139,7 +171,8 @@ spin (degrees).
 ### Target stage
 
 Pre-ablation and deposition steps have a **target stage** sub-section: start
-x/y position, x/y offset and scan area (mm).
+x/y/z position, x/y offset, scan width in x and y (mm) and scan speed in x and
+y (mm/s).
 
 ## Reproduce a run
 
@@ -150,8 +183,12 @@ See [Reproduce a run with a recipe](reuse_a_recipe.md).
 In-situ techniques are a separate part of the logbook (**in situ techniques**),
 not part of a step. For measurements that do not belong to a new run, e.g. an
 older sample that is post-processed, create a stand-alone **PLD In-situ
-Techniques** entry. Its **sample** (a PLD Substrate) and **process** (a logbook)
+Techniques** entry. Its **sample** (a Sample) and **process** (a logbook)
 fields are optional.
+
+Data files are often collected from other computers after the run. A technique
+can be saved without them: its **data status** is then `awaiting data` and a
+warning reminds you, until a file is added (`complete`).
 
 Add one sub-section per technique (more than one per technique is allowed, e.g.
 one RHEED entry per capture):
@@ -185,7 +222,7 @@ Instead of using the form, you can upload YAML or JSON archive files; see
 `tests/data/example_la_pld.archive.yaml`.
 
 - Use `m_def: differ_pld4e_schemas.schema_packages.schema_package.SAPLDLogbook`
-  (or `LAPLDLogbook`, `PLDTarget`, `PLDSubstrate`, `InSituTechniquesEntry`).
+  (or `LAPLDLogbook`, `PLDTarget`, `Sample`, `InSituTechniquesEntry`).
   Steps need their own `m_def`, e.g. `...schema_package.SAPLDDepositionStep`.
 - **Numbers are in SI units** in archive files, whatever the form shows: Pa
   (not mbar), J (not mJ), m (not mm), K (not °C), m² for spot size, J/m² for
@@ -199,8 +236,11 @@ Instead of using the form, you can upload YAML or JSON archive files; see
 | --- | --- | --- |
 | Target ... is selected more than once. | error | Remove the duplicate target. |
 | Target number ... is used twice. | warning | Correct the target numbers. |
-| Substrate ... is defined twice. | warning | Two substrates share run and sample number; correct one. |
+| Sample ... is listed twice. | warning | Two samples have the same sample ID; correct one. |
+| Select the existing sample. | warning | Pick the Sample entry of an existing sample. |
 | Step ... uses a target that is not selected in the target details. | warning | Add the target to the target details or change the step. |
+| Step ... is in UHV but lists background gases. | warning | Set the atmosphere to background gas or remove the gases. |
+| RHEED (or another technique): no data file has been added yet. | warning | Add the data files when you have them. |
 | Laser energy before chamber is 0, cannot compute T1. | warning | Correct the energy. |
 | Scan parameters are given but substrate stage scan is off. | warning | Tick the scan or remove the scan values (SA-PLD). |
 | Cartesian/Polar scan parameters are ignored for a ... scan. | warning | Check the heater scan type (LA-PLD). |

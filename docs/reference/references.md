@@ -17,7 +17,7 @@ The `m_def` to use in archive files is
 | SA-PLD Logbook | `SAPLDLogbook` | `pld_deposition.py` |
 | LA-PLD Logbook | `LAPLDLogbook` | `pld_deposition.py` |
 | PLD Target | `PLDTarget` | `target.py` |
-| PLD Substrate | `PLDSubstrate` | `pld_substrate.py` |
+| Sample | `Sample` | `sample.py` |
 | PLD In-situ Techniques | `InSituTechniquesEntry` | `in_situ.py` |
 
 ## Logbooks
@@ -26,23 +26,53 @@ The `m_def` to use in archive files is
 
 | Field | Type | Unit | Notes |
 | --- | --- | --- | --- |
-| `name` | text | | Name of the run. |
-| `datetime` | date/time | | Run date. Set to the first save if empty. |
+| `name` | text | | Optional name of the run. |
+| `datetime` | date/time | | Start of the run; its date and time make up the sample IDs. Set to the first save if empty. |
+| `operator_name` | text | | Who carried out the run. |
+| `operator_email` | text | | |
 | `lab_id` | text | | Optional lab ID. |
 | `description` | rich text | | Comments. |
 | `pvd_system` | text | | **Generated**: `SA-PLD` or `LA-PLD`, fixed by the logbook type. |
-| `base_pressure` | number | mbar | System base pressure. |
+| `base_pressure` | number | mbar | Base pressure of the main chamber. |
 | `substrate_carrier` | choice | | SA-PLD: `Omicron carrier`, `1" carrier`. LA-PLD also `4" wafer carrier`, `Sample select carrier`. |
 | `particle_reduction_plate` | choice | | LA-PLD only: `in use`, `not in use`. |
 
 | Sub-section | Section | Repeats |
 | --- | --- | --- |
+| `samples` | [SampleInRun](#sampleinrun) | yes |
 | `laser_details` | [LaserCalibration](#lasercalibration) | no (added on save) |
 | `targets` | [SelectedTarget](#selectedtarget) | yes |
-| `substrates` | [NewSubstrate](#newsubstrate) | yes |
 | `load_recipe` | [RecipeLoader](#recipeloader-load-recipe) | no |
 | `steps` | SA-PLD: `SAPLDStep` types; LA-PLD: `LAPLDStep` types, see [Process steps](#process-steps) | yes |
 | `in_situ_techniques` | [InSituTechniques](#insitutechniques) | no |
+
+The laser details and targets are only needed when a step uses the laser
+(pre-ablation, deposition); the dashboard leaves them out otherwise.
+
+### SampleInRun
+
+A sample made or processed in the run. On save, a new or external sample gets
+its own [Sample](#sample) entry, linked in `sample`.
+
+| Field | Type | Unit | Notes |
+| --- | --- | --- | --- |
+| `origin` | choice | | `New sample`, `External sample`, `Existing sample`. |
+| `substrate` | choice | | `SrTiO3 10x10 mm`, `Si 1" with flat`, `Si 1" without flat`, `glass`, `FTO`, `Other`. |
+| `substrate_details` | text | | Substrate of an external sample that is not in the list. |
+| `layers` | sub-section, repeats | | [Layer](#layer): the films grown **in this run**. |
+| `name` | text | | Generated from the substrate and layers if empty: `Substrate_Film-<t>nm_Film-<t>nm`. |
+| `comments` | rich text | | |
+| `sample_id` | text | | **Generated** for new and external samples: `<system>_<yyyy-mm-dd>_<hh:mm>_S<nn>`; kept once set. Copied from the Sample entry for an existing sample. |
+| `sample_uuid` | text | | **Generated** once (UUID4). |
+| `sample` | reference to Sample | | The existing sample, or set on save to the created entry. |
+
+### Layer
+
+| Field | Type | Unit | Notes |
+| --- | --- | --- | --- |
+| `material` | text | | Film material, as named in the target database. |
+| `thickness` | number | nm | Intended thickness. |
+| `target` | reference to a target | | Optional. |
 
 ### LaserCalibration
 
@@ -70,23 +100,6 @@ One target loaded in the system for this run.
 | `manufacturer` | text | | **Generated**: copied from the target. |
 | `purchase_date` | date/time | | **Generated**: copied from the target. |
 
-### NewSubstrate
-
-A substrate created from the logbook. On save a PLD Substrate entry is created
-and linked.
-
-| Field | Type | Unit | Notes |
-| --- | --- | --- | --- |
-| `sample_name` | text | | Suggested format `Substrate_ThinFilm-thickness_next_layer`. |
-| `run_number` | text | | |
-| `sample_number` | text | | |
-| `size` | text | | |
-| `substrate_material` | choice | | `Si`, `SrTiO3 (001)`, `glass`, `F:TiO2`. |
-| `comments` | rich text | | |
-| `sample_user_id` | text | | **Generated**: `<system>_<YYYY-MM-DD>_<run>_<sample number>`. |
-| `sample_uuid` | text | | **Generated** once (UUID4). |
-| `substrate` | reference to PLD Substrate | | Set on save to the created entry. |
-
 ### RecipeLoader (Load recipe)
 
 See [Reproduce a run with a recipe](../how_to/reuse_a_recipe.md).
@@ -94,7 +107,7 @@ See [Reproduce a run with a recipe](../how_to/reuse_a_recipe.md).
 | Field | Type | Unit | Notes |
 | --- | --- | --- | --- |
 | `recipe` | reference to a logbook | | Earlier logbook of the same system. |
-| `substrate` | reference to PLD Substrate | | Substrate for the copied deposition steps. Default: first substrate created in this logbook. |
+| `sample` | reference to Sample | | Sample for the copied deposition steps. Default: all samples of this logbook. |
 | `apply_recipe` | yes/no | | Tick and save to copy. Unticked after the copy. |
 | `applied_recipe` | text | | **Generated**: name of the last applied recipe. |
 
@@ -104,6 +117,7 @@ See [Reproduce a run with a recipe](../how_to/reuse_a_recipe.md).
 | --- | --- | --- |
 | Pre-ablation step | `SAPLDPreAblationStep` | `LAPLDPreAblationStep` |
 | Heating step | `SAPLDHeatingStep` | `LAPLDHeatingStep` |
+| Annealing step | `SAPLDAnnealingStep` | `LAPLDAnnealingStep` |
 | Pulsed laser deposition step | `SAPLDDepositionStep` | `LAPLDDepositionStep` |
 | Cool-down step | `SAPLDCoolDownStep` | `LAPLDCoolDownStep` |
 
@@ -115,8 +129,11 @@ See [Reproduce a run with a recipe](../how_to/reuse_a_recipe.md).
 | `start_time` | date/time | | |
 | `duration` | number | s | |
 | `description` | rich text | | Comments. |
-| `pressure` | number | mbar | Pre-ablation, heating, deposition or cool-down pressure. |
-| `background_gases` | sub-section, repeats | | [BackgroundGas](#backgroundgas) |
+| `pressure` | number | mbar | Chamber pressure during the step. |
+| `atmosphere` | choice | | `Background gas` (default) or `UHV`: no gases, only the pressure. |
+| `background_gases` | sub-section, repeats | | [BackgroundGas](#backgroundgas), one per gas. |
+| `valve_position` | number | % | Gas valve, shared by all gases. |
+| `valve_position_fixed` | yes/no | | Valve kept at a fixed position. |
 
 ### Pre-ablation step
 
@@ -134,6 +151,15 @@ See [Reproduce a run with a recipe](../how_to/reuse_a_recipe.md).
 | --- | --- | --- | --- |
 | `ramp_rate` | number | K/min (= °C/min) | |
 | `temperature_setpoint` | number | °C | |
+| `heater_output` | number | % | Heating step only: heater output once the setpoint is reached. |
+
+### Annealing step
+
+| Field | Type | Unit | Notes |
+| --- | --- | --- | --- |
+| `temperature_setpoint` | number | °C | |
+| `heater_output` | number | % | Heater output once the setpoint is reached. |
+| `dwell_time` | number | min | Time at the setpoint. |
 
 ### Pulsed laser deposition step
 
@@ -141,15 +167,15 @@ All fields of the pre-ablation step, plus:
 
 | Field | Type | Unit | Notes |
 | --- | --- | --- | --- |
-| `substrate` | reference to PLD Substrate | | |
+| `samples` | references to Sample | | The samples deposited on: all samples of the run (SA-PLD) or the chosen one (LA-PLD). |
 | `heater_stage_position` | sub-section | | [HeaterStagePosition](#heaterstageposition) |
 
 SA-PLD (`SAPLDDepositionStep`) adds:
 
 | Field | Type | Unit | Notes |
 | --- | --- | --- | --- |
-| `substrate_stage_scan` | yes/no | | Default no. When yes, `cartesian_scan` is added on save. |
-| `cartesian_scan` | sub-section | | [CartesianHeaterScan](#cartesianheaterscan) |
+| `substrate_stage_scan` | yes/no | | Default no. When yes, `substrate_scan` is added on save. |
+| `substrate_scan` | sub-section | | [SubstrateStageScan](#substratestagescan) |
 
 LA-PLD (`LAPLDDepositionStep`) adds:
 
@@ -166,8 +192,9 @@ LA-PLD (`LAPLDDepositionStep`) adds:
 | `gas` | choice | | `Ar`, `O2`, `N2`. |
 | `flow_setpoint` | number | sccm | Set flow. |
 | `flow_readout` | number | sccm | Read-out (measured) flow. |
-| `valve_position` | number | % | As shown on the controller. |
-| `valve_position_fixed` | yes/no | | Valve kept at a fixed position. |
+
+The valve position is recorded on the step, see
+[Fields of every step](#fields-of-every-step).
 
 ### LaserParameters
 
@@ -176,7 +203,7 @@ LA-PLD (`LAPLDDepositionStep`) adds:
 | `laser_mode` | choice | | `HV NGR`, `HV PGR`, `EGY PGR`, `EGY NGR`. |
 | `laser_voltage` | number | kV | |
 | `magnification` | choice | | `5X`, `10X`. |
-| `mask_size` | choice | | `3x12`, `4x12`, `3x15`, `4x15`, `4x2 (5 slits)`. |
+| `mask_size` | choice | | `3x12`, `4x12`, `3x15`, `4x15`, `5x18`, `4x2 (5 slits)`. |
 | `spot_size` | number | mm² | |
 | `laser_fluence` | number | J/cm² | |
 | `laser_energy` | number | mJ | |
@@ -192,7 +219,11 @@ LA-PLD (`LAPLDDepositionStep`) adds:
 | `x_offset` | number | mm |
 | `start_y_position` | number | mm |
 | `y_offset` | number | mm |
-| `scan_area` | number | mm |
+| `start_z_position` | number | mm |
+| `scan_width_x` | number | mm |
+| `scan_width_y` | number | mm |
+| `scan_speed_x` | number | mm/s |
+| `scan_speed_y` | number | mm/s |
 
 ### HeaterStagePosition
 
@@ -204,7 +235,20 @@ LA-PLD (`LAPLDDepositionStep`) adds:
 | `tilt` | number | degree |
 | `spin` | number | degree |
 
+### SubstrateStageScan
+
+SA-PLD substrate stage scan.
+
+| Field | Type | Unit |
+| --- | --- | --- |
+| `scan_width_x` | number | mm |
+| `scan_width_y` | number | mm |
+| `scan_speed_x` | number | mm/s |
+| `scan_speed_y` | number | mm/s |
+
 ### CartesianHeaterScan
+
+LA-PLD cartesian heater scan.
 
 | Field | Type | Unit |
 | --- | --- | --- |
@@ -239,26 +283,25 @@ Extends the sputter `Target` section.
 | `thickness` | number | m | |
 | `purity` | text | | e.g. `99.999%`. |
 
-### PLD Substrate
+### Sample
 
-Extends the plugin's `Substrate` section (which extends `Substrate` from
-`nomad-material-processing`). The fields that matter for PLD:
+A sample: a substrate with the films grown on it. Not specific to PLD: `system`
+records where it was made. Extends NOMAD's `CompositeSystem`.
 
 | Field | Type | Unit | Notes |
 | --- | --- | --- | --- |
-| `name` | text | | Sample name. |
-| `datetime` | date/time | | Date used in the sample user ID. |
+| `sample_id` | text | | The sample ID; also used as the entry name and, if empty, `lab_id`. |
+| `name` | text | | Sample name; generated from substrate and layers if empty. |
+| `datetime` | date/time | | Start of the run that made it. |
 | `description` | rich text | | Comments. |
-| `pvd_system` | choice | | `SA-PLD`, `LA-PLD`. |
-| `run_number` | text | | |
-| `sample_number` | text | | |
-| `size` | text | | |
-| `substrate_material` | choice | | `Si`, `SrTiO3 (001)`, `glass`, `F:TiO2`. Copied into `material` on save. |
-| `sample_user_id` | text | | **Generated**, see NewSubstrate. Also copied into `lab_id` if that is empty. |
+| `system` | text | | System it was made in, e.g. `SA-PLD`. |
+| `origin` | choice | | `New sample`, `External sample`, `Existing sample`. |
+| `substrate` | choice | | As in [SampleInRun](#sampleinrun). |
+| `substrate_details` | text | | |
+| `substrate_material` | text | | **Generated** from the substrate. |
+| `substrate_size` | text | | **Generated** from the substrate. |
+| `layers` | sub-section, repeats | | [Layer](#layer) |
 | `sample_uuid` | text | | **Generated** once. |
-
-Inherited fields such as `supplier`, `shape`, `position` and
-`rotation_speed` are also available.
 
 ## In-situ techniques
 
@@ -269,7 +312,7 @@ Used as `in_situ_techniques` in a logbook, and as the stand-alone entry
 
 | Field | Type | Notes |
 | --- | --- | --- |
-| `sample` | reference to PLD Substrate | Optional. |
+| `sample` | reference to Sample | Optional. |
 | `process` | reference to a logbook | Optional. |
 
 | Sub-section | Section | Repeats |
@@ -281,7 +324,9 @@ Used as `in_situ_techniques` in a logbook, and as the stand-alone entry
 | `oes` | OES | yes |
 | `shg` | SHG | yes |
 
-Every technique has a `comments` field. All file fields are uploads.
+Every technique has a `comments` field and a **generated** `data_status`:
+`awaiting data` until one of its files is added, then `complete`. All file
+fields are uploads and optional.
 
 | Technique | Field | Content |
 | --- | --- | --- |

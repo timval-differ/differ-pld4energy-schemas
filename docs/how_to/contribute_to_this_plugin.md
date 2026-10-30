@@ -6,9 +6,9 @@
 | --- | --- |
 | `pld_deposition.py` | PLD logbooks (`PLDLogbook`, `SAPLDLogbook`, `LAPLDLogbook`), process steps, target selection, recipe loader, and the save logic (`normalize`) |
 | `laser.py` | `LaserCalibration` (with the T1 calculation) and `LaserParameters` |
-| `gas.py` | `BackgroundGas` |
-| `stages.py` | `HeaterStagePosition`, `TargetStage`, `CartesianHeaterScan`, `PolarHeaterScan` |
-| `pld_substrate.py` | `PLDSubstrate` entry, `NewSubstrate`, `sample_user_id()` |
+| `gas.py` | `BackgroundGas`, the gases and atmospheres |
+| `stages.py` | `HeaterStagePosition`, `TargetStage`, `SubstrateStageScan`, `CartesianHeaterScan`, `PolarHeaterScan` |
+| `sample.py` | System-agnostic samples: the `Sample` entry, `SampleInRun`, `Layer`, the `SampleRun` base of a run, `sample_id()` and `sample_name()` |
 | `target.py` | `Target` (sputter) and the `PLDTarget` entry |
 | `in_situ.py` | In-situ techniques, the LA-EDS energy axis and plot |
 | `sputter_deposition.py`, `source.py`, `thin_film.py`, ... | Sputter deposition schemas |
@@ -67,7 +67,8 @@ rename a section, entries that already use the old name no longer load.
 
 1. date default and laser details section;
 2. target details: copy target info, check for duplicates;
-3. substrates: sample user ID, UUID, create the PLD Substrate entries;
+3. samples (`SampleRun._normalize_samples`): sample IDs and names, UUIDs,
+   create the Sample entries of new and external samples;
 4. recipe: copy steps if `apply_recipe` is ticked;
 5. step targets: fill in a single target, copy target numbers, warn about
    unselected targets.
@@ -77,16 +78,22 @@ sub-sections, T1) has already run when the logbook's `normalize` runs.
 
 ## The PLD logbook dashboard
 
-Code: `src/differ_pld4e_schemas/dashboards/pld_logbook/`
+Code: `src/differ_pld4e_schemas/dashboards/pld_logbook/`, with the parts that
+do not depend on PLD in `src/differ_pld4e_schemas/dashboards/common/`, for
+reuse by a sputter logbook dashboard.
 
 | File | Contents |
 | --- | --- |
-| `__init__.py` | Dashboard entry point |
-| `app.py` | FastAPI app: serves the page, `api/spec`, `api/validate`, `api/archive`, `api/form-from-archive` |
-| `spec.py` | Form definition |
-| `rules.py` | Conditions, computed values, validation |
-| `convert.py` | Form ⇄ archive conversion |
-| `static/` | Page (`index.html`, `app.js`, `style.css`), no build step |
+| `pld_logbook/__init__.py` | Dashboard entry point |
+| `pld_logbook/app.py` | FastAPI app: serves the page, `api/spec`, `api/validate`, `api/archive`, `api/draft-name`, `api/form-from-archive` |
+| `pld_logbook/spec.py` | Form definition |
+| `pld_logbook/rules.py` | Computed values, section requirements, validation, draft checks |
+| `pld_logbook/convert.py` | Form ⇄ archive conversion, file and draft names |
+| `pld_logbook/static/` | Page (`index.html`, `app.js`, `style.css`), no build step |
+| `common/fields.py` | `field()`, `number()`, `comments()` |
+| `common/values.py` | Conditions (`evaluate`), reading form values |
+| `common/archive.py` | Form values ⇄ archive quantities, unit conversion |
+| `common/samples.py` | The *Samples* section: fields, sample IDs and names, Sample files |
 
 ### Add or change a dashboard field
 
@@ -104,14 +111,35 @@ number(
 ```
 
 - The quantity must exist in the PLD schemas; values are converted to its
-  unit. `test_spec_archive_paths_exist_in_schema` checks every step field.
+  unit. `test_spec_archive_paths_exist_in_schema` checks every step field, and
+  `test_spec_section_archive_paths_exist_in_schema` the other sections.
 - Fields are required unless `required=False` (comments, booleans and computed
   fields are optional by default).
 - Choices that also exist in the schema are checked against it by
   `test_spec_choices_match_schema`.
 
-If you add a new kind of rule or computed value, implement it in both
-`rules.py` and `static/app.js`, and add a test.
+Field kinds: `text`, `textarea`, `number`, `integer`, `select`, `bool`,
+`date`, `time`, `reference` (an entry from NOMAD), `target_choice` and
+`sample_choice` (one of the targets or samples of the form), `material_choice`
+(a material from the target database), `rows` (a repeating sub-section, with
+`columns`), `file` and `computed`.
+
+#### Steps and sections
+
+- A step variant is made with `variant(label, sections, fields, laser=...)`:
+    - `laser='required'`, `'optional'` or `'none'` says whether the step needs
+      the laser. For `'optional'`, pass the keys of its laser fields in
+      `laser_keys`: they get a *Laser used* switch.
+    - `prefill_from='pre_ablation'` makes a new step start with the values it
+      shares with the last step of that variant.
+- A section with `requirement={'from_steps': 'laser'}` is required, optional
+  or not needed depending on the steps (`rules.section_requirement`). A section
+  that is not needed is neither validated nor saved.
+- `count_control: True` on a list section adds a "how many" input.
+
+If you add a new kind of field, condition, rule or computed value, implement it
+in both the Python side (`common/` or `rules.py`) and `static/app.js`, and add a
+test.
 
 ### Run the dashboard
 

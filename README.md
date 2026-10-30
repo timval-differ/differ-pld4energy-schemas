@@ -4,12 +4,12 @@ NOMAD schemas for the electronic lab notebook of the PLD4Energy lab at DIFFER.
 
 **PLD logbooks.** The `SA-PLD Logbook` and `LA-PLD Logbook` entry types record
 one pulsed laser deposition run each: laser calibration (with the automatic 1st
-window transmission), the targets and substrates used, the process steps
-(pre-ablation, heating, deposition, cool-down, with background gases, laser
+window transmission), the samples made or processed, the targets used, the process steps
+(pre-ablation, heating, annealing, deposition, cool-down, with background gases, laser
 settings and stage positions) and in-situ data (RHEED, MIC, SE, LA-EDS, OES,
-SHG). Targets (`PLD Target`) and substrates (`PLD Substrate`) are separate
+SHG). Targets (`PLD Target`) and samples (`Sample`) are separate
 entries that the logbooks refer to. An earlier logbook can be used as a recipe
-to repeat a run on another substrate. In-situ measurements outside a run go in a
+to repeat a run on other samples. In-situ measurements outside a run go in a
 `PLD In-situ Techniques` entry.
 
 **Sputter deposition.** Provenance-centered sputter deposition records.
@@ -20,10 +20,11 @@ parameters and layer provenance. The local `Substrate`, `ThinFilm`,
 base sections from `nomad-material-processing`.
 
 **PLD logbook dashboard.** A guided form for SA-PLD and LA-PLD runs, served by
-NOMAD at `<NOMAD URL>/dashboards/differ_pld4e_schemas-pld-logbook/`. It shows
-only the fields that apply to the choices made (system, scan type, gases,
-in-situ techniques), saves only complete logbooks, and writes them as entries of
-the schemas above. See [Use the PLD logbook dashboard](docs/how_to/use_the_dashboard.md).
+NOMAD at `<NOMAD URL>/dashboards/differ_pld4e_schemas-pld-logbook/`. It starts
+each run from its samples, shows only the fields that apply to the choices made
+(system, process steps, scan type, gases, in-situ techniques), saves only
+complete logbooks (unfinished runs can be kept as drafts), and writes them as
+entries of the schemas above. See [Use the PLD logbook dashboard](docs/how_to/use_the_dashboard.md).
 
 See the [documentation](docs/index.md): a tutorial, how-to guides (including
 [recipes](docs/how_to/reuse_a_recipe.md)), an explanation of the design and a

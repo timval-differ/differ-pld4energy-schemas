@@ -9,15 +9,16 @@ The plugin adds these entry types to NOMAD:
 
 | Entry type | Use it for |
 | --- | --- |
-| **SA-PLD Logbook** | One run on the SA-PLD system: laser calibration, targets, substrates, process steps and in-situ data. |
+| **SA-PLD Logbook** | One run on the SA-PLD system: the samples it makes or processes, system details, laser calibration, targets, process steps and in-situ data. |
 | **LA-PLD Logbook** | One run on the LA-PLD system. Same as SA-PLD, plus the larger carriers, the particle reduction plate and polar/cartesian heater scans. |
 | **PLD Target** | One physical target (the target database). |
-| **PLD Substrate** | One substrate/sample (the substrate database). Usually created for you by a logbook. |
+| **Sample** | One sample: a substrate with the films grown on it, with its sample ID. Usually created for you by a logbook; not specific to PLD. |
 | **PLD In-situ Techniques** | In-situ measurements (RHEED, MIC, SE, LA-EDS, OES, SHG) that are not part of a new deposition run, e.g. post-processing of an older sample. |
 | **Deposition** | A sputter deposition run (the original sputter schemas of this plugin). |
 
 It also adds the **PLD logbook dashboard**: a guided form for SA-PLD and LA-PLD
-runs that shows only the fields that apply and only saves complete logbooks.
+runs that starts from the samples, shows only the fields that apply, and only
+saves complete logbooks (unfinished runs can be kept as drafts).
 See [Use the PLD logbook dashboard](how_to/use_the_dashboard.md).
 
 <div markdown="block" class="home-grid">

@@ -19,7 +19,8 @@ data:
   samples:
     - origin: New sample
       sample_id: SA-PLD_2026-10-22_09:00_S01
-      substrate: Si 1" with flat
+      # substrate: a reference to a Substrate type entry, e.g. Si 1" with flat
+      substrate_material: Si
       layers:
         - material: SrTiO3
           thickness: 2.0e-8  # 20 nm
@@ -56,6 +57,7 @@ data:
     - m_def: differ_pld4e_schemas.pld_deposition.SAPLDDepositionStep
       pressure: 10
       substrate_temperature: 973.15
+      film_thickness: 2.0e-8  # 20 nm
       heater_stage_position:
         x: 0.0
         y: 0.0

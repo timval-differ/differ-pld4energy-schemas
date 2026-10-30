@@ -22,6 +22,18 @@ Every physical target is one **PLD Target** entry.
   `Fe2O3 (Praxair 2024)` and `Fe2O3 (Pi-Kem 2025)`, so you can tell them apart
   in the drop-down.
 
+## Manage the substrate database
+
+Every kind of substrate in use is one **Substrate type** entry, e.g.
+`SrTiO3 10x10 mm`, `Si 1" with flat`, `Si 1" without flat`, `glass` or `FTO`.
+Samples refer to it.
+
+- **Add a substrate:** create a Substrate type entry with the **material** and
+  **size** (optionally supplier and description). The material is used in the
+  sample names, so write it as it should appear there, e.g. `SrTiO3`.
+- **Naming:** the entry is named after the **name** field, or after the
+  material and size if the name is empty.
+
 ## Start a logbook
 
 Create an **SA-PLD Logbook** or **LA-PLD Logbook**. Pick the logbook of the
@@ -58,7 +70,8 @@ On save, the 1st window transmission is calculated as
 ## Select the targets of a run
 
 Add one **targets** entry per target in the system: pick the PLD Target and
-enter its **target number** for this run. Material, manufacturer and purchase
+enter its **target number**, its position in the system for this run (1 to 5).
+A number outside 1 to 5 gives a warning. Material, manufacturer and purchase
 date are copied in on save so you can check your choice.
 
 Checks: selecting the same target twice is an **error**; using a target number
@@ -71,12 +84,18 @@ its films. Add one **samples** entry per sample the run makes or processes:
 
 | Origin | When | Fill in |
 | --- | --- | --- |
-| New sample | most runs | substrate (from the list), films |
-| External sample | prepared elsewhere, no sample ID yet | substrate, or `Other` and substrate details; films; what you know in comments |
+| New sample | most runs | substrate (from the substrate database), films |
+| External sample | prepared elsewhere, no sample ID yet | substrate, or no substrate and substrate details; the films it came with in **prior layers**; films; what you know in comments |
 | Existing sample | made earlier in a PLD4Energy system, e.g. for an extra deposition, annealing or characterisation | the Sample entry in **sample**; films grown in this run |
 
-Each film is a **layers** entry with its material (as named in the target
-database) and thickness (nm). On save, for new and external samples:
+The films grown in this run are **layers** entries, each with the **target** it
+is grown from and its thickness (nm); its **material** is taken from the target.
+The [dashboard](use_the_dashboard.md) fills them in from the deposition steps
+(one film per step, with the step's target and film thickness); in the entry
+editor you add them yourself. Films an external sample already had when it came
+in are **prior layers** (material and, if known, thickness); they come first in
+its name and in its Sample entry. The substrate's material and size are copied
+in as well. On save, for new and external samples:
 
 - **sample ID** becomes `<system>_<yyyy-mm-dd>_<hh:mm>_S<nn>`, from the logbook's
   start; the new and external samples of the run are numbered S01, S02, ... in
@@ -149,8 +168,9 @@ pulses.
 ### Heater stage
 
 Deposition steps have a **heater stage position** with x, y, z (mm), tilt and
-spin (degrees), and list the **samples** deposited on: in the SA-PLD all samples
-loaded in the chamber, in the LA-PLD the sample of the step.
+spin (degrees), the **film thickness** (nm) of the film they grow, and list the
+**samples** deposited on: in the SA-PLD all samples loaded in the chamber, in
+the LA-PLD the sample of the step.
 
 - **SA-PLD:** tick **substrate stage scan** if the stage scanned. On save a
   **substrate scan** sub-section is added for the scan width (mm) and scan speed

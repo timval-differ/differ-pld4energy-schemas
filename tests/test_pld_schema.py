@@ -34,7 +34,13 @@ from differ_pld4e_schemas.pld_deposition import (
     SAPLDStep,
     SelectedTarget,
 )
-from differ_pld4e_schemas.sample import Layer, Sample, SampleInRun, sample_name
+from differ_pld4e_schemas.sample import (
+    Layer,
+    Sample,
+    SampleInRun,
+    SubstrateType,
+    sample_name,
+)
 from differ_pld4e_schemas.sputter_deposition import SputterDepositionStep
 from differ_pld4e_schemas.target import PLDTarget
 
@@ -321,26 +327,70 @@ def test_recipe_without_sample_uses_all_samples_of_the_run():
 # Samples
 
 
+STO = SubstrateType(material='SrTiO3', size='10x10 mm')
+YSZ = PLDTarget(material='YSZ')
+
+
 def test_new_samples_get_id_name_and_uuid():
     logbook = LAPLDLogbook(
         datetime='2026-10-22T09:15:00+00:00',
         samples=[
             SampleInRun(
                 origin='New sample',
-                substrate='SrTiO3 10x10 mm',
-                layers=[Layer(material='YSZ', thickness=2e-8)],
+                substrate=STO,
+                layers=[Layer(target=YSZ, thickness=2e-8)],
             ),
             SampleInRun(origin='Existing sample', sample=Sample(sample_id='old')),
-            SampleInRun(origin='External sample', substrate='FTO'),
+            SampleInRun(origin='External sample', substrate_details='FTO'),
         ],
     )
     _normalize(logbook)
     new, existing, external = logbook.samples
     assert new.sample_id == 'LA-PLD_2026-10-22_09:15_S01'
+    assert new.substrate_material == 'SrTiO3'
+    assert new.layers[0].material == 'YSZ'
     assert new.name == 'SrTiO3_YSZ-20nm'
     assert len(new.sample_uuid) == UUID_LENGTH
     assert existing.sample_id == 'old'
     assert external.sample_id == 'LA-PLD_2026-10-22_09:15_S02'
+    assert external.name == 'FTO'
+
+
+def test_external_sample_films_come_first():
+    item = SampleInRun(
+        origin='External sample',
+        sample_id='x',
+        substrate_details='MgO',
+        prior_layers=[Layer(material='SrRuO3', thickness=1e-8)],
+        layers=[Layer(target=YSZ, thickness=2e-8)],
+    )
+    logbook = LAPLDLogbook(datetime='2026-10-22T09:15:00+00:00', samples=[item])
+    _normalize(logbook)
+    assert item.name == 'MgO_SrRuO3-10nm_YSZ-20nm'
+    sample = item.to_sample('LA-PLD', None)
+    assert [layer.material for layer in sample.layers] == ['SrRuO3', 'YSZ']
+
+
+@pytest.mark.parametrize('entry', (PLDTarget, SubstrateType))
+def test_database_entries_are_in_stock_until_switched_off(entry):
+    assert entry().in_stock is True
+    assert entry(in_stock=False).in_stock is False
+
+
+def test_substrate_type_entry():
+    substrate = SubstrateType(material='Si', size='1" with flat')
+    archive, _ = _normalize(substrate)
+    assert substrate.name == 'Si 1" with flat'
+    assert archive.metadata.entry_name == 'Si 1" with flat'
+
+
+def test_film_material_comes_from_its_target():
+    layer = Layer(target=YSZ)
+    _normalize_section(layer)
+    assert layer.material == 'YSZ'
+    given = Layer(target=YSZ, material='8YSZ')
+    _normalize_section(given)
+    assert given.material == '8YSZ'
 
 
 def test_given_sample_id_is_kept():
@@ -361,8 +411,8 @@ def test_existing_sample_must_be_selected():
 def test_sample_entry():
     sample = Sample(
         sample_id='SA-PLD_2026-10-22_09:15_S01',
-        substrate='Si 1" with flat',
-        layers=[Layer(material='SrTiO3', thickness=2e-8), Layer(material='YSZ')],
+        substrate=SubstrateType(material='Si', size='1" with flat'),
+        layers=[Layer(material='SrTiO3', thickness=2e-8), Layer(target=YSZ)],
     )
     archive, _ = _normalize(sample)
     assert sample.name == 'Si_SrTiO3-20nm_YSZ'
@@ -375,8 +425,14 @@ def test_sample_entry():
 
 def test_sample_name():
     assert sample_name('FTO', []) == 'FTO'
-    assert sample_name('Other', [('YSZ', 2.5)], 'MgO') == 'MgO_YSZ-2.5nm'
+    assert sample_name('MgO', [('YSZ', 2.5), (None, 3)]) == 'MgO_YSZ-2.5nm'
     assert sample_name(None, [('YSZ', 2.5)]) is None
+
+
+def test_target_number_outside_the_positions_is_reported():
+    logbook = SAPLDLogbook(targets=[SelectedTarget(target_number=7, target=YSZ)])
+    _, records = _normalize(logbook)
+    assert any('not a position' in message for _, message in records)
 
 
 def test_sa_deposition_records_samples_and_stage_scan():

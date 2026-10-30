@@ -37,6 +37,7 @@ SPEC = form_spec()
 TARGET = '../uploads/u1/archive/target1#/data'
 OTHER_TARGET = '../uploads/u1/archive/target2#/data'
 EXISTING = '../uploads/u0/archive/sample0#/data'
+SI_WAFER = '../uploads/u0/archive/substrate_si#/data'
 EXPECTED_T1 = 0.42 / 0.5 / 0.92 * 100
 EXPECTED_PULSES = 3000
 HTTP_OK = 200
@@ -83,6 +84,7 @@ DEPOSITION = {
     'type': 'deposition',
     'sample': 'new:sub1',
     'target': TARGET,
+    'film_thickness': 20,
     'x': 1,
     'y': 2,
     'z': 50,
@@ -115,8 +117,9 @@ FORM = {
         {
             'uid': 'sub1',
             'origin': 'New sample',
-            'substrate': 'Si 1" with flat',
-            'layers': [{'material': 'SrTiO3', 'thickness': 20}],
+            'substrate': SI_WAFER,
+            # Copied by the browser from the chosen substrate.
+            'substrate_material': 'Si',
         }
     ],
     'chamber': {
@@ -130,7 +133,10 @@ FORM = {
         'transmission_window_2': 92,
         'transmission_window_1_manual': False,
     },
-    'targets': [{'uid': 't1', 'target': TARGET, 'target_number': 2}],
+    # The material is copied by the browser from the chosen target.
+    'targets': [
+        {'uid': 't1', 'target': TARGET, 'target_number': '2', 'material': 'SrTiO3'}
+    ],
     'steps': [
         {
             'uid': 'step1',
@@ -376,7 +382,7 @@ def test_step_target_must_be_selected():
 
 def test_duplicate_targets_and_numbers():
     data = form()
-    data['targets'].append({'uid': 't2', 'target': TARGET, 'target_number': 2})
+    data['targets'].append({'uid': 't2', 'target': TARGET, 'target_number': '2'})
     errors = messages(validate(data, SPEC))
     assert errors['targets.1.target'] == 'Target is used more than once.'
     assert errors['targets.1.target_number'] == 'Target number is used more than once.'
@@ -455,7 +461,7 @@ def test_sample_id_and_name():
     data = form()
     data['samples'] += [
         {'uid': 'old', 'origin': 'Existing sample', 'sample': EXISTING},
-        {'uid': 'ext', 'origin': 'External sample', 'substrate': 'FTO'},
+        {'uid': 'ext', 'origin': 'External sample', 'substrate_details': 'FTO'},
     ]
     assert compute('sample_id', data['samples'][0], data) == (
         'LA-PLD_2026-10-22_09:15_S01'
@@ -468,23 +474,107 @@ def test_sample_id_and_name():
     assert compute('sample_name', data['samples'][2], data) == 'FTO'
 
 
-def test_sample_needs_a_substrate_and_film_details():
+def test_sample_needs_a_substrate():
     errors = messages(validate(form(samples__0__substrate=None), SPEC))
     assert errors['samples.0.substrate'] == 'Required.'
+
+
+def test_deposition_step_records_the_film_thickness():
+    errors = messages(validate(form(steps__1__film_thickness=None), SPEC))
+    assert errors['steps.1.film_thickness'] == 'Required.'
+    assert _logbook()['steps'][1]['film_thickness'] == pytest.approx(2e-8)
+
+
+def test_films_come_from_the_deposition_steps():
+    second = dict(DEPOSITION, uid='step3', target=OTHER_TARGET, film_thickness=5)
     data = form()
-    data['samples'][0]['layers'].append({'material': 'YSZ'})
-    errors = messages(validate(data, SPEC))
-    assert errors['samples.0.layers.1.thickness'] == 'Required.'
-
-
-def test_external_sample_with_other_substrate_needs_details():
-    data = form(samples__0__origin='External sample', samples__0__substrate='Other')
-    errors = messages(validate(data, SPEC))
-    assert errors['samples.0.substrate_details'] == 'Required.'
-    new = form(samples__0__substrate='Other')
-    assert messages(validate(new, SPEC))['samples.0.substrate'] == (
-        'Choose one of the options.'
+    data['targets'].append(
+        {'uid': 't2', 'target': OTHER_TARGET, 'target_number': '3', 'material': 'YSZ'}
     )
+    data['steps'].append(second)
+    data['samples'].append(
+        {
+            'uid': 'sub2',
+            'origin': 'New sample',
+            'substrate': SI_WAFER,
+            'substrate_material': 'Si',
+        }
+    )
+    # LA-PLD: each deposition step grows its film on the step's sample.
+    assert compute('sample_name', data['samples'][0], data) == 'Si_SrTiO3-20nm_YSZ-5nm'
+    assert compute('sample_name', data['samples'][1], data) == 'Si'
+    # SA-PLD: a deposition covers all samples in the chamber.
+    data['run']['system'] = 'SA-PLD'
+    assert compute('sample_name', data['samples'][1], data) == 'Si_SrTiO3-20nm_YSZ-5nm'
+
+
+def test_external_sample_can_come_with_films():
+    data = form(
+        samples__0__origin='External sample',
+        samples__0__substrate=None,
+        samples__0__substrate_details='MgO',
+    )
+    data['samples'][0]['prior_films'] = [{'material': 'SrRuO3', 'thickness': 10}]
+    assert validate(data, SPEC) == []
+    item = data['samples'][0]
+    assert compute('sample_name', item, data) == 'MgO_SrRuO3-10nm_SrTiO3-20nm'
+    files = form_to_files(data, SPEC)['files']
+    sample, logbook = files[0]['archive']['data'], files[-1]['archive']['data']
+    # The Sample entry has the whole stack, the logbook keeps both apart.
+    assert [layer['material'] for layer in sample['layers']] == ['SrRuO3', 'SrTiO3']
+    assert logbook['samples'][0]['prior_layers'] == [
+        {'material': 'SrRuO3', 'thickness': pytest.approx(1e-8)}
+    ]
+    assert [layer['material'] for layer in logbook['samples'][0]['layers']] == [
+        'SrTiO3'
+    ]
+    loaded = archive_to_form(logbook, SPEC)
+    assert loaded['samples'][0]['prior_films'] == [
+        {'material': 'SrRuO3', 'thickness': 10}
+    ]
+    data['samples'][0]['prior_films'].append({'thickness': 3})
+    errors = messages(validate(data, SPEC))
+    assert errors['samples.0.prior_films.1.material'] == 'Required.'
+
+
+def test_only_external_samples_list_films_they_came_with():
+    data = form()
+    data['samples'][0]['prior_films'] = [{'material': 'SrRuO3', 'thickness': 10}]
+    assert compute('sample_name', data['samples'][0], data) == 'Si_SrTiO3-20nm'
+    assert 'prior_layers' not in _logbook(data)['samples'][0]
+
+
+def test_samples_have_no_film_list_of_their_own():
+    fields = {f['key'] for f in _sections()['samples']['fields']}
+    assert 'layers' not in fields
+    assert 'prior_films' in fields
+
+
+def test_external_sample_substrate_is_from_the_database_or_described():
+    data = form(samples__0__origin='External sample', samples__0__substrate=None)
+    errors = messages(validate(data, SPEC))
+    assert 'samples.0.substrate' not in errors
+    assert errors['samples.0.substrate_details'] == 'Required.'
+    data = form(samples__0__origin='External sample')
+    assert validate(data, SPEC) == []
+
+
+def test_substrates_and_targets_come_from_the_databases():
+    fields = {f['key']: f for f in _sections()['samples']['fields']}
+    assert fields['substrate']['kind'] == 'reference'
+    assert fields['substrate']['reference'] == 'substrate'
+    assert fields['substrate']['ref_copy'] == {'substrate_material': 'material'}
+    target = {f['key']: f for f in _sections()['targets']['fields']}['target']
+    assert target['ref_copy'] == {'material': 'material'}
+    assert SPEC['reference_sections']['substrate'].endswith('.SubstrateType')
+
+
+def test_target_number_is_one_of_the_positions():
+    fields = {f['key']: f for f in _sections()['targets']['fields']}
+    assert fields['target_number']['options'] == ['1', '2', '3', '4', '5']
+    errors = messages(validate(form(targets__0__target_number='6'), SPEC))
+    assert errors['targets.0.target_number'] == 'Choose one of the options.'
+    assert _logbook()['targets'][0]['target_number'] == 2  # noqa: PLR2004
 
 
 def test_existing_sample_is_chosen():
@@ -610,8 +700,10 @@ def test_sample_archive():
     assert sample['system'] == 'LA-PLD'
     assert sample['sample_id'] == 'LA-PLD_2026-10-22_09:15_S01'
     assert sample['name'] == 'Si_SrTiO3-20nm'
+    assert sample['substrate'] == SI_WAFER
+    assert sample['substrate_material'] == 'Si'
     assert sample['layers'] == [
-        {'material': 'SrTiO3', 'thickness': pytest.approx(2e-8)}
+        {'target': TARGET, 'material': 'SrTiO3', 'thickness': pytest.approx(2e-8)}
     ]
     logbook = files[-1]['archive']['data']
     assert logbook['samples'][0]['sample_uuid'] == sample['sample_uuid']
@@ -650,7 +742,11 @@ def test_round_trip():
     assert step['gas_O2_flow_readout'] == pytest.approx(4.9)
     assert step['valve_position'] == pytest.approx(30)
     assert step['sample'] == f'new:{loaded["samples"][0]["uid"]}'
-    assert loaded['samples'][0]['layers'] == [{'material': 'SrTiO3', 'thickness': 20}]
+    assert compute('sample_name', loaded['samples'][0], loaded) == 'Si_SrTiO3-20nm'
+    assert loaded['steps'][1]['film_thickness'] == pytest.approx(20)
+    assert loaded['samples'][0]['substrate'] == SI_WAFER
+    assert loaded['samples'][0]['substrate_material'] == 'Si'
+    assert loaded['targets'][0]['target_number'] == '2'
     assert loaded['in_situ']['rheed'] is True
     loaded['run']['utc_offset'] = '+02:00'
     assert validate(loaded, SPEC) == []
@@ -699,6 +795,13 @@ def test_page_loads_current_assets(client):
     assert response.headers['cache-control'] == 'no-cache'
     assert re.search(r'static/app\.js\?v=[0-9a-f]{12}"', response.text)
     assert re.search(r'static/style\.css\?v=[0-9a-f]{12}"', response.text)
+
+
+def test_page_and_server_report_the_same_script_version(client):
+    page = client.get('/').text
+    version = re.search(r'name="script-version" content="([0-9a-f]{12})"', page)
+    assert version
+    assert client.get('/api/spec').json()['script_version'] == version.group(1)
 
 
 def test_app_refuses_incomplete_form(client):

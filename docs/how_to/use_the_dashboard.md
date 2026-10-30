@@ -50,28 +50,33 @@ leave a section with **Next**, or straight away for fields you have edited.
 2. **Samples.** List the samples you make or process in this run. Set *Number
    of new and external samples* to add or remove samples in one go. For each
    sample choose:
-    - **New sample** (most runs): pick the substrate from the list.
+    - **New sample** (most runs): pick the substrate from the substrate
+      database.
     - **External sample**: a sample prepared elsewhere, without a sample ID.
-      Pick its substrate, or *Other* and describe it under *Substrate details*.
-      Put anything else you know about it in the comments.
+      Pick its substrate, or leave the substrate empty and describe it under
+      *Substrate details*. Under *Films already on the sample* list the films it
+      came with, from the substrate up (material and, if known, thickness). Put
+      anything else you know about it in the comments.
     - **Existing sample**: a sample made earlier with a PLD4Energy system, e.g.
       for an extra deposition, annealing or only characterisation. Pick it from
       the list.
 
-    Under *Films grown in this run* add the films you will deposit, in order,
-    with their material (from the target database) and thickness. New and
-    external samples get a **sample ID** `system_yyyy-mm-dd_hh:mm_S##` (S01,
-    S02, ... in the order of the list) and a **sample name** made from the
-    substrate and films, e.g. `SrTiO3_YSZ-20nm_SrRuO3-50nm`. Both are shown as
-    you type. Existing samples keep their own ID.
+    A substrate or target that is not in the database yet can be added with
+    *New substrate in the database* or *New target in the database*, below the
+    samples. New and external samples get a **sample ID**
+    `system_yyyy-mm-dd_hh:mm_S##` (S01, S02, ... in the order of the list) and a
+    **sample name** made from the substrate and the films grown on it, e.g.
+    `SrTiO3_YSZ-20nm_SrRuO3-50nm`. The films come from the deposition steps
+    (see below), so the name is complete once the steps are filled in. Existing
+    samples keep their own ID.
 3. **System details.** The substrate carrier and the base pressure of the main
    chamber. LA-PLD also asks for the particle reduction plate.
 4. **Targets** and 5. **Laser details.** Only needed when a process step uses
    the laser (pre-ablation and deposition). Without such a step they show as
    *not needed* in the list on the left, and nothing entered there is saved.
-    - Targets: pick each target in the system and enter its target number for
-      this run. A target that is not in the database yet can be added with
-      *New target in the database*.
+    - Targets: pick each target in the system and its target number (its
+      position, 1 to 5) for this run. A target that is not in the database yet
+      can be added with *New target in the database*.
     - Laser details: enter the energies before and after the chamber. The 1st
       window transmission is calculated as you type; switch on *Enter the 1st
       window transmission manually* to type your own value instead.
@@ -89,10 +94,12 @@ leave a section with **Next**, or straight away for fields you have edited.
       reached.
     - **Pulsed laser deposition:** a new deposition step starts with the target,
       target stage, gases and laser settings of the pre-ablation step before it;
-      change what differs. In the SA-PLD a deposition covers all samples loaded
-      in the chamber; switch on *Substrate stage scan* for its scan width and
-      speed. In the LA-PLD choose the sample, and the heater scan type (*Polar
-      scan* is the default).
+      change what differs. Enter the **film thickness**: each deposition step
+      grows one film, of its target's material, on its samples, and these films
+      make up the sample names. In the SA-PLD a deposition covers all samples
+      loaded in the chamber; switch on *Substrate stage scan* for its scan width
+      and speed. In the LA-PLD choose the sample, and the heater scan type
+      (*Polar scan* is the default).
 7. **In-situ techniques.** Tick each technique you used. Add its data files now
    or later: a technique without files is saved as *awaiting data*.
 8. **Review and save.** Lists everything that is still missing; click an item
@@ -150,8 +157,9 @@ published).
 
 - Required fields are marked with `*`. Comments are optional.
 - The dashboard checks the form again on the server before anything is saved.
-- New targets added elsewhere in NOMAD appear when you start a new logbook or
-  open *Samples* or *Targets*; *Refresh target list* reloads them at any time.
+- New targets and substrates added elsewhere in NOMAD appear when you start a
+  new logbook or open *Samples* or *Targets*; *Refresh lists* reloads them at
+  any time.
 - A new logbook never overwrites an existing file: if a logbook with the same
   system, date, time and run name, or a sample with the same sample ID, already
   exists in the upload, saving stops with a message.

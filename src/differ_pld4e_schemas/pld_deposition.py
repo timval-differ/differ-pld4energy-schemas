@@ -39,6 +39,8 @@ __all__ = [
 
 POLAR_SCAN = 'Polar scan'
 CARTESIAN_SCAN = 'Cartesian scan'
+# Positions in the target carousel.
+TARGET_NUMBERS = range(1, 6)
 CARRIERS = {
     'SA-PLD': ('Omicron carrier', '1" carrier'),
     'LA-PLD': (
@@ -134,7 +136,7 @@ class SelectedTarget(ArchiveSection):
     m_def = Section(label_quantity='material')
     target_number = Quantity(
         type=int,
-        description='Target number in the system for this run, entered by the user.',
+        description='Position of the target in the system for this run (1 to 5).',
         a_eln=ELNAnnotation(component=ELNComponentEnum.NumberEditQuantity),
     )
     target = Quantity(
@@ -287,7 +289,17 @@ class CoolDownStep(PLDProcessStep):
 
 
 class PLDDepositionStep(TargetedStep):
+    """Grows one film, from the step's target, on each of its samples."""
+
     m_def = Section(label='Pulsed laser deposition step')
+    film_thickness = Quantity(
+        type=float,
+        unit='m',
+        description='Intended thickness of the film grown in this step.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.NumberEditQuantity, defaultDisplayUnit='nm'
+        ),
+    )
     samples = Quantity(
         type=Reference(Sample.m_def),
         shape=['*'],
@@ -447,6 +459,11 @@ class PLDLogbook(Process, SampleRun, EntryData):
                 selected.manufacturer = target.manufacturer
                 selected.purchase_date = target.purchase_date
             if selected.target_number is not None:
+                if selected.target_number not in TARGET_NUMBERS:
+                    logger.warning(
+                        f'Target number {selected.target_number} is not a position '
+                        f'in the system ({TARGET_NUMBERS[0]} to {TARGET_NUMBERS[-1]}).'
+                    )
                 if selected.target_number in seen_numbers:
                     logger.warning(
                         f'Target number {selected.target_number} is used twice.'

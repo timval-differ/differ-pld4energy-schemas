@@ -18,6 +18,7 @@ The `m_def` to use in archive files is
 | LA-PLD Logbook | `LAPLDLogbook` | `pld_deposition.py` |
 | PLD Target | `PLDTarget` | `target.py` |
 | Sample | `Sample` | `sample.py` |
+| Substrate type | `SubstrateType` | `sample.py` |
 | PLD In-situ Techniques | `InSituTechniquesEntry` | `in_situ.py` |
 
 ## Logbooks
@@ -57,9 +58,12 @@ its own [Sample](#sample) entry, linked in `sample`.
 | Field | Type | Unit | Notes |
 | --- | --- | --- | --- |
 | `origin` | choice | | `New sample`, `External sample`, `Existing sample`. |
-| `substrate` | choice | | `SrTiO3 10x10 mm`, `Si 1" with flat`, `Si 1" without flat`, `glass`, `FTO`, `Other`. |
-| `substrate_details` | text | | Substrate of an external sample that is not in the list. |
-| `layers` | sub-section, repeats | | [Layer](#layer): the films grown **in this run**. |
+| `substrate` | reference to Substrate type | | From the substrate database. |
+| `substrate_details` | text | | Substrate of an external sample that is not in the database. |
+| `substrate_material` | text | | **Generated**: copied from the substrate (or the substrate details). |
+| `substrate_size` | text | | **Generated**: copied from the substrate. |
+| `layers` | sub-section, repeats | | [Layer](#layer): the films grown **in this run**. The dashboard fills them in from the deposition steps. |
+| `prior_layers` | sub-section, repeats | | [Layer](#layer): films an external sample already had, from the substrate up. They come first in the name and in the Sample entry. |
 | `name` | text | | Generated from the substrate and layers if empty: `Substrate_Film-<t>nm_Film-<t>nm`. |
 | `comments` | rich text | | |
 | `sample_id` | text | | **Generated** for new and external samples: `<system>_<yyyy-mm-dd>_<hh:mm>_S<nn>`; kept once set. Copied from the Sample entry for an existing sample. |
@@ -70,9 +74,9 @@ its own [Sample](#sample) entry, linked in `sample`.
 
 | Field | Type | Unit | Notes |
 | --- | --- | --- | --- |
-| `material` | text | | Film material, as named in the target database. |
+| `target` | reference to a target | | The target the film is grown from. |
+| `material` | text | | Taken from the target if empty. |
 | `thickness` | number | nm | Intended thickness. |
-| `target` | reference to a target | | Optional. |
 
 ### LaserCalibration
 
@@ -94,7 +98,7 @@ One target loaded in the system for this run.
 
 | Field | Type | Unit | Notes |
 | --- | --- | --- | --- |
-| `target_number` | integer | | Target number in the system for this run. |
+| `target_number` | integer | | Position of the target in the system for this run, 1 to 5 (a warning otherwise). |
 | `target` | reference to PLD Target | | Must be unique within the logbook (error otherwise). |
 | `material` | text | | **Generated**: copied from the target. |
 | `manufacturer` | text | | **Generated**: copied from the target. |
@@ -167,6 +171,7 @@ All fields of the pre-ablation step, plus:
 
 | Field | Type | Unit | Notes |
 | --- | --- | --- | --- |
+| `film_thickness` | number | nm | Thickness of the film grown in this step. |
 | `samples` | references to Sample | | The samples deposited on: all samples of the run (SA-PLD) or the chosen one (LA-PLD). |
 | `heater_stage_position` | sub-section | | [HeaterStagePosition](#heaterstageposition) |
 
@@ -283,6 +288,18 @@ Extends the sputter `Target` section.
 | `thickness` | number | m | |
 | `purity` | text | | e.g. `99.999%`. |
 
+### Substrate type
+
+A kind of substrate in the substrate database. Not specific to PLD.
+
+| Field | Type | Unit | Notes |
+| --- | --- | --- | --- |
+| `name` | text | | Entry name. Defaults to the material and size. |
+| `material` | text | | e.g. `SrTiO3`; used in sample names. |
+| `size` | text | | e.g. `10x10 mm` or `1" with flat`. |
+| `supplier` | text | | |
+| `description` | rich text | | |
+
 ### Sample
 
 A sample: a substrate with the films grown on it. Not specific to PLD: `system`
@@ -296,11 +313,11 @@ records where it was made. Extends NOMAD's `CompositeSystem`.
 | `description` | rich text | | Comments. |
 | `system` | text | | System it was made in, e.g. `SA-PLD`. |
 | `origin` | choice | | `New sample`, `External sample`, `Existing sample`. |
-| `substrate` | choice | | As in [SampleInRun](#sampleinrun). |
+| `substrate` | reference to Substrate type | | As in [SampleInRun](#sampleinrun). |
 | `substrate_details` | text | | |
 | `substrate_material` | text | | **Generated** from the substrate. |
 | `substrate_size` | text | | **Generated** from the substrate. |
-| `layers` | sub-section, repeats | | [Layer](#layer) |
+| `layers` | sub-section, repeats | | [Layer](#layer): the whole stack, films it came with first. |
 | `sample_uuid` | text | | **Generated** once. |
 
 ## In-situ techniques

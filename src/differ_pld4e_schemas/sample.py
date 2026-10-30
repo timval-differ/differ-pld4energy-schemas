@@ -4,6 +4,11 @@ Samples, independent of the system they are made or processed in.
 A substrate is the template a film is grown on; a sample is the substrate with
 the films grown on it. Every run (a PLD logbook now, a sputter run later) starts
 by listing the samples it makes or processes, with `SampleRun`.
+
+The kinds of substrate in use (e.g. SrTiO3 10x10 mm) are kept in a database of
+`SubstrateType` entries, like the targets, so new ones can be added without a
+code change. A film refers to the target it is grown from, which gives its
+material.
 """
 
 from __future__ import annotations
@@ -19,7 +24,7 @@ from nomad.metainfo import MEnum, Quantity, Reference, Section, SubSection
 from nomad.metainfo.metainfo import MetainfoReferenceError
 
 from differ_pld4e_schemas import m_package
-from differ_pld4e_schemas.target import Target
+from differ_pld4e_schemas.target import Target, in_stock_quantity
 
 if TYPE_CHECKING:
     from nomad.datamodel.datamodel import EntryArchive
@@ -30,20 +35,12 @@ __all__ = [
     'Sample',
     'SampleInRun',
     'SampleRun',
+    'SubstrateType',
     'm_package',
     'sample_id',
     'sample_name',
 ]
 
-# Substrate type -> (material, size).
-SUBSTRATE_TYPES = {
-    'SrTiO3 10x10 mm': ('SrTiO3', '10x10 mm'),
-    'Si 1" with flat': ('Si', '1" with flat'),
-    'Si 1" without flat': ('Si', '1" without flat'),
-    'glass': ('glass', None),
-    'FTO': ('FTO', None),
-}
-OTHER_SUBSTRATE = 'Other'
 NEW_SAMPLE = 'New sample'
 EXTERNAL_SAMPLE = 'External sample'
 EXISTING_SAMPLE = 'Existing sample'
@@ -57,25 +54,18 @@ def sample_id(system, start, number):
     return f'{system}_{start:%Y-%m-%d_%H:%M}_S{int(number):02d}'
 
 
-def substrate_material(substrate, substrate_details=None):
-    if substrate in SUBSTRATE_TYPES:
-        return SUBSTRATE_TYPES[substrate][0]
-    return substrate_details or None
-
-
 def _number_text(value) -> str:
     return f'{float(value):g}'
 
 
-def sample_name(substrate, layers, substrate_details=None):
+def sample_name(substrate_material, layers):
     """
-    `Substrate_Film-<t>nm_Film-<t>nm` from the substrate and (material, thickness
-    in nm) pairs; layers without a material are left out.
+    `Substrate_Film-<t>nm_Film-<t>nm` from the substrate material and (material,
+    thickness in nm) pairs; layers without a material are left out.
     """
-    material = substrate_material(substrate, substrate_details)
-    if not material:
+    if not substrate_material:
         return None
-    parts = [material]
+    parts = [substrate_material]
     for layer_material, thickness in layers or []:
         if not layer_material:
             continue
@@ -90,6 +80,16 @@ def file_name_for(text: str) -> str:
     return re.sub(r'[^\w.-]', '_', text) + '.archive.json'
 
 
+def _resolved(reference, *names):
+    """Values of a referenced section, or Nones if it cannot be resolved."""
+    if reference is None:
+        return (None,) * len(names)
+    try:
+        return tuple(getattr(reference, name, None) for name in names)
+    except MetainfoReferenceError:  # NOMAD reports the reference itself
+        return (None,) * len(names)
+
+
 def _layer_pairs(layers):
     return [
         (
@@ -100,13 +100,53 @@ def _layer_pairs(layers):
     ]
 
 
+class SubstrateType(EntryData):
+    """
+    A kind of substrate in the substrate database, e.g. SrTiO3 10x10 mm. Samples
+    refer to it; add an entry for every kind of substrate in use.
+    """
+
+    m_def = Section(label='Substrate type')
+    name = Quantity(
+        type=str,
+        description='Display name. Defaults to the material and size.',
+        a_eln=ELNAnnotation(component=ELNComponentEnum.StringEditQuantity),
+    )
+    material = Quantity(
+        type=str,
+        description='Substrate material, e.g. SrTiO3 or Si. Used in sample names.',
+        a_eln=ELNAnnotation(component=ELNComponentEnum.StringEditQuantity),
+    )
+    size = Quantity(
+        type=str,
+        description='e.g. 10x10 mm or 1" with flat.',
+        a_eln=ELNAnnotation(component=ELNComponentEnum.StringEditQuantity),
+    )
+    supplier = Quantity(
+        type=str,
+        a_eln=ELNAnnotation(component=ELNComponentEnum.StringEditQuantity),
+    )
+    in_stock = in_stock_quantity()
+    description = Quantity(
+        type=str,
+        a_eln=ELNAnnotation(component=ELNComponentEnum.RichTextEditQuantity),
+    )
+
+    def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
+        super().normalize(archive, logger)
+        if not self.name and self.material:
+            self.name = ' '.join(part for part in (self.material, self.size) if part)
+        if self.name and archive is not None and archive.metadata is not None:
+            archive.metadata.entry_name = self.name
+
+
 class Layer(ArchiveSection):
-    """A film grown on the sample."""
+    """A film grown on the sample, from one of the targets."""
 
     m_def = Section(label_quantity='material')
     material = Quantity(
         type=str,
-        description='Film material, as named in the target database.',
+        description='Film material. Taken from the target if empty.',
         a_eln=ELNAnnotation(component=ELNComponentEnum.StringEditQuantity),
     )
     thickness = Quantity(
@@ -119,9 +159,14 @@ class Layer(ArchiveSection):
     )
     target = Quantity(
         type=Reference(Target.m_def),
-        description='Optional: the target the film is grown from.',
+        description='The target the film is grown from.',
         a_eln=ELNAnnotation(component=ELNComponentEnum.ReferenceEditQuantity),
     )
+
+    def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
+        super().normalize(archive, logger)
+        if not self.material:
+            (self.material,) = _resolved(self.target, 'material')
 
 
 class _SampleDetails(ArchiveSection):
@@ -141,15 +186,38 @@ class _SampleDetails(ArchiveSection):
         a_eln=ELNAnnotation(component=ELNComponentEnum.EnumEditQuantity),
     )
     substrate = Quantity(
-        type=MEnum(*SUBSTRATE_TYPES, OTHER_SUBSTRATE),
-        a_eln=ELNAnnotation(component=ELNComponentEnum.EnumEditQuantity),
+        type=Reference(SubstrateType.m_def),
+        description='The kind of substrate, from the substrate database.',
+        a_eln=ELNAnnotation(component=ELNComponentEnum.ReferenceEditQuantity),
     )
     substrate_details = Quantity(
         type=str,
-        description='Substrate of an external sample, if it is not in the list.',
+        description='Substrate of an external sample that is not in the database.',
         a_eln=ELNAnnotation(component=ELNComponentEnum.StringEditQuantity),
     )
+    substrate_material = Quantity(
+        type=str,
+        description='Read-only: taken from the substrate.',
+    )
+    substrate_size = Quantity(
+        type=str,
+        description='Read-only: taken from the substrate.',
+    )
     layers = SubSection(section_def=Layer, repeats=True)
+
+    def _copy_substrate_and_films(self) -> None:
+        """Material and size from the substrate, film materials from the targets."""
+        material, size = _resolved(self.substrate, 'material', 'size')
+        if material:
+            self.substrate_material, self.substrate_size = material, size
+        elif self.substrate is None and self.substrate_details:
+            self.substrate_material = self.substrate_material or self.substrate_details
+        for layer in self.layers or []:
+            if not layer.material:
+                (layer.material,) = _resolved(layer.target, 'material')
+
+    def _generated_name(self):
+        return sample_name(self.substrate_material, _layer_pairs(self.layers))
 
 
 class Sample(CompositeSystem, _SampleDetails, EntryData):
@@ -164,27 +232,13 @@ class Sample(CompositeSystem, _SampleDetails, EntryData):
         description='The system the sample was made in, e.g. SA-PLD.',
         a_eln=ELNAnnotation(component=ELNComponentEnum.StringEditQuantity),
     )
-    substrate_material = Quantity(
-        type=str,
-        description='Read-only: taken from the substrate.',
-    )
-    substrate_size = Quantity(
-        type=str,
-        description='Read-only: taken from the substrate.',
-    )
 
     def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
         if not self.sample_uuid:
             self.sample_uuid = str(uuid.uuid4())
-        self.substrate_material = substrate_material(
-            self.substrate, self.substrate_details
-        )
-        if self.substrate in SUBSTRATE_TYPES:
-            self.substrate_size = SUBSTRATE_TYPES[self.substrate][1]
+        self._copy_substrate_and_films()
         if not self.name:
-            self.name = sample_name(
-                self.substrate, _layer_pairs(self.layers), self.substrate_details
-            )
+            self.name = self._generated_name()
         if self.sample_id and not self.lab_id:
             self.lab_id = self.sample_id
         super().normalize(archive, logger)
@@ -196,7 +250,9 @@ class SampleInRun(_SampleDetails):
     """
     A sample made or processed in a run. A new or external sample gets its own
     Sample entry on save, linked in `sample`; an existing sample is selected
-    there. `layers` are the films grown in this run.
+    there. `layers` are the films grown in this run; the dashboard takes them
+    from the deposition steps. An external sample may already carry films:
+    those are `prior_layers`.
     """
 
     m_def = Section(label_quantity='sample_id')
@@ -214,6 +270,15 @@ class SampleInRun(_SampleDetails):
         description='The Sample entry of this sample.',
         a_eln=ELNAnnotation(component=ELNComponentEnum.ReferenceEditQuantity),
     )
+    prior_layers = SubSection(
+        section_def=Layer,
+        repeats=True,
+        description='Films already on an external sample, from the substrate up.',
+    )
+
+    def _generated_name(self):
+        layers = [*(self.prior_layers or []), *(self.layers or [])]
+        return sample_name(self.substrate_material, _layer_pairs(layers))
 
     def to_sample(self, system, start) -> Sample:
         sample = Sample(
@@ -226,8 +291,11 @@ class SampleInRun(_SampleDetails):
             origin=self.origin,
             substrate=self.substrate,
             substrate_details=self.substrate_details,
+            substrate_material=self.substrate_material,
+            substrate_size=self.substrate_size,
         )
-        for layer in self.layers or []:
+        # The Sample entry has the whole stack: the films it came with first.
+        for layer in [*(self.prior_layers or []), *(self.layers or [])]:
             sample.layers.append(
                 Layer(
                     material=layer.material,
@@ -256,12 +324,9 @@ class SampleRun(ArchiveSection):
             else:
                 number += 1
                 item.sample_id = item.sample_id or sample_id(system, start, number)
+                item._copy_substrate_and_films()
                 if not item.name:
-                    item.name = sample_name(
-                        item.substrate,
-                        _layer_pairs(item.layers),
-                        item.substrate_details,
-                    )
+                    item.name = item._generated_name()
             if item.sample_id is not None:
                 if item.sample_id in seen:
                     logger.warning(f'Sample {item.sample_id} is listed twice.')
@@ -274,13 +339,9 @@ class SampleRun(ArchiveSection):
 
     @staticmethod
     def _copy_existing(item: SampleInRun) -> None:
-        if item.sample is None:
-            return
-        try:
-            item.sample_id = item.sample_id or item.sample.sample_id
-            item.name = item.name or item.sample.name
-        except MetainfoReferenceError:
-            pass  # NOMAD reports the unresolvable reference itself
+        sample_id_, name = _resolved(item.sample, 'sample_id', 'name')
+        item.sample_id = item.sample_id or sample_id_
+        item.name = item.name or name
 
     @staticmethod
     def _create_sample_entry(item: SampleInRun, archive: EntryArchive, system, start):

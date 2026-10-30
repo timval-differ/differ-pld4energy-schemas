@@ -12,7 +12,24 @@ if TYPE_CHECKING:
     from nomad.datamodel.datamodel import EntryArchive
     from structlog.stdlib import BoundLogger
 
-__all__ = ['PLDTarget', 'Target', 'm_package']
+__all__ = ['PLDTarget', 'Target', 'in_stock_quantity', 'm_package']
+
+
+def in_stock_quantity():
+    """
+    Whether a database entry (target, substrate type) can still be chosen. An
+    entry that runs out is switched off rather than deleted, so the logbooks and
+    samples that used it keep their links.
+    """
+    return Quantity(
+        type=bool,
+        default=True,
+        description=(
+            'Untick when it is used up or no longer available: new logbooks then '
+            'no longer offer it. Logbooks that used it keep it.'
+        ),
+        a_eln=ELNAnnotation(component=ELNComponentEnum.BoolEditQuantity),
+    )
 
 
 class Target(ArchiveSection):
@@ -61,6 +78,7 @@ class PLDTarget(Target, EntryData):
         type=Datetime,
         a_eln=ELNAnnotation(component=ELNComponentEnum.DateTimeEditQuantity),
     )
+    in_stock = in_stock_quantity()
 
     def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
         super().normalize(archive, logger)

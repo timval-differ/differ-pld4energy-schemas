@@ -38,10 +38,11 @@ from differ_pld4e_schemas.pld_deposition import (
     CARRIERS,
     CARTESIAN_SCAN,
     POLAR_SCAN,
+    TARGET_NUMBERS,
     LAPLDLogbook,
     SAPLDLogbook,
 )
-from differ_pld4e_schemas.sample import Sample
+from differ_pld4e_schemas.sample import Sample, SubstrateType
 from differ_pld4e_schemas.target import PLDTarget
 
 from ..common.fields import comments, field, number
@@ -407,6 +408,13 @@ def step_variants():
             visible_if=LA,
         ),
         target,
+        number(
+            'film_thickness',
+            'Film thickness',
+            'nm',
+            help='The film grown in this step; together with the target it makes '
+            'up the sample name.',
+        ),
         *heater_stage_fields(),
         field(
             'substrate_stage_scan',
@@ -576,6 +584,7 @@ def form_spec() -> dict:
         'reference_sections': {
             'target': PLDTarget.m_def.qualified_name(),
             'sample': Sample.m_def.qualified_name(),
+            'substrate': SubstrateType.m_def.qualified_name(),
             'in_situ': InSituTechniquesEntry.m_def.qualified_name(),
         },
         'sections': [
@@ -648,9 +657,16 @@ def form_spec() -> dict:
                         'Target',
                         'reference',
                         reference='target',
+                        # The material names the films of the samples.
+                        ref_copy={'material': 'material'},
                         archive=None,
                     ),
-                    field('target_number', 'Target number', 'integer', min=1),
+                    field(
+                        'target_number',
+                        'Target number',
+                        'select',
+                        options=[str(number) for number in TARGET_NUMBERS],
+                    ),
                 ],
             },
             {

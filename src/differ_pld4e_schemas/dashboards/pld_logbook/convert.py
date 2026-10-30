@@ -27,7 +27,7 @@ from ..common.archive import (
 )
 from ..common.samples import samples_to_archive, samples_to_form
 from ..common.values import is_empty, to_number, visible_fields
-from .rules import section_requirement
+from .rules import sample_films, section_requirement
 from .spec import GASES, LOGBOOK_SECTIONS
 
 __all__ = [
@@ -174,14 +174,19 @@ def _in_situ_to_archive(data: dict, sections: dict) -> dict:
 
 
 def _targets_to_archive(data: dict) -> list:
-    return [
-        {
+    targets = []
+    for item in data.get('targets') or []:
+        if not item.get('target') or to_number(item.get('target_number')) is None:
+            continue
+        target = {
             'target_number': int(to_number(item['target_number'])),
             'target': item['target'],
         }
-        for item in data.get('targets') or []
-        if item.get('target') and to_number(item.get('target_number')) is not None
-    ]
+        # Also copied from the target entry on save; it names the films.
+        if item.get('material'):
+            target['material'] = item['material']
+        targets.append(target)
+    return targets
 
 
 def form_to_files(data: dict, spec: dict, logbook_file: str | None = None) -> dict:
@@ -209,7 +214,11 @@ def form_to_files(data: dict, spec: dict, logbook_file: str | None = None) -> di
     # The schema only has it as a default, which NOMAD does not show as a value.
     logbook['pvd_system'] = system
     logbook['samples'], files, references = samples_to_archive(
-        data, sections['samples']['fields'], system, start
+        data,
+        sections['samples']['fields'],
+        system,
+        start,
+        lambda item: sample_films(item, data),
     )
     if section_requirement(sections['targets'], spec, data) != 'none':
         targets = _targets_to_archive(data)
@@ -347,7 +356,13 @@ def archive_to_form(data: dict, spec: dict) -> dict:
         {
             'uid': _uid(),
             'target': normalize_reference(item.get('target')),
-            'target_number': item.get('target_number'),
+            'material': item.get('material'),
+            # A choice in the form, so the number as text.
+            'target_number': (
+                str(item['target_number'])
+                if item.get('target_number') is not None
+                else None
+            ),
         }
         for item in data.get('targets') or []
     ]

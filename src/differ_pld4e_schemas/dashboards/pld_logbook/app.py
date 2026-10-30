@@ -25,6 +25,10 @@ STATIC = Path(__file__).parent / 'static'
 ASSETS = ('app.js', 'style.css')
 
 
+def asset_version(name: str) -> str:
+    return hashlib.sha256((STATIC / name).read_bytes()).hexdigest()[:12]
+
+
 def index_page() -> str:
     """
     The page, linking its script and style sheet with a version taken from their
@@ -33,9 +37,10 @@ def index_page() -> str:
     """
     page = (STATIC / 'index.html').read_text(encoding='utf-8')
     for name in ASSETS:
-        version = hashlib.sha256((STATIC / name).read_bytes()).hexdigest()[:12]
-        page = page.replace(f'static/{name}"', f'static/{name}?v={version}"')
-    return page
+        page = page.replace(
+            f'static/{name}"', f'static/{name}?v={asset_version(name)}"'
+        )
+    return page.replace('{{script_version}}', asset_version('app.js'))
 
 
 class FormRequest(BaseModel):
@@ -50,7 +55,10 @@ class ArchiveRequest(BaseModel):
 
 def create_app() -> FastAPI:
     app = FastAPI(title='PLD logbook dashboard')
-    spec = form_spec()
+    # The static files are read from disk on every request, but the Python code
+    # only on start. The page compares this version with its own to tell when
+    # NOMAD has to be restarted after an update.
+    spec = {**form_spec(), 'script_version': asset_version('app.js')}
 
     @app.get('/', include_in_schema=False)
     async def index():

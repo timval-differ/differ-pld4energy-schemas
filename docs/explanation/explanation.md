@@ -28,25 +28,28 @@ added on save, so its fields appear without having to add it by hand.
 ## Entries and how they refer to each other
 
 ```
-PLD Target (entry)                Sample (entry)
-      ▲                             ▲        ▲
-      │ target                      │ sample │ sample
-      │                             │        │
-SA-PLD / LA-PLD Logbook (entry)     │   PLD In-situ Techniques (entry)
-├── samples[] ── sample ────────────┤   (new and external samples:
-├── laser_details                   │    created on save)
-├── targets[]  ── target ──► PLD Target
+SA-PLD / LA-PLD Logbook (entry)
+├── samples[]
+│   ├── substrate ──────────► Substrate type (entry)
+│   ├── layers[] ── target ─► PLD Target (entry)
+│   └── sample ─────────────► Sample (entry; new and external samples: created on save)
+│                               ├── substrate ──► Substrate type
+│                               └── layers[] ── target ──► PLD Target
+├── laser_details
+├── targets[] ── target ────► PLD Target
 ├── load_recipe ── recipe ──► earlier logbook of the same system
 ├── steps[]
 │   ├── Pre-ablation step ── target ──► PLD Target
 │   ├── Heating step
 │   ├── Annealing step
-│   ├── Pulsed laser deposition step ── target, samples[] ──► Sample
+│   ├── Pulsed laser deposition step ── target, samples[] ──► PLD Target, Sample
 │   └── Cool-down step
 └── in_situ_techniques
+
+PLD In-situ Techniques (entry) ── sample ──► Sample
 ```
 
-Targets, samples and logbooks are separate entries because each one has its
+Targets, substrate types, samples and logbooks are separate entries because each one has its
 own life:
 
 - A **target** is used in many runs. Storing it once means its material,
@@ -68,9 +71,10 @@ A substrate is the template a film is grown on; after the deposition the
 samples they will make or process, so a logbook starts with a list of
 `samples` (`SampleInRun`). Each is one of:
 
-- a **new sample**: a substrate from the list, with the films planned for it;
+- a **new sample**: a substrate from the substrate database;
 - an **external sample**: prepared elsewhere, without a sample ID, so its
-  substrate can also be described freely;
+  substrate can also be described freely, together with the films it already
+  has (`prior_layers`);
 - an **existing sample**: made earlier in a PLD4Energy system and referenced, for
   an extra deposition, an annealing or only characterisation.
 
@@ -85,6 +89,18 @@ rather than overwritten, so Sample entries are never replaced by accident. An
 existing sample's entry is never changed by a logbook: it may be in another or
 in a published upload. The films grown on it in this run are recorded in the
 logbook.
+
+Substrates and film materials come from databases, like the targets: a
+**Substrate type** entry per kind of substrate (material and size), and each
+film refers to the target it is grown from, which gives its material.
+
+The films are not entered with the samples: each deposition step grows one film
+on its samples, from the step's target and with its film thickness. The
+dashboard derives the films of every sample from the steps, in order. The
+targets of a run are therefore selected once, under *Targets*, and the sample
+name always follows what was deposited. New
+substrates and targets can so be added by the users, without a change to the
+plugin, and the sample names always use the materials as entered there.
 
 The `Sample` section (`sample.py`) knows nothing about PLD: it records the
 system it was made in as text. The same section and the `SampleRun` base of the

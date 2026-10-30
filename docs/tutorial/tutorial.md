@@ -34,9 +34,14 @@ every run.
 !!! tip
     The target number is **not** part of the target entry. Targets are moved in
     and out of the system, so the number is entered per run in the logbook.
-    The target materials are also the film materials offered for samples.
+    The films of a sample are linked to the target they are grown from, and
+    take their material from it.
 
 If the target already exists, skip this step.
+
+Substrates work the same way: every kind of substrate is one **Substrate type**
+entry with its **material** (`Si`) and **size** (`1" with flat`). Create one
+if the substrate you use is not there yet.
 
 ## 2. Create the logbook and list the samples
 
@@ -59,11 +64,14 @@ template a film is grown on; the sample is the substrate with its films. Add one
 - **origin**: `New sample` (most runs), `External sample` (prepared elsewhere,
   without a sample ID) or `Existing sample` (made earlier in a PLD4Energy
   system, e.g. for an extra deposition or only annealing);
-- for a new or external sample, the **substrate** (e.g. `Si 1" with flat`), or
-  `Other` with **substrate details**;
+- for a new or external sample, the **substrate** from the substrate database
+  (e.g. `Si 1" with flat`); an external sample on a substrate that is not in
+  the database gets **substrate details** instead, and the films an external
+  sample came with go in **prior layers**;
 - for an existing sample, the **sample** entry itself;
-- **layers**: one per film grown in this run, with its **material** and
-  **thickness** (nm), e.g. `SrTiO3`, 20 nm;
+- **layers**: one per film grown in this run, with its **target** (e.g.
+  `SrTiO3`) and **thickness** (nm), e.g. 20 nm. The film material is taken from
+  the target. (The dashboard fills these in from the deposition steps.);
 - **comments**.
 
 Save. For each new and external sample the plugin then:
@@ -129,6 +137,7 @@ Every step has:
 
 Everything from the pre-ablation step, plus:
 
+- **film thickness** (nm) of the film this step grows;
 - **samples**: the samples deposited on. In the SA-PLD that is every sample
   loaded in the chamber;
 - **heater stage position**: x, y, z (mm), tilt and spin (degrees);
@@ -146,7 +155,7 @@ For a run with only annealing, skip this step.
 Add one **targets** sub-section per target loaded in the system:
 
 - **target**: pick `SrTiO3` from the target database;
-- **target number**: the position number of the target in the system today.
+- **target number**: the position of the target in the system today, 1 to 5.
 
 Save. Material, manufacturer and purchase date are copied from the target entry
 so you can check you picked the right one. Selecting the same target twice is

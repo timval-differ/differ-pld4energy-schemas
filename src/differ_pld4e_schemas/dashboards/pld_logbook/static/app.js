@@ -32,7 +32,7 @@ const app = {
   started: false, // whether the form holds a logbook being worked on
   user: null,
   uploads: [],
-  refs: {target: [], sample: []},
+  refs: {target: [], sample: [], substrate: []},
   pendingFiles: {}, // form path -> File, uploaded on save
   touched: new Set(),
   shown: new Set(), // sections whose problems are all shown
@@ -197,7 +197,7 @@ function compute(name, local, root) {
     return (after / (before * t2 / 100)) * 100;
   }
   if (name === 'sample_id') return sampleId(local, root);
-  if (name === 'sample_name') return sampleName(local);
+  if (name === 'sample_name') return sampleName(local, root);
   throw new Error('Unknown computed value ' + name);
 }
 
@@ -235,16 +235,36 @@ function sampleId(item, root) {
   return `${system}_${date}_${time}_S${pad(number)}`;
 }
 
-function sampleName(item) {
+/* How a step refers to a sample of the run (mirror rules.sample_choice). */
+function sampleChoice(item) {
+  return madeHere(item) ? `new:${item.uid}` : item.sample;
+}
+
+/* The films grown on a sample: one per deposition step on it (mirror rules.sample_films). */
+function sampleFilms(item, root) {
+  const material = (target) => {
+    const selected = (root.targets || []).find((t) => t.target === target);
+    return (selected && selected.material) || (app.refs.target.find((r) => r.ref === target) || {}).material;
+  };
+  const sa = (root.run || {}).system === 'SA-PLD';
+  return (root.steps || [])
+    .filter((step) => step.type === 'deposition' && (sa || step.sample === sampleChoice(item)))
+    .map((step) => ({target: step.target, material: material(step.target), thickness: step.film_thickness}));
+}
+
+function sampleName(item, root = app.form) {
   if (!madeHere(item)) return item.name || existingSample(item).sampleName || null;
-  const materials = section('samples').substrate_materials || {};
-  const material = materials[item.substrate] || item.substrate_details;
+  // The material is copied from the chosen substrate entry (see copyFromRef).
+  const material = item.substrate ? item.substrate_material
+    : (item.origin === 'External sample' ? item.substrate_details : null);
   if (!material) return null;
   const parts = [material];
-  for (const row of item.layers || []) {
-    if (!row.material) continue;
-    const thickness = toNumber(row.thickness);
-    parts.push(thickness === null ? row.material : `${row.material}-${Number(thickness.toPrecision(6))}nm`);
+  // An external sample may come with films; then those grown in this run.
+  const prior = item.origin === 'External sample' ? (item.prior_films || []) : [];
+  for (const film of [...prior, ...sampleFilms(item, root)]) {
+    if (!film.material) continue;
+    const thickness = toNumber(film.thickness);
+    parts.push(thickness === null ? film.material : `${film.material}-${Number(thickness.toPrecision(6))}nm`);
   }
   return parts.join('_');
 }
@@ -324,7 +344,9 @@ function validateFields(fields, local, path, root, errors, required = true) {
       continue;
     }
     if (isEmpty(value)) {
-      if (field.required && required) errors.push({path: fieldPath, message: 'Required.'});
+      if (field.required && required && evaluate(field.required_if, local, root)) {
+        errors.push({path: fieldPath, message: 'Required.'});
+      }
       continue;
     }
     const message = fieldError(field, value, local, root);
@@ -549,11 +571,25 @@ async function searchEntries(qualifiedNames, required, {owner = 'visible', pageS
   })).data || [];
 }
 
+/*
+ * The page is read from disk on every request, the dashboard's Python code only
+ * when NOMAD starts. After an update without a restart, this page would run
+ * against an old form definition.
+ */
+function checkServerVersion() {
+  const meta = document.querySelector('meta[name="script-version"]');
+  const page = meta && meta.content;
+  if (!page || page.startsWith('{{') || page === app.spec.script_version) return true;
+  showBanner('The dashboard was updated, but NOMAD still runs the previous version of it. '
+    + 'Restart NOMAD (stop it and run "poe start" again), then reload this page.', 'error');
+  return false;
+}
+
 async function loadReferences() {
   if (!app.user) return;
   const names = app.spec.reference_sections;
   try {
-    const targets = await searchEntries([names.target], {
+    const targets = !names.target ? [] : await searchEntries([names.target], {
       data: '*', metadata: {entry_name: '*', mainfile: '*'},
     });
     app.refs.target = targets.filter(Boolean).map((t) => {
@@ -564,7 +600,9 @@ async function loadReferences() {
         ref: entryRef(t.upload_id, t.entry_id),
         name: data.name || data.material || metadata.entry_name || `${file} (no material entered)`,
         material: data.material || null,
-        info: [data.material, data.manufacturer, data.purchase_date && String(data.purchase_date).slice(0, 10)]
+        retired: data.in_stock === false,
+        info: [data.material, data.manufacturer, data.purchase_date && String(data.purchase_date).slice(0, 10),
+          data.in_stock === false ? 'out of stock' : null]
           .filter(Boolean).join(' · ') || 'This target has no material, manufacturer or purchase date yet.',
       };
     }).sort((a, b) => a.name.localeCompare(b.name));
@@ -572,7 +610,7 @@ async function loadReferences() {
     showBanner('Could not load the targets: ' + e.message, 'error');
   }
   try {
-    const samples = await searchEntries([names.sample], {
+    const samples = !names.sample ? [] : await searchEntries([names.sample], {
       data: {sample_id: '*', name: '*', system: '*'}, metadata: {entry_name: '*', mainfile: '*'},
     });
     app.refs.sample = samples.filter(Boolean).map((s) => {
@@ -589,12 +627,35 @@ async function loadReferences() {
   } catch (e) {
     showBanner('Could not load the samples: ' + e.message, 'error');
   }
+  try {
+    const substrates = !names.substrate ? [] : await searchEntries([names.substrate], {
+      data: {name: '*', material: '*', size: '*', supplier: '*', in_stock: '*'},
+      metadata: {entry_name: '*', mainfile: '*'},
+    });
+    app.refs.substrate = substrates.filter(Boolean).map((s) => {
+      const data = (s.archive && s.archive.data) || {};
+      const metadata = (s.archive && s.archive.metadata) || {};
+      return {
+        ref: entryRef(s.upload_id, s.entry_id),
+        name: data.name || data.material || metadata.entry_name || metadata.mainfile,
+        material: data.material || null,
+        size: data.size || null,
+        retired: data.in_stock === false,
+        info: [data.material, data.size, data.supplier, data.in_stock === false ? 'out of stock' : null]
+          .filter(Boolean).join(' · '),
+      };
+    }).sort((a, b) => a.name.localeCompare(b.name));
+  } catch (e) {
+    showBanner('Could not load the substrates: ' + e.message, 'error');
+  }
   refresh();
 }
 
-/* Film materials: the materials in the target database. */
-function materialOptions() {
-  return [...new Set(app.refs.target.map((t) => t.material).filter(Boolean))].sort();
+/* Copy values of a chosen entry into the form, e.g. the material of a target. */
+function copyFromRef(field, local, value) {
+  if (!field.ref_copy) return;
+  const found = app.refs[field.reference].find((r) => r.ref === value) || {};
+  for (const [key, attribute] of Object.entries(field.ref_copy)) local[key] = found[attribute] ?? null;
 }
 
 async function loadUploads() {
@@ -630,9 +691,11 @@ function choiceOptions(field, local) {
       return s.sample ? {value: s.sample, label: refName('sample', s.sample)} : null;
     }).filter(Boolean);
   }
-  if (field.kind === 'material_choice') return materialOptions().map((m) => ({value: m, label: m}));
   if (field.kind === 'reference') {
-    return app.refs[field.reference].map((r) => ({value: r.ref, label: r.name}));
+    // Entries that are out of stock are not offered, unless already chosen here.
+    return app.refs[field.reference]
+      .filter((r) => !r.retired || r.ref === local[field.key])
+      .map((r) => ({value: r.ref, label: r.name + (r.retired ? ' (out of stock)' : '')}));
   }
   return fieldOptions(field, local, root).map((o) => ({value: o, label: o}));
 }
@@ -641,12 +704,11 @@ function emptyChoiceText(field) {
   if (field.options_by) return field.options_by.empty_text || 'Choose the other options first';
   if (field.kind === 'target_choice') return 'Select targets under Targets first';
   if (field.kind === 'sample_choice') return 'Add samples under Samples first';
-  if (field.kind === 'material_choice') return 'No targets found in NOMAD';
   if (field.kind === 'reference') return 'None found in NOMAD';
   return 'No options available';
 }
 
-const CHOICE_KINDS = ['select', 'reference', 'target_choice', 'sample_choice', 'material_choice'];
+const CHOICE_KINDS = ['select', 'reference', 'target_choice', 'sample_choice'];
 
 function fillSelect(select, options, value, field) {
   const current = value === undefined || value === null ? '' : value;
@@ -668,6 +730,7 @@ function control(field, local, path) {
   const id = 'f-' + path.replace(/\./g, '-');
   const set = (value) => {
     local[field.key] = value;
+    copyFromRef(field, local, value);
     app.touched.add(path);
     changed();
   };
@@ -686,8 +749,7 @@ function control(field, local, path) {
     case 'select':
     case 'reference':
     case 'target_choice':
-    case 'sample_choice':
-    case 'material_choice': {
+    case 'sample_choice': {
       input = el('select', {id, onchange: (e) => set(e.target.value || null)});
       body = el('div', {class: 'input-wrap'}, input);
       return {body, input};
@@ -784,7 +846,7 @@ function renderFields(container, fields, local, path) {
     const error = el('div', {class: 'error'});
     const wide = ['textarea', 'file', 'rows'].includes(field.kind);
     const classes = 'field' + (wide ? ' wide' : '') + (field.row_start ? ' row-start' : '');
-    const helper = el('div', {class: 'helper'});
+    const helper = el('div', {class: 'helper'}, field.help || '');
     const wrap = el('div', {class: classes, 'data-path': fieldPath},
       made.labelInside ? null : el('label', {for: made.input.id, class: field.required ? 'required' : ''},
         field.label),
@@ -838,9 +900,13 @@ function refresh() {
       r.filePending.textContent = value && app.pendingFiles[r.path] ? 'uploaded on save' : '';
       r.fileClear.hidden = !value;
     }
+    if (r.field.required && r.field.required_if) {
+      const label = r.wrap.querySelector('label');
+      if (label) label.classList.toggle('required', evaluate(r.field.required_if, r.local, root));
+    }
     if (r.field.reference) {
       const found = app.refs[r.field.reference].find((t) => t.ref === value);
-      r.helper.textContent = found ? found.info : '';
+      r.helper.textContent = found ? found.info : (r.field.help || '');
     }
     if (r.path.startsWith('in_situ.') && kind === 'bool') {
       r.helper.textContent = value && awaitingData(r.field.key, r.local)
@@ -1145,8 +1211,12 @@ function renderList(container, s) {
   }, `+ Add ${s.item_label.toLowerCase()}`));
   if (s.key === 'targets') {
     actions.append(el('button', {type: 'button', class: 'btn btn-text', onclick: newTargetDialog}, 'New target in the database'));
-    actions.append(el('button', {type: 'button', class: 'btn btn-text', onclick: loadReferences}, 'Refresh target list'));
   }
+  if (s.key === 'samples') {
+    actions.append(el('button', {type: 'button', class: 'btn btn-text', onclick: newSubstrateDialog}, 'New substrate in the database'));
+    actions.append(el('button', {type: 'button', class: 'btn btn-text', onclick: newTargetDialog}, 'New target in the database'));
+  }
+  actions.append(el('button', {type: 'button', class: 'btn btn-text', onclick: loadReferences}, 'Refresh lists'));
   card.append(actions);
   container.append(card);
 }
@@ -1331,56 +1401,105 @@ async function putArchive(uploadId, fileName, archive, overwrite) {
   });
 }
 
-function newTargetDialog() {
-  if (!app.user) return showBanner('Log in to NOMAD to add targets.', 'error');
-  const values = {name: '', material: '', manufacturer: '', purchase_date: ''};
+/*
+ * Add an entry to one of the databases (targets, substrates) without leaving
+ * the form. `place` puts the new entry into the form, e.g. into the first
+ * empty target row.
+ */
+function newEntryDialog({kind, noun, intro, fields, build, place}) {
+  if (!app.user) return showBanner(`Log in to NOMAD to add ${noun}s.`, 'error');
+  const values = Object.fromEntries(fields.map((f) => [f.key, '']));
   const message = el('p', {class: 'error'});
-  const input = (key, label, type = 'text') => el('div', {class: 'field'},
-    el('label', {class: key === 'material' ? 'required' : ''}, label),
-    el('div', {class: 'input-wrap'}, el('input', {type, oninput: (e) => { values[key] = e.target.value; }})));
+  const input = (f) => el('div', {class: 'field'},
+    el('label', {class: f.required ? 'required' : ''}, f.label),
+    el('div', {class: 'input-wrap'}, el('input', {type: f.type || 'text', placeholder: f.placeholder || '',
+      oninput: (e) => { values[f.key] = e.target.value.trim(); }})));
   const create = el('button', {type: 'button', class: 'btn btn-contained', onclick: async () => {
-    if (!values.material) {
-      message.textContent = 'Enter the material.';
+    const missing = fields.find((f) => f.required && !values[f.key]);
+    if (missing) {
+      message.textContent = `Enter the ${missing.label.toLowerCase()}.`;
       return;
     }
     create.disabled = true;
     try {
       const uploadId = await ensureUpload();
-      const data = {m_def: app.spec.reference_sections.target, material: values.material};
-      if (values.name) data.name = values.name;
-      if (values.manufacturer) data.manufacturer = values.manufacturer;
-      if (values.purchase_date) data.purchase_date = values.purchase_date + 'T00:00:00+00:00';
-      const fileName = fileNameFor('target_' + (values.name || values.material) + '_' + uid().slice(0, 6)) + '.archive.json';
+      const data = {m_def: app.spec.reference_sections[kind], ...build(values)};
+      const fileName = fileNameFor(`${kind}_${data.name || data.material}_${uid().slice(0, 6)}`) + '.archive.json';
       const response = await putArchive(uploadId, fileName, {data}, false);
       const entry = response.processing && response.processing.entry_id;
       await loadReferences();
-      if (entry) {
-        const empty = app.form.targets.find((t) => !t.target);
-        const ref = entryRef(uploadId, entry);
-        if (empty) empty.target = ref;
-        else app.form.targets.push({...newItem(section('targets')), target: ref});
-      }
+      if (entry) place(entryRef(uploadId, entry), data);
       closeDialog();
       changed();
       render();
-      showBanner(`Target ${values.name || values.material} added to the database.`, 'success');
+      showBanner(`${noun[0].toUpperCase() + noun.slice(1)} ${data.name || data.material} added to the database.`, 'success');
     } catch (e) {
-      message.textContent = 'Could not create the target: ' + e.message;
+      message.textContent = `Could not create the ${noun}: ${e.message}`;
       create.disabled = false;
     }
-  }}, 'Create target');
-  const uploadNeeded = !app.edit && (!app.upload);
-  openDialog('New target in the database', [
-    el('p', {class: 'muted'}, 'Creates a PLD Target entry. Do not put the target number in the name: '
-      + 'it is entered per run.'),
-    el('div', {class: 'grid'},
-      input('material', 'Material'), input('name', 'Name (optional, defaults to material)'),
-      input('manufacturer', 'Manufacturer'), input('purchase_date', 'Purchase date', 'date'),
+  }}, `Create ${noun}`);
+  const uploadNeeded = !app.edit && !app.draft && !app.upload;
+  openDialog(`New ${noun} in the database`, [
+    el('p', {class: 'muted'}, intro),
+    el('div', {class: 'grid'}, ...fields.map(input),
       uploadNeeded ? el('div', {class: 'field'}, el('label', {class: 'required'}, 'Upload to store it in'),
         el('div', {class: 'input-wrap'}, uploadSelect())) : null),
     message,
     el('div', {class: 'btn-row'}, create),
   ]);
+}
+
+function setReference(field, local, ref) {
+  local[field.key] = ref;
+  copyFromRef(field, local, ref);
+}
+
+function newTargetDialog() {
+  newEntryDialog({
+    kind: 'target',
+    noun: 'target',
+    intro: 'Creates a PLD Target entry. Do not put the target number in the name: it is entered per run.',
+    fields: [
+      {key: 'material', label: 'Material', required: true},
+      {key: 'name', label: 'Name (optional, defaults to material)'},
+      {key: 'manufacturer', label: 'Manufacturer'},
+      {key: 'purchase_date', label: 'Purchase date', type: 'date'},
+    ],
+    build: (v) => Object.fromEntries(Object.entries({
+      material: v.material, name: v.name, manufacturer: v.manufacturer,
+      purchase_date: v.purchase_date && v.purchase_date + 'T00:00:00+00:00',
+    }).filter(([, value]) => value)),
+    place: (ref) => {
+      const empty = app.form.targets.find((t) => !t.target);
+      if (empty) empty.target = ref;
+      else app.form.targets.push({...newItem(section('targets')), target: ref});
+    },
+  });
+}
+
+function newSubstrateDialog() {
+  const samples = section('samples');
+  newEntryDialog({
+    kind: 'substrate',
+    noun: 'substrate',
+    intro: 'Creates a Substrate type entry: a kind of substrate that samples are made on, '
+      + 'e.g. SrTiO3 10x10 mm. Its material is used in the sample names.',
+    fields: [
+      {key: 'material', label: 'Material', required: true, placeholder: 'e.g. SrTiO3'},
+      {key: 'size', label: 'Size', placeholder: 'e.g. 10x10 mm or 1" with flat'},
+      {key: 'name', label: 'Name (optional, defaults to material and size)'},
+      {key: 'supplier', label: 'Supplier'},
+    ],
+    build: (v) => Object.fromEntries(Object.entries(v).filter(([, value]) => value)),
+    place: (ref, data) => {
+      const field = samples.fields.find((f) => f.key === 'substrate');
+      const empty = app.form.samples.find((item) => madeHere(item) && !item.substrate);
+      if (!empty) return;
+      setReference(field, empty, ref);
+      // In case the search does not list the new entry yet.
+      empty.substrate_material = empty.substrate_material || data.material;
+    },
+  });
 }
 
 /* ---------------------------------------------------------------- save */
@@ -1752,6 +1871,7 @@ async function init() {
     document.getElementById('section').replaceChildren(el('div', {class: 'card'}, 'Could not load the form: ' + e.message));
     return;
   }
+  checkServerVersion();
   // The logbook last worked on in this browser is offered on the start page,
   // or opened straight away when the page is reloaded inside the form.
   const draft = loadDraft();

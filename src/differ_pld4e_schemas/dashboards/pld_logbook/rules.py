@@ -19,7 +19,13 @@ Conditions are described in `dashboards.common.values`.
 
 from __future__ import annotations
 
-from ..common.samples import compute_sample_id, compute_sample_name, sample_choices
+from ..common.samples import (
+    MADE_HERE,
+    NEW_SAMPLE,
+    compute_sample_id,
+    compute_sample_name,
+    sample_choices,
+)
 from ..common.values import (
     evaluate,
     is_empty,
@@ -43,6 +49,41 @@ __all__ = [
 ]
 
 LEVELS = ('none', 'optional', 'required')
+# Step types that grow a film on their samples.
+FILM_STEPS = ('deposition',)
+
+
+def sample_choice(item: dict):
+    """How a step refers to a sample of the run (see `sample_choices`)."""
+    if item.get('origin', NEW_SAMPLE) in MADE_HERE:
+        return f'new:{item.get("uid")}'
+    return item.get('sample')
+
+
+def step_applies_to(step: dict, choice, root: dict) -> bool:
+    """SA-PLD deposits on all samples in the chamber, LA-PLD on the chosen one."""
+    if (root.get('run') or {}).get('system') == 'SA-PLD':
+        return True
+    return step.get('sample') == choice
+
+
+def sample_films(item: dict, root: dict) -> list:
+    """
+    The films grown on a sample in this run, in order: one per deposition step
+    on it, from the step's target (its material as selected under Targets) and
+    film thickness.
+    """
+    materials = {t.get('target'): t.get('material') for t in root.get('targets') or []}
+    choice = sample_choice(item)
+    return [
+        {
+            'target': step.get('target'),
+            'material': materials.get(step.get('target')),
+            'thickness': step.get('film_thickness'),
+        }
+        for step in root.get('steps') or []
+        if step.get('type') in FILM_STEPS and step_applies_to(step, choice, root)
+    ]
 
 
 def compute(name: str, local: dict, root: dict):
@@ -57,7 +98,7 @@ def compute(name: str, local: dict, root: dict):
     if name == 'sample_id':
         return compute_sample_id(local, root)
     if name == 'sample_name':
-        return compute_sample_name(local, root)
+        return compute_sample_name(local, root, sample_films(local, root))
     raise ValueError(f'Unknown computed value {name}')
 
 
@@ -162,7 +203,11 @@ def _validate_fields(fields, local, path, root, required=True) -> list[dict]:
                 )
             continue
         if is_empty(value):
-            if field['required'] and required:
+            if (
+                field['required']
+                and required
+                and evaluate(field.get('required_if'), local, root)
+            ):
                 errors.append({'path': field_path, 'message': 'Required.'})
             continue
         message = _field_error(field, value, local, root)

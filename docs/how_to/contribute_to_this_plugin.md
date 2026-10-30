@@ -119,10 +119,12 @@ number(
   `test_spec_choices_match_schema`.
 
 Field kinds: `text`, `textarea`, `number`, `integer`, `select`, `bool`,
-`date`, `time`, `reference` (an entry from NOMAD), `target_choice` and
-`sample_choice` (one of the targets or samples of the form), `material_choice`
-(a material from the target database), `rows` (a repeating sub-section, with
-`columns`), `file` and `computed`.
+`date`, `time`, `reference` (an entry from NOMAD: a target, sample or
+substrate type), `target_choice` and `sample_choice` (one of the targets or
+samples of the form), `rows` (a repeating sub-section, with `columns`), `file`
+and `computed`. A `reference` can copy values of the chosen entry into the form
+with `ref_copy` (e.g. the material of a target), and `required_if` makes a field
+required only while a condition holds.
 
 #### Steps and sections
 
@@ -147,6 +149,8 @@ test.
 - In NOMAD: restart `uv run poe start` and open
   <http://localhost:8000/nomad-oasis/dashboards/differ_pld4e_schemas-pld-logbook/>.
   Changes to `static/` only need a browser reload; Python changes need a restart.
+  When `app.js` is newer than the running dashboard code, the page says so and
+  asks for a restart, instead of running against an old form definition.
 
 When you change a schema quantity the form uses (rename, unit, choices), update
 `spec.py` in the same change; the dashboard tests fail until both agree.

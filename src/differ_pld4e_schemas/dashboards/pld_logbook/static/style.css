@@ -122,6 +122,8 @@ body {
 .nav-index.todo { background: var(--warning); }
 .nav-title { flex: 1; }
 .nav-count { font-size: 12px; color: var(--warning); font-weight: 600; }
+.nav-note { display: block; font-size: 12px; font-weight: 400; color: var(--text-secondary); }
+.sidenav button.not-needed .nav-title { color: var(--text-secondary); }
 
 /* Cards */
 .card {
@@ -141,6 +143,29 @@ body {
   border-radius: 4px;
   margin: 8px 0 16px;
 }
+.info.requirement-none { border-left-color: var(--border); background: var(--background); }
+
+/* "How many" control and the rows of a repeating field (films of a sample) */
+.count-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 16px; }
+.count-input {
+  width: 72px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font: inherit;
+}
+.rows { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.row-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--divider);
+  border-radius: 4px;
+}
+.row-line > .grid { flex: 1; margin: 0; }
+
 .list-error {
   padding: 10px 14px;
   border-radius: 4px;

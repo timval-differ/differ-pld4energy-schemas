@@ -3,24 +3,21 @@ Declarative definition of the PLD logbook form.
 
 The same definition drives the browser form (rendering, live validation and
 conditional fields) and the server (validation and conversion to an archive), so
-both always agree on what is required.
+both always agree on what is required. Field keys are described in
+`dashboards.common.fields`.
 
-Field keys:
-    key          key in the form data of the containing section or list item
-    label        label shown in the form
-    kind         text | textarea | number | integer | select | bool | date |
-                 reference | target_choice | substrate_choice | file | computed
-    unit         pint unit the user enters the value in (converted to the
-                 schema's SI unit when the archive is built)
-    unit_label   how the unit is shown, if different from `unit`
-    archive      dotted path of the quantity in the archive section, relative to
-                 the section the containing object maps to; None if the value is
-                 handled by the converter itself
-    required     whether the value must be filled in while the field is visible
-    visible_if   condition, see `rules.evaluate`
-    options      choices of a select, or `options_by` for choices that depend on
-                 another field
-    group        heading the field is shown under
+Section keys, besides those of the fields:
+    requirement  {'from_steps': aspect}: how much of the section is needed
+                 follows the process steps, see `rules.section_requirement`
+    count_control  the list offers a "how many" input (samples)
+
+Step variant keys:
+    laser        'required' | 'optional' | 'none': whether the step needs the
+                 laser (and so the laser details and targets). An optional step
+                 gets a "Laser used" toggle in front of its laser fields.
+    prefill_from variant whose values a new step of this variant starts with,
+                 taken from the last such step (e.g. deposition after
+                 pre-ablation)
 """
 
 from __future__ import annotations
@@ -28,60 +25,53 @@ from __future__ import annotations
 # Importing the schema package fixes the package name that qualified section
 # names (the m_def written into archive files) are built from.
 import differ_pld4e_schemas.schema_packages.schema_package  # noqa: F401
+from differ_pld4e_schemas.gas import ATMOSPHERES as GAS_ATMOSPHERES
+from differ_pld4e_schemas.gas import BACKGROUND_GAS, GASES
 from differ_pld4e_schemas.in_situ import InSituTechniquesEntry
-from differ_pld4e_schemas.pld_deposition import LAPLDLogbook, SAPLDLogbook
-from differ_pld4e_schemas.pld_substrate import PLDSubstrate
+from differ_pld4e_schemas.laser import (
+    LASER_CALIBRATION_INSTRUCTIONS,
+    LASER_MODES,
+    MAGNIFICATIONS,
+    MASK_SIZES,
+)
+from differ_pld4e_schemas.pld_deposition import (
+    CARRIERS,
+    CARTESIAN_SCAN,
+    POLAR_SCAN,
+    LAPLDLogbook,
+    SAPLDLogbook,
+)
+from differ_pld4e_schemas.sample import Sample
 from differ_pld4e_schemas.target import PLDTarget
+
+from ..common.fields import comments, field, number
+from ..common.samples import sample_section
 
 SYSTEMS = ('SA-PLD', 'LA-PLD')
 LOGBOOK_SECTIONS = {'SA-PLD': SAPLDLogbook, 'LA-PLD': LAPLDLogbook}
-
-CARRIERS = {
-    'SA-PLD': ['Omicron carrier', '1" carrier'],
-    'LA-PLD': [
-        'Omicron carrier',
-        '1" carrier',
-        '4" wafer carrier',
-        'Sample select carrier',
-    ],
-}
-SUBSTRATE_MATERIALS = ['Si', 'SrTiO3 (001)', 'glass', 'F:TiO2']
-GASES = ['Ar', 'O2', 'N2']
-LASER_MODES = ['HV NGR', 'HV PGR', 'EGY PGR', 'EGY NGR']
-MAGNIFICATIONS = ['5X', '10X']
-MASK_SIZES = ['3x12', '4x12', '3x15', '4x15', '4x2 (5 slits)']
-POLAR_SCAN = 'Polar scan'
-CARTESIAN_SCAN = 'Cartesian scan'
-
-LASER_INSTRUCTIONS = (
-    'Set the attenuator position 100% open, laser frequency 1 Hz, HV NGR mode '
-    'with HV = 22 kV, Energy = 500 mJ. Mask size of 5x18 mm.'
-)
+ATMOSPHERES = list(GAS_ATMOSPHERES)
+LASER_LEVELS = ('none', 'optional', 'required')
 
 SA = {'key': '/run/system', 'equals': 'SA-PLD'}
 LA = {'key': '/run/system', 'equals': 'LA-PLD'}
-
-
-def field(key, label, kind='text', **kwargs):
-    kwargs.setdefault('required', kind not in ('textarea', 'bool', 'computed'))
-    kwargs.setdefault('archive', key)
-    return {'key': key, 'label': label, 'kind': kind, **kwargs}
-
-
-def number(key, label, unit=None, **kwargs):
-    return field(key, label, 'number', unit=unit, **kwargs)
-
-
-def comments(**kwargs):
-    kwargs.setdefault('archive', 'description')
-    return field('comments', 'Comments', 'textarea', **kwargs)
+LASER_STEPS = {'from_steps': 'laser'}
 
 
 def gas_fields():
-    fields = []
+    group = 'Background gases'
+    in_gas = {'key': 'atmosphere', 'equals': BACKGROUND_GAS}
+    fields = [
+        field(
+            'atmosphere',
+            'Atmosphere',
+            'select',
+            options=ATMOSPHERES,
+            default=BACKGROUND_GAS,
+            group=group,
+        )
+    ]
     for gas in GASES:
-        on = {'key': f'gas_{gas}', 'equals': True}
-        group = 'Background gases'
+        on = {'all': [in_gas, {'key': f'gas_{gas}', 'equals': True}]}
         fields += [
             field(
                 f'gas_{gas}',
@@ -91,6 +81,7 @@ def gas_fields():
                 group=group,
                 gas=gas,
                 row_start=True,
+                visible_if=in_gas,
             ),
             number(
                 f'gas_{gas}_flow_setpoint',
@@ -112,25 +103,31 @@ def gas_fields():
                 group=group,
                 gas=gas,
             ),
-            number(
-                f'gas_{gas}_valve_position',
-                f'{gas} valve position',
-                unit_label='%',
-                archive='valve_position',
-                visible_if=on,
-                group=group,
-                gas=gas,
-            ),
-            field(
-                f'gas_{gas}_valve_position_fixed',
-                f'{gas} valve position fixed',
-                'bool',
-                archive='valve_position_fixed',
-                visible_if=on,
-                group=group,
-                gas=gas,
-            ),
         ]
+    # One valve for all gases.
+    any_gas = {
+        'all': [
+            in_gas,
+            {'any': [{'key': f'gas_{gas}', 'equals': True} for gas in GASES]},
+        ]
+    }
+    fields += [
+        number(
+            'valve_position',
+            'Valve position',
+            unit_label='%',
+            visible_if=any_gas,
+            group=group,
+            row_start=True,
+        ),
+        field(
+            'valve_position_fixed',
+            'Valve position fixed',
+            'bool',
+            visible_if=any_gas,
+            group=group,
+        ),
+    ]
     return fields
 
 
@@ -141,7 +138,7 @@ def laser_fields():
             'laser_mode',
             'Laser mode',
             'select',
-            options=LASER_MODES,
+            options=list(LASER_MODES),
             archive='laser.laser_mode',
             group=group,
         ),
@@ -156,7 +153,7 @@ def laser_fields():
             'magnification',
             'Magnification',
             'select',
-            options=MAGNIFICATIONS,
+            options=list(MAGNIFICATIONS),
             archive='laser.magnification',
             group=group,
         ),
@@ -164,7 +161,7 @@ def laser_fields():
             'mask_size',
             'Mask size',
             'select',
-            options=MASK_SIZES,
+            options=list(MASK_SIZES),
             archive='laser.mask_size',
             group=group,
         ),
@@ -216,16 +213,20 @@ def laser_fields():
     ]
 
 
-def target_stage_fields(**kwargs):
+def target_stage_fields():
     group = 'Target stage'
     return [
-        number(key, label, 'mm', archive=f'target_stage.{key}', group=group, **kwargs)
-        for key, label in (
-            ('start_x_position', 'Start x-position'),
-            ('x_offset', 'x-offset'),
-            ('start_y_position', 'Start y-position'),
-            ('y_offset', 'y-offset'),
-            ('scan_area', 'Scan area'),
+        number(key, label, unit, archive=f'target_stage.{key}', group=group)
+        for key, label, unit in (
+            ('start_x_position', 'Start x-position', 'mm'),
+            ('x_offset', 'x-offset', 'mm'),
+            ('start_y_position', 'Start y-position', 'mm'),
+            ('y_offset', 'y-offset', 'mm'),
+            ('start_z_position', 'Start z-position', 'mm'),
+            ('scan_width_x', 'Scan width x', 'mm'),
+            ('scan_width_y', 'Scan width y', 'mm'),
+            ('scan_speed_x', 'Scan speed x', 'mm/s'),
+            ('scan_speed_y', 'Scan speed y', 'mm/s'),
         )
     ]
 
@@ -251,79 +252,65 @@ def heater_stage_fields():
     ]
 
 
-def cartesian_scan_fields(visible_if):
-    group = 'Cartesian scan'
+def substrate_scan_fields(visible_if):
+    """Substrate stage scan of the SA-PLD."""
     return [
         number(
-            'cartesian_x_offset',
-            'x-offset',
-            'mm',
-            archive='cartesian_scan.x_offset',
+            f'substrate_{key}',
+            label,
+            unit,
+            archive=f'substrate_scan.{key}',
             visible_if=visible_if,
-            group=group,
-        ),
+            group='Substrate stage scan',
+        )
+        for key, label, unit in (
+            ('scan_width_x', 'Scan width x', 'mm'),
+            ('scan_width_y', 'Scan width y', 'mm'),
+            ('scan_speed_x', 'Scan speed x', 'mm/s'),
+            ('scan_speed_y', 'Scan speed y', 'mm/s'),
+        )
+    ]
+
+
+def cartesian_scan_fields(visible_if):
+    """Cartesian heater stage scan of the LA-PLD."""
+    return [
         number(
-            'cartesian_y_offset',
-            'y-offset',
-            'mm',
-            archive='cartesian_scan.y_offset',
+            f'cartesian_{key}',
+            label,
+            unit,
+            archive=f'cartesian_scan.{archive}',
             visible_if=visible_if,
-            group=group,
-        ),
-        number(
-            'cartesian_scan_rate',
-            'Scan rate',
-            'mm/s',
-            archive='cartesian_scan.scan_rate',
-            visible_if=visible_if,
-            group=group,
-        ),
-        number(
-            'cartesian_rotation_rate',
-            'Rotation rate',
-            'rpm',
-            archive='cartesian_scan.rotation_rate',
-            visible_if=visible_if,
-            group=group,
-        ),
+            group='Cartesian scan',
+        )
+        for key, archive, label, unit in (
+            ('x_offset', 'x_offset', 'x-offset', 'mm'),
+            ('y_offset', 'y_offset', 'y-offset', 'mm'),
+            ('scan_rate', 'scan_rate', 'Scan rate', 'mm/s'),
+            ('rotation_rate', 'rotation_rate', 'Rotation rate', 'rpm'),
+        )
     ]
 
 
 def polar_scan_fields(visible_if):
     group = 'Polar scan'
     return [
-        number(
-            'radius_start',
-            'Radius start',
-            'mm',
-            archive='polar_scan.radius_start',
-            visible_if=visible_if,
-            group=group,
-        ),
-        number(
-            'radius_stop',
-            'Radius stop',
-            'mm',
-            archive='polar_scan.radius_stop',
-            visible_if=visible_if,
-            group=group,
-        ),
-        number(
-            'pulse_spacing',
-            'Pulse spacing',
-            'mm',
-            archive='polar_scan.pulse_spacing',
-            visible_if=visible_if,
-            group=group,
-        ),
-        number(
-            'max_laser_frequency',
-            'Max laser frequency',
-            'Hz',
-            archive='polar_scan.max_laser_frequency',
-            visible_if=visible_if,
-            group=group,
-        ),
+        *[
+            number(
+                key,
+                label,
+                unit,
+                archive=f'polar_scan.{key}',
+                visible_if=visible_if,
+                group=group,
+            )
+            for key, label, unit in (
+                ('radius_start', 'Radius start', 'mm'),
+                ('radius_stop', 'Radius stop', 'mm'),
+                ('pulse_spacing', 'Pulse spacing', 'mm'),
+                ('max_laser_frequency', 'Max laser frequency', 'Hz'),
+            )
+        ],
         field(
             'number_of_scans',
             'Number of scans',
@@ -344,6 +331,51 @@ def pressure(label):
     return number('pressure', label, 'mbar')
 
 
+def heater_output():
+    return number(
+        'heater_output',
+        'Heater output once the setpoint is reached',
+        unit_label='%',
+    )
+
+
+def variant(label, sections, fields, laser='none', laser_keys=(), **kwargs):
+    """
+    A step variant. For an optional laser, the fields named in
+    `laser_keys` only show (and are only required) once "Laser used" is
+    ticked.
+    """
+    if laser not in LASER_LEVELS:
+        raise ValueError(f'Unknown laser level {laser}')
+    if laser == 'optional':
+        used = {'key': 'laser_used', 'equals': True}
+        fields = [
+            field('laser_used', 'Laser used', 'bool', archive=None),
+            *[
+                dict(
+                    f,
+                    visible_if={'all': [used, f['visible_if']]}
+                    if f.get('visible_if')
+                    else used,
+                )
+                if f['key'] in laser_keys
+                else f
+                for f in fields
+            ],
+        ]
+    return {
+        'label': label,
+        'sections': sections,
+        'fields': fields,
+        'laser': laser,
+        **kwargs,
+    }
+
+
+def _sections(name):
+    return {'SA-PLD': f'SAPLD{name}', 'LA-PLD': f'LAPLD{name}'}
+
+
 def step_variants():
     target = field('target', 'Target', 'target_choice')
     pre_ablation = [
@@ -351,7 +383,7 @@ def step_variants():
             'laser_mode',
             'Laser mode',
             'select',
-            options=LASER_MODES,
+            options=list(LASER_MODES),
             archive='laser.laser_mode',
         ),
         number('laser_voltage', 'Laser voltage', 'kV', archive='laser.laser_voltage'),
@@ -365,14 +397,15 @@ def step_variants():
     ]
     scan_on = {'key': 'substrate_stage_scan', 'equals': True}
     polar = {'all': [LA, {'key': 'heater_scan_type', 'equals': POLAR_SCAN}]}
-    cartesian = {
-        'any': [
-            {'all': [SA, scan_on]},
-            {'all': [LA, {'key': 'heater_scan_type', 'equals': CARTESIAN_SCAN}]},
-        ]
-    }
+    cartesian = {'all': [LA, {'key': 'heater_scan_type', 'equals': CARTESIAN_SCAN}]}
     deposition = [
-        field('substrate', 'Substrate', 'substrate_choice'),
+        field(
+            'sample',
+            'Sample',
+            'sample_choice',
+            archive=None,
+            visible_if=LA,
+        ),
         target,
         *heater_stage_fields(),
         field(
@@ -380,8 +413,9 @@ def step_variants():
             'Substrate stage scan',
             'bool',
             visible_if=SA,
-            group='Heater stage scan',
+            group='Substrate stage scan',
         ),
+        *substrate_scan_fields({'all': [SA, scan_on]}),
         field(
             'heater_scan_type',
             'Heater scan type',
@@ -401,42 +435,50 @@ def step_variants():
         comments(),
     ]
 
-    def ramp(label):
+    def ramp(label, *extra):
         return [
             *gas_fields(),
             number('ramp_rate', 'Ramp rate', 'K/minute', unit_label='°C/min'),
             temperature('temperature_setpoint', 'Temperature setpoint'),
+            *extra,
             pressure(label),
             comments(),
         ]
 
+    annealing = [
+        *gas_fields(),
+        temperature('temperature_setpoint', 'Temperature setpoint'),
+        heater_output(),
+        number('dwell_time', 'Dwell time', 'minute', unit_label='min'),
+        pressure('Annealing pressure'),
+        comments(),
+    ]
+
     return {
-        'pre_ablation': {
-            'label': 'Pre-ablation step',
-            'sections': {
-                'SA-PLD': 'SAPLDPreAblationStep',
-                'LA-PLD': 'LAPLDPreAblationStep',
-            },
-            'fields': pre_ablation,
-        },
-        'heating': {
-            'label': 'Heating step',
-            'sections': {'SA-PLD': 'SAPLDHeatingStep', 'LA-PLD': 'LAPLDHeatingStep'},
-            'fields': ramp('Heating pressure'),
-        },
-        'deposition': {
-            'label': 'Pulsed laser deposition step',
-            'sections': {
-                'SA-PLD': 'SAPLDDepositionStep',
-                'LA-PLD': 'LAPLDDepositionStep',
-            },
-            'fields': deposition,
-        },
-        'cool_down': {
-            'label': 'Cool-down step',
-            'sections': {'SA-PLD': 'SAPLDCoolDownStep', 'LA-PLD': 'LAPLDCoolDownStep'},
-            'fields': ramp('Cool-down pressure'),
-        },
+        'pre_ablation': variant(
+            'Pre-ablation step',
+            _sections('PreAblationStep'),
+            pre_ablation,
+            laser='required',
+        ),
+        'heating': variant(
+            'Heating step',
+            _sections('HeatingStep'),
+            ramp('Heating pressure', heater_output()),
+        ),
+        'annealing': variant('Annealing step', _sections('AnnealingStep'), annealing),
+        'deposition': variant(
+            'Pulsed laser deposition step',
+            _sections('DepositionStep'),
+            deposition,
+            laser='required',
+            prefill_from='pre_ablation',
+        ),
+        'cool_down': variant(
+            'Cool-down step',
+            _sections('CoolDownStep'),
+            ramp('Cool-down pressure'),
+        ),
     }
 
 
@@ -465,19 +507,20 @@ IN_SITU_TECHNIQUES = {
 
 
 def in_situ_fields():
-    fields, rules = [], []
+    """
+    Data files are optional: they are often collected from other computers
+    after the run, and a technique without files is marked as awaiting data.
+    """
+    fields = []
     for technique, (label, files) in IN_SITU_TECHNIQUES.items():
         on = {'key': technique, 'equals': True}
         fields.append(
             field(technique, f'{label} used', 'bool', archive=None, group=label)
         )
-        keys = []
         for name, file_label, accept in files:
-            key = f'{technique}_{name}'
-            keys.append(key)
             fields.append(
                 field(
-                    key,
+                    f'{technique}_{name}',
                     file_label,
                     'file',
                     accept=accept,
@@ -485,6 +528,7 @@ def in_situ_fields():
                     archive=f'{technique}.{name}',
                     visible_if=on,
                     group=label,
+                    technique=technique,
                 )
             )
         if technique == 'la_eds':
@@ -518,20 +562,11 @@ def in_situ_fields():
                 group=label,
             )
         )
-        rules.append(
-            {
-                'type': 'any_of',
-                'keys': keys,
-                'visible_if': on,
-                'message': f'Add at least one {label.split(" ")[0]} file.',
-            }
-        )
-    return fields, rules
+    return fields
 
 
 def form_spec() -> dict:
     """The complete form definition, as sent to the browser."""
-    in_situ, in_situ_rules = in_situ_fields()
     return {
         'systems': list(SYSTEMS),
         'logbook_sections': {
@@ -540,15 +575,21 @@ def form_spec() -> dict:
         },
         'reference_sections': {
             'target': PLDTarget.m_def.qualified_name(),
-            'substrate': PLDSubstrate.m_def.qualified_name(),
+            'sample': Sample.m_def.qualified_name(),
             'in_situ': InSituTechniquesEntry.m_def.qualified_name(),
         },
         'sections': [
             {
                 'key': 'run',
-                'title': 'System details',
+                'title': 'Run',
                 'kind': 'object',
+                'intro': (
+                    'Who does the run, in which system and when. The system, date '
+                    'and time make up the sample IDs.'
+                ),
                 'fields': [
+                    field('operator_name', 'Name'),
+                    field('operator_email', 'Email'),
                     field(
                         'system',
                         'PVD system',
@@ -556,20 +597,33 @@ def form_spec() -> dict:
                         options=list(SYSTEMS),
                         archive=None,
                     ),
+                    field('date', 'Date', 'date', archive=None),
+                    field('time', 'Start time', 'time', archive=None),
                     field(
                         'name',
                         'Run name',
-                        placeholder='e.g. SrTiO3 on Si',
-                        archive='name',
+                        placeholder='optional, e.g. SrTiO3 on Si',
+                        required=False,
                     ),
-                    field('date', 'Date', 'date', archive=None),
-                    number('base_pressure', 'System base pressure', 'mbar'),
+                ],
+            },
+            sample_section(),
+            {
+                'key': 'chamber',
+                'title': 'System details',
+                'kind': 'object',
+                'fields': [
                     field(
                         'substrate_carrier',
                         'Substrate carrier',
                         'select',
-                        options_by={'key': '/run/system', 'map': CARRIERS},
+                        options_by={
+                            'key': '/run/system',
+                            'map': {k: list(v) for k, v in CARRIERS.items()},
+                            'empty_text': 'Choose the PVD system first',
+                        },
                     ),
+                    number('base_pressure', 'Base pressure main chamber', 'mbar'),
                     field(
                         'particle_reduction_plate',
                         'Particle reduction plate',
@@ -581,10 +635,30 @@ def form_spec() -> dict:
                 ],
             },
             {
+                'key': 'targets',
+                'title': 'Targets',
+                'kind': 'list',
+                'item_label': 'Target',
+                'min_items': 1,
+                'requirement': LASER_STEPS,
+                'unique': ['target', 'target_number'],
+                'fields': [
+                    field(
+                        'target',
+                        'Target',
+                        'reference',
+                        reference='target',
+                        archive=None,
+                    ),
+                    field('target_number', 'Target number', 'integer', min=1),
+                ],
+            },
+            {
                 'key': 'laser',
                 'title': 'Laser details',
                 'kind': 'object',
-                'intro': LASER_INSTRUCTIONS,
+                'intro': LASER_CALIBRATION_INSTRUCTIONS,
+                'requirement': LASER_STEPS,
                 'fields': [
                     number(
                         'energy_before_chamber', 'Laser energy before chamber', 'mJ'
@@ -626,100 +700,22 @@ def form_spec() -> dict:
                 ],
             },
             {
-                'key': 'targets',
-                'title': 'Targets',
-                'kind': 'list',
-                'item_label': 'Target',
-                'min_items': 1,
-                'unique': ['target', 'target_number'],
-                'fields': [
-                    field(
-                        'target',
-                        'Target',
-                        'reference',
-                        reference='target',
-                        archive=None,
-                    ),
-                    field('target_number', 'Target number', 'integer', min=1),
-                ],
-            },
-            {
-                'key': 'substrates',
-                'title': 'Substrates',
-                'kind': 'list',
-                'item_label': 'Substrate',
-                'min_items': 1,
-                'unique': ['sample_user_id', 'substrate'],
-                'fields': [
-                    field(
-                        'mode',
-                        'Substrate',
-                        'select',
-                        options=['Create new substrate', 'Use existing substrate'],
-                        default='Create new substrate',
-                        archive=None,
-                    ),
-                    field(
-                        'substrate',
-                        'Existing substrate',
-                        'reference',
-                        reference='substrate',
-                        archive=None,
-                        visible_if={'key': 'mode', 'equals': 'Use existing substrate'},
-                    ),
-                    *[
-                        dict(
-                            f,
-                            visible_if={
-                                'key': 'mode',
-                                'equals': 'Create new substrate',
-                            },
-                        )
-                        for f in (
-                            field(
-                                'sample_name',
-                                'Sample name',
-                                placeholder='Substrate_ThinFilm-thickness_next_layer',
-                            ),
-                            field('run_number', 'Run number'),
-                            field('sample_number', 'Sample number'),
-                            field(
-                                'sample_user_id',
-                                'Sample user ID',
-                                'computed',
-                                compute='sample_user_id',
-                                archive=None,
-                            ),
-                            field(
-                                'size', 'Substrate size', placeholder='e.g. 10x10 mm'
-                            ),
-                            field(
-                                'substrate_material',
-                                'Substrate material',
-                                'select',
-                                options=SUBSTRATE_MATERIALS,
-                            ),
-                            comments(archive='comments'),
-                        )
-                    ],
-                ],
-            },
-            {
                 'key': 'steps',
                 'title': 'Process steps',
                 'kind': 'variant_list',
                 'item_label': 'Step',
-                'min_items': 1,
-                'required_variants': ['deposition'],
                 'variants': step_variants(),
             },
             {
                 'key': 'in_situ',
                 'title': 'In-situ techniques',
                 'kind': 'object',
-                'intro': 'Tick the techniques you used and add their files.',
-                'fields': in_situ,
-                'rules': in_situ_rules,
+                'intro': (
+                    'Tick the techniques you used. Their data files can be added '
+                    'now or later, e.g. once they are collected from the other '
+                    'computers: open the saved logbook and add them.'
+                ),
+                'fields': in_situ_fields(),
             },
         ],
     }

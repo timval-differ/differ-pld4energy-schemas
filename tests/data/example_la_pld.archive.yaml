@@ -1,9 +1,11 @@
 # Example LA-PLD logbook. Values are stored in SI units (shown in mbar, mJ, mm,
-# degrees Celsius etc. in the ELN). Replace the target and substrate references
-# with references to existing entries in your upload.
+# degrees Celsius etc. in the ELN). Replace the target references
+# with references to existing entries in your upload. New samples get their
+# own Sample entry when the logbook is processed.
 data:
   m_def: differ_pld4e_schemas.pld_deposition.LAPLDLogbook
   name: SrTiO3 on Si
+  operator_name: Ada Lovelace
   datetime: '2026-10-22T09:00:00+00:00'
   base_pressure: 1.0e-6  # 1e-8 mbar
   substrate_carrier: 4" wafer carrier
@@ -15,22 +17,30 @@ data:
   targets:
     - target_number: 2
       material: SrTiO3
-  substrates:
-    - sample_name: Si_STO-20nm
-      run_number: '1'
-      sample_number: '1'
-      size: 10x10 mm
-      substrate_material: Si
+  samples:
+    - origin: New sample
+      sample_id: LA-PLD_2026-10-22_09:00_S01
+      substrate: Si 1" with flat
+      layers:
+        - material: SrTiO3
+          thickness: 2.0e-8  # 20 nm
   steps:
     - m_def: differ_pld4e_schemas.pld_deposition.LAPLDPreAblationStep
       pressure: 10  # 0.1 mbar
       substrate_temperature: 298.15
+      atmosphere: Background gas
       background_gases:
         - gas: O2
           flow_setpoint: 5
           flow_readout: 4.9
-          valve_position: 30
-          valve_position_fixed: false
+      valve_position: 30
+      valve_position_fixed: false
+      target_stage:
+        start_z_position: 0.005
+        scan_width_x: 0.01
+        scan_width_y: 0.008
+        scan_speed_x: 0.002
+        scan_speed_y: 0.0015
       laser:
         laser_mode: HV NGR
         laser_voltage: 22000
@@ -42,6 +52,7 @@ data:
     - m_def: differ_pld4e_schemas.pld_deposition.LAPLDHeatingStep
       ramp_rate: 10
       temperature_setpoint: 973.15
+      heater_output: 35  # %
       pressure: 10
     - m_def: differ_pld4e_schemas.pld_deposition.LAPLDDepositionStep
       pressure: 10
@@ -63,8 +74,8 @@ data:
         - gas: O2
           flow_setpoint: 5
           flow_readout: 5.1
-          valve_position: 30
-          valve_position_fixed: true
+      valve_position: 30
+      valve_position_fixed: true
       laser:
         magnification: 5X
         mask_size: 4x12

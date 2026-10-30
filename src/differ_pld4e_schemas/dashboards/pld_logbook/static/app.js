@@ -13,20 +13,25 @@ const BASE = window.location.pathname.replace(/\/dashboards\/.*$/, '');
 const API = BASE + '/api/v1';
 const GUI = BASE + '/gui/v2';
 const DASHBOARD = window.location.pathname.replace(/\/?$/, '/');
-const DRAFT_KEY = 'pld-logbook-draft-v1';
-const NEW_SUBSTRATE = 'Create new substrate';
+const DRAFT_KEY = 'pld-logbook-draft-v2';
+const DRAFT_DIR = 'pld_drafts';
+const DRAFT_VERSION = 1;
+const NEW_SAMPLE = 'New sample';
+const MADE_HERE = ['New sample', 'External sample'];
 const FILE_DIR = 'pld_files';
+const LEVELS = ['none', 'optional', 'required'];
 
 const app = {
   spec: null,
   form: null,
   edit: null, // {upload_id, entry_id, mainfile} of an opened logbook
+  draft: null, // {upload_id, path, savedAt} of the draft kept in NOMAD
   upload: '', // selected upload id, or '__new__'
   newUploadName: 'PLD logbooks',
   current: 'run',
   user: null,
   uploads: [],
-  refs: {target: [], substrate: []},
+  refs: {target: [], sample: []},
   pendingFiles: {}, // form path -> File, uploaded on save
   touched: new Set(),
   shown: new Set(), // sections whose problems are all shown
@@ -59,10 +64,33 @@ function uid() {
   return Math.random().toString(16).slice(2, 14);
 }
 
-function today() {
-  const d = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
+const pad = (n) => String(n).padStart(2, '0');
+
+function localDate(d) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function localTime(d) {
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/* The browser's UTC offset at a moment, e.g. '+01:00'. */
+function utcOffset(d) {
+  const minutes = -d.getTimezoneOffset();
+  const sign = minutes < 0 ? '-' : '+';
+  return `${sign}${pad(Math.floor(Math.abs(minutes) / 60))}:${pad(Math.abs(minutes) % 60)}`;
+}
+
+/* NOMAD returns the start of the run in UTC; show it in local time. */
+function localizeRun(run) {
+  if (!run || !run.start) return;
+  const start = new Date(run.start);
+  if (!Number.isNaN(start.getTime())) {
+    run.date = localDate(start);
+    run.time = localTime(start);
+    run.utc_offset = utcOffset(start);
+  }
+  delete run.start;
 }
 
 function fileNameFor(text) {
@@ -137,6 +165,9 @@ function evaluate(condition, local, root) {
     return value === condition.equals;
   }
   if ('in' in condition) return condition.in.includes(value);
+  if ('has_type' in condition) {
+    return (value || []).some((item) => item && condition.has_type.includes(item.type));
+  }
   throw new Error('Unknown condition');
 }
 
@@ -164,13 +195,57 @@ function compute(name, local, root) {
     if (before === null || after === null || !before || !t2) return null;
     return (after / (before * t2 / 100)) * 100;
   }
-  if (name === 'sample_user_id') {
-    const system = lookup('/run/system', local, root);
-    const date = lookup('/run/date', local, root);
-    if (!system || !date || !local.run_number || !local.sample_number) return null;
-    return `${system}_${date}_${local.run_number}_${local.sample_number}`;
-  }
+  if (name === 'sample_id') return sampleId(local, root);
+  if (name === 'sample_name') return sampleName(local);
   throw new Error('Unknown computed value ' + name);
+}
+
+/* Samples (mirror dashboards/common/samples.py and sample.py) */
+
+function madeHere(item) {
+  return MADE_HERE.includes(item.origin || NEW_SAMPLE);
+}
+
+function sampleNumber(item, root) {
+  let number = 0;
+  for (const other of root.samples || []) {
+    if (!madeHere(other)) continue;
+    number += 1;
+    if (other === item || (item.uid && other.uid === item.uid)) return number;
+  }
+  return null;
+}
+
+function existingSample(item) {
+  return app.refs.sample.find((r) => r.ref === item.sample) || {};
+}
+
+function sampleId(item, root) {
+  // An existing sample keeps its ID, and so does a sample whose entry exists.
+  if (!madeHere(item)) return item.sample_id || existingSample(item).sampleId || null;
+  if (item.ref) return item.sample_id || null;
+  const system = lookup('/run/system', item, root);
+  const date = lookup('/run/date', item, root);
+  const time = lookup('/run/time', item, root);
+  const number = sampleNumber(item, root);
+  if (!system || !/^\d{4}-\d{2}-\d{2}$/.test(date || '') || !/^\d{2}:\d{2}$/.test(time || '') || !number) {
+    return null;
+  }
+  return `${system}_${date}_${time}_S${pad(number)}`;
+}
+
+function sampleName(item) {
+  if (!madeHere(item)) return item.name || existingSample(item).sampleName || null;
+  const materials = section('samples').substrate_materials || {};
+  const material = materials[item.substrate] || item.substrate_details;
+  if (!material) return null;
+  const parts = [material];
+  for (const row of item.layers || []) {
+    if (!row.material) continue;
+    const thickness = toNumber(row.thickness);
+    parts.push(thickness === null ? row.material : `${row.material}-${Number(thickness.toPrecision(6))}nm`);
+  }
+  return parts.join('_');
 }
 
 function valueOf(field, local, root) {
@@ -185,13 +260,34 @@ function targetChoices(root) {
   return (root.targets || []).filter((t) => t.target).map((t) => t.target);
 }
 
-function substrateChoices(root) {
+function sampleChoices(root) {
   const choices = [];
-  for (const substrate of root.substrates || []) {
-    if ((substrate.mode || NEW_SUBSTRATE) === NEW_SUBSTRATE) choices.push(`new:${substrate.uid}`);
-    else if (substrate.substrate) choices.push(substrate.substrate);
+  for (const item of root.samples || []) {
+    if (madeHere(item)) choices.push(`new:${item.uid}`);
+    else if (item.sample) choices.push(item.sample);
   }
   return choices;
+}
+
+/* What one step needs of an aspect (e.g. the laser): an optional one counts once used. */
+function stepLevel(variant, item, aspect) {
+  const level = variant[aspect] || 'none';
+  return level === 'optional' && item[`${aspect}_used`] ? 'required' : level;
+}
+
+/* 'required', 'optional' or 'none': a section with a `requirement` follows the steps. */
+function sectionRequirement(s, data) {
+  if (!s.requirement) return 'required';
+  const steps = app.spec.sections.find((x) => x.kind === 'variant_list');
+  if (!steps) return 'none';
+  let level = 'none';
+  for (const item of data[steps.key] || []) {
+    const variant = steps.variants[item.type];
+    if (!variant) continue;
+    const step = stepLevel(variant, item, s.requirement.from_steps);
+    if (LEVELS.indexOf(step) > LEVELS.indexOf(level)) level = step;
+  }
+  return level;
 }
 
 function fieldError(field, value, local, root) {
@@ -205,31 +301,33 @@ function fieldError(field, value, local, root) {
     if (!fieldOptions(field, local, root).includes(value)) return 'Choose one of the options.';
   } else if (kind === 'date') {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return 'Enter a date.';
+  } else if (kind === 'time') {
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) return 'Enter a time (hh:mm).';
   } else if (kind === 'target_choice') {
     if (!targetChoices(root).includes(value)) return 'Choose one of the targets selected under Targets.';
-  } else if (kind === 'substrate_choice') {
-    if (!substrateChoices(root).includes(value)) return 'Choose one of the substrates under Substrates.';
+  } else if (kind === 'sample_choice') {
+    if (!sampleChoices(root).includes(value)) return 'Choose one of the samples under Samples.';
   }
   return null;
 }
 
-function validateFields(fields, rules, local, path, root, errors) {
+function validateFields(fields, local, path, root, errors, required = true) {
   for (const field of fields) {
     if (!evaluate(field.visible_if, local, root) || field.kind === 'computed') continue;
     const value = local[field.key];
     const fieldPath = `${path}.${field.key}`;
+    if (field.kind === 'rows') {
+      (value || []).forEach((row, index) => {
+        validateFields(field.columns, row, `${fieldPath}.${index}`, root, errors, required);
+      });
+      continue;
+    }
     if (isEmpty(value)) {
-      if (field.required) errors.push({path: fieldPath, message: 'Required.'});
+      if (field.required && required) errors.push({path: fieldPath, message: 'Required.'});
       continue;
     }
     const message = fieldError(field, value, local, root);
     if (message) errors.push({path: fieldPath, message});
-  }
-  for (const rule of rules || []) {
-    if (rule.type === 'any_of' && evaluate(rule.visible_if, local, root)
-      && rule.keys.every((key) => isEmpty(local[key]))) {
-      errors.push({path: `${path}.${rule.keys[0]}`, message: rule.message});
-    }
   }
 }
 
@@ -237,12 +335,15 @@ function validate(data, spec) {
   const errors = [];
   for (const section of spec.sections) {
     const key = section.key;
+    const level = sectionRequirement(section, data);
+    if (level === 'none') continue;
+    const required = level === 'required';
     if (section.kind === 'object') {
-      validateFields(section.fields, section.rules, data[key] || {}, key, data, errors);
+      validateFields(section.fields, data[key] || {}, key, data, errors, required);
       continue;
     }
     const items = data[key] || [];
-    if (items.length < (section.min_items || 0)) {
+    if (required && items.length < (section.min_items || 0)) {
       errors.push({path: key, message: `Add at least one ${section.item_label.toLowerCase()}.`});
     }
     items.forEach((item, index) => {
@@ -255,7 +356,7 @@ function validate(data, spec) {
         }
         fields = variant.fields;
       }
-      validateFields(fields, null, item, `${key}.${index}`, data, errors);
+      validateFields(fields, item, `${key}.${index}`, data, errors, required);
     });
     if (section.kind === 'list') {
       for (const uniqueKey of section.unique || []) {
@@ -272,12 +373,17 @@ function validate(data, spec) {
         });
       }
     }
-    for (const variantKey of section.required_variants || []) {
-      if (!items.some((item) => item.type === variantKey)) {
-        errors.push({path: key, message: `Add at least one ${section.variants[variantKey].label.toLowerCase()}.`});
-      }
-    }
   }
+  return errors;
+}
+
+/* What a draft needs (mirror rules.validate_draft): it names the draft file. */
+function validateDraft(data) {
+  const run = data.run || {};
+  const errors = [];
+  if (!app.spec.systems.includes(run.system)) errors.push({path: 'run.system', message: 'Choose the PVD system.'});
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(run.date || '')) errors.push({path: 'run.date', message: 'Enter a date.'});
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(run.time || '')) errors.push({path: 'run.time', message: 'Enter a time (hh:mm).'});
   return errors;
 }
 
@@ -296,9 +402,30 @@ function section(key) {
   return app.spec.sections.find((s) => s.key === key);
 }
 
-function newItem(listSection, variantKey) {
+/*
+ * A new step of a variant with `prefill_from` starts with the values it shares
+ * with the last step of that variant, e.g. a deposition step with the target,
+ * target stage, gases and laser of the pre-ablation before it.
+ */
+function prefill(listSection, variantKey, list) {
+  const variant = listSection.variants[variantKey];
+  const source = [...(list || [])].reverse().find((item) => item.type === variant.prefill_from);
+  if (!source) return {};
+  const keys = new Set(listSection.variants[variant.prefill_from].fields.map((f) => f.key));
+  const values = {};
+  for (const field of variant.fields) {
+    if (field.key === 'comments' || !keys.has(field.key) || isEmpty(source[field.key])) continue;
+    values[field.key] = source[field.key];
+  }
+  return values;
+}
+
+function newItem(listSection, variantKey, list) {
   if (variantKey) {
-    return {uid: uid(), type: variantKey, ...defaults(listSection.variants[variantKey].fields)};
+    return {
+      uid: uid(), type: variantKey, ...defaults(listSection.variants[variantKey].fields),
+      ...prefill(listSection, variantKey, list),
+    };
   }
   return {uid: uid(), ...defaults(listSection.fields)};
 }
@@ -310,8 +437,18 @@ function newForm() {
     else if (s.kind === 'list') form[s.key] = [newItem(s)];
     else form[s.key] = [];
   }
-  form.run.date = today();
+  const now = new Date();
+  form.run.date = localDate(now);
+  form.run.time = localTime(now);
+  form.run.utc_offset = utcOffset(now);
+  fillOperator(form);
   return form;
+}
+
+function fillOperator(form) {
+  if (!app.user || !form.run) return;
+  if (!form.run.operator_name) form.run.operator_name = app.user.name || app.user.username || null;
+  if (!form.run.operator_email) form.run.operator_email = app.user.email || null;
 }
 
 function errorsFor(prefix) {
@@ -326,15 +463,17 @@ function changed() {
   draftTimer = setTimeout(saveDraft, 400);
 }
 
+/* Kept in this browser as a safeguard; see saveDraftToNomad for drafts on NOMAD. */
 function saveDraft() {
   try {
     localStorage.setItem(DRAFT_KEY, JSON.stringify({
-      form: app.form, edit: app.edit, upload: app.upload, savedAt: new Date().toISOString(),
+      form: app.form, edit: app.edit, draft: app.draft, upload: app.upload,
+      pending: Object.keys(app.pendingFiles), savedAt: new Date().toISOString(),
     }));
-    document.getElementById('draft-status').textContent = 'Draft saved in this browser at '
+    document.getElementById('draft-status').textContent = 'Kept in this browser at '
       + new Date().toLocaleTimeString();
   } catch (e) {
-    document.getElementById('draft-status').textContent = 'The draft could not be saved in this browser.';
+    document.getElementById('draft-status').textContent = 'The form could not be kept in this browser.';
   }
 }
 
@@ -356,13 +495,16 @@ function clearDraft() {
   }
 }
 
-/* Files chosen but not uploaded are lost on reload; ask for them again. */
-function dropPendingFiles(form) {
+/*
+ * Files chosen but not uploaded yet are lost on reload; ask for them again.
+ * Files already in the upload (also those added in the NOMAD GUI) are kept.
+ */
+function dropPendingFiles(form, pendingPaths) {
   let dropped = 0;
-  const inSitu = form.in_situ || {};
-  for (const field of section('in_situ').fields) {
-    if (field.kind === 'file' && inSitu[field.key] && !String(inSitu[field.key]).startsWith(FILE_DIR + '/')) {
-      inSitu[field.key] = null;
+  for (const path of pendingPaths || []) {
+    const [key, field] = path.split('.');
+    if (form[key] && form[key][field]) {
+      form[key][field] = null;
       dropped += 1;
     }
   }
@@ -375,6 +517,7 @@ async function loadUser() {
   try {
     app.user = await api('/users/me');
     document.getElementById('user').textContent = app.user.name || app.user.username || '';
+    fillOperator(app.form);
   } catch (e) {
     app.user = null;
     showBanner(
@@ -418,20 +561,38 @@ async function loadReferences() {
       return {
         ref: entryRef(t.upload_id, t.entry_id),
         name: data.name || data.material || metadata.entry_name || `${file} (no material entered)`,
+        material: data.material || null,
         info: [data.material, data.manufacturer, data.purchase_date && String(data.purchase_date).slice(0, 10)]
           .filter(Boolean).join(' · ') || 'This target has no material, manufacturer or purchase date yet.',
       };
     }).sort((a, b) => a.name.localeCompare(b.name));
-    const substrates = await searchEntries([names.substrate]);
-    app.refs.substrate = substrates.map((s) => ({
-      ref: entryRef(s.upload_id, s.entry_id),
-      name: s.entry_name || s.mainfile,
-      info: s.mainfile,
-    }));
   } catch (e) {
-    showBanner('Could not load targets and substrates: ' + e.message, 'error');
+    showBanner('Could not load the targets: ' + e.message, 'error');
+  }
+  try {
+    const samples = await searchEntries([names.sample], {
+      data: {sample_id: '*', name: '*', system: '*'}, metadata: {entry_name: '*', mainfile: '*'},
+    });
+    app.refs.sample = samples.filter(Boolean).map((s) => {
+      const data = (s.archive && s.archive.data) || {};
+      const metadata = (s.archive && s.archive.metadata) || {};
+      return {
+        ref: entryRef(s.upload_id, s.entry_id),
+        name: data.sample_id || metadata.entry_name || metadata.mainfile,
+        sampleId: data.sample_id || null,
+        sampleName: data.name || null,
+        info: [data.name, data.system].filter(Boolean).join(' · '),
+      };
+    }).sort((a, b) => b.name.localeCompare(a.name));
+  } catch (e) {
+    showBanner('Could not load the samples: ' + e.message, 'error');
   }
   refresh();
+}
+
+/* Film materials: the materials in the target database. */
+function materialOptions() {
+  return [...new Set(app.refs.target.map((t) => t.material).filter(Boolean))].sort();
 }
 
 async function loadUploads() {
@@ -459,17 +620,15 @@ function choiceOptions(field, local) {
       label: refName('target', t.target) + (t.target_number ? ` (target ${t.target_number})` : ''),
     }));
   }
-  if (field.kind === 'substrate_choice') {
-    return (root.substrates || []).map((s, index) => {
-      if ((s.mode || NEW_SUBSTRATE) === NEW_SUBSTRATE) {
-        return {
-          value: `new:${s.uid}`,
-          label: s.sample_name || compute('sample_user_id', s, root) || `New substrate ${index + 1}`,
-        };
+  if (field.kind === 'sample_choice') {
+    return (root.samples || []).map((s, index) => {
+      if (madeHere(s)) {
+        return {value: `new:${s.uid}`, label: sampleId(s, root) || sampleName(s) || `Sample ${index + 1}`};
       }
-      return s.substrate ? {value: s.substrate, label: refName('substrate', s.substrate)} : null;
+      return s.sample ? {value: s.sample, label: refName('sample', s.sample)} : null;
     }).filter(Boolean);
   }
+  if (field.kind === 'material_choice') return materialOptions().map((m) => ({value: m, label: m}));
   if (field.kind === 'reference') {
     return app.refs[field.reference].map((r) => ({value: r.ref, label: r.name}));
   }
@@ -477,12 +636,15 @@ function choiceOptions(field, local) {
 }
 
 function emptyChoiceText(field) {
-  if (field.options_by) return 'Choose the PVD system first';
+  if (field.options_by) return field.options_by.empty_text || 'Choose the other options first';
   if (field.kind === 'target_choice') return 'Select targets under Targets first';
-  if (field.kind === 'substrate_choice') return 'Add substrates under Substrates first';
+  if (field.kind === 'sample_choice') return 'Add samples under Samples first';
+  if (field.kind === 'material_choice') return 'No targets found in NOMAD';
   if (field.kind === 'reference') return 'None found in NOMAD';
   return 'No options available';
 }
+
+const CHOICE_KINDS = ['select', 'reference', 'target_choice', 'sample_choice', 'material_choice'];
 
 function fillSelect(select, options, value, field) {
   const current = value === undefined || value === null ? '' : value;
@@ -522,11 +684,14 @@ function control(field, local, path) {
     case 'select':
     case 'reference':
     case 'target_choice':
-    case 'substrate_choice': {
+    case 'sample_choice':
+    case 'material_choice': {
       input = el('select', {id, onchange: (e) => set(e.target.value || null)});
       body = el('div', {class: 'input-wrap'}, input);
       return {body, input};
     }
+    case 'rows':
+      return rowsControl(field, local, path, id);
     case 'computed': {
       input = el('div', {class: 'computed', id});
       return {body: input, input};
@@ -557,7 +722,8 @@ function control(field, local, path) {
       return {body, input, fileName: name, filePending: pending, fileClear: clear};
     }
     case 'date':
-      input = el('input', {type: 'date', id, value: local[field.key] || '', onchange: (e) => set(e.target.value || null)});
+    case 'time':
+      input = el('input', {type: field.kind, id, value: local[field.key] || '', onchange: (e) => set(e.target.value || null)});
       return {body: el('div', {class: 'input-wrap'}, input), input};
     default: {
       const numeric = field.kind === 'number' || field.kind === 'integer';
@@ -571,6 +737,26 @@ function control(field, local, path) {
       return {body, input};
     }
   }
+}
+
+/* A repeating sub-section (e.g. the films of a sample): one small grid per row. */
+function rowsControl(field, local, path, id) {
+  const rows = local[field.key] || (local[field.key] = []);
+  const body = el('div', {class: 'rows', id});
+  rows.forEach((row, index) => {
+    const line = el('div', {class: 'row-line'});
+    renderFields(line, field.columns, row, `${path}.${index}`);
+    line.append(el('button', {
+      type: 'button', class: 'btn btn-text btn-icon btn-danger', title: `Remove ${field.item_label || 'row'}`,
+      onclick: () => { rows.splice(index, 1); changed(); render(); },
+    }, '✕'));
+    body.append(line);
+  });
+  body.append(el('button', {
+    type: 'button', class: 'btn btn-text',
+    onclick: () => { rows.push(defaults(field.columns)); changed(); render(); },
+  }, `+ Add ${field.item_label || 'row'}`));
+  return {body, input: body};
 }
 
 function renderFields(container, fields, local, path) {
@@ -594,17 +780,32 @@ function renderFields(container, fields, local, path) {
     const fieldPath = `${path}.${field.key}`;
     const made = control(field, local, fieldPath);
     const error = el('div', {class: 'error'});
-    const wide = field.kind === 'textarea' || field.kind === 'file';
+    const wide = ['textarea', 'file', 'rows'].includes(field.kind);
     const classes = 'field' + (wide ? ' wide' : '') + (field.row_start ? ' row-start' : '');
+    const helper = el('div', {class: 'helper'});
     const wrap = el('div', {class: classes, 'data-path': fieldPath},
       made.labelInside ? null : el('label', {for: made.input.id, class: field.required ? 'required' : ''},
         field.label),
       made.body,
-      field.reference === 'target' ? el('div', {class: 'helper'}) : null,
+      helper,
       error);
     grid.append(wrap);
-    app.rendered.push({field, local, path: fieldPath, wrap, error, grid, ...made});
+    app.rendered.push({field, local, path: fieldPath, wrap, error, grid, helper, ...made});
   }
+}
+
+/* Whether a ticked in-situ technique has no data file yet. */
+function awaitingData(technique, inSitu) {
+  return section('in_situ').fields
+    .filter((f) => f.technique === technique)
+    .every((f) => isEmpty(inSitu[f.key]));
+}
+
+function awaitingTechniques(form) {
+  const inSitu = form.in_situ || {};
+  return section('in_situ').fields
+    .filter((f) => f.kind === 'bool' && inSitu[f.key] && awaitingData(f.key, inSitu))
+    .map((f) => f.group);
 }
 
 function sectionShown(path) {
@@ -622,7 +823,7 @@ function refresh() {
     grids.add(r.grid);
     const kind = r.field.kind;
     const value = r.local[r.field.key];
-    if (['select', 'reference', 'target_choice', 'substrate_choice'].includes(kind) && document.activeElement !== r.input) {
+    if (CHOICE_KINDS.includes(kind) && document.activeElement !== r.input) {
       fillSelect(r.input, choiceOptions(r.field, r.local), value, r.field);
     }
     if (kind === 'computed') {
@@ -635,9 +836,13 @@ function refresh() {
       r.filePending.textContent = value && app.pendingFiles[r.path] ? 'uploaded on save' : '';
       r.fileClear.hidden = !value;
     }
-    if (r.field.reference === 'target') {
-      const found = app.refs.target.find((t) => t.ref === value);
-      r.wrap.querySelector('.helper').textContent = found ? found.info : '';
+    if (r.field.reference) {
+      const found = app.refs[r.field.reference].find((t) => t.ref === value);
+      r.helper.textContent = found ? found.info : '';
+    }
+    if (r.path.startsWith('in_situ.') && kind === 'bool') {
+      r.helper.textContent = value && awaitingData(r.field.key, r.local)
+        ? 'Awaiting data: add the files now or later, by opening the saved logbook.' : '';
     }
     const message = visible ? byPath.get(r.path) : null;
     const show = message && (app.touched.has(r.path) || sectionShown(r.path));
@@ -675,10 +880,8 @@ function itemTitle(path) {
   if (key === 'targets') {
     return `${s.item_label} ${Number(index) + 1}` + (item.target ? `: ${refName('target', item.target)}` : '');
   }
-  if (key === 'substrates') {
-    const name = (item.mode || NEW_SUBSTRATE) === NEW_SUBSTRATE
-      ? compute('sample_user_id', item, app.form) || item.sample_name
-      : item.substrate && refName('substrate', item.substrate);
+  if (key === 'samples') {
+    const name = sampleId(item, app.form) || sampleName(item);
     return `${s.item_label} ${Number(index) + 1}` + (name ? `: ${name}` : '');
   }
   return `${s.item_label} ${Number(index) + 1}`;
@@ -698,15 +901,27 @@ function navSections() {
   return [...app.spec.sections.map((s) => ({key: s.key, title: s.title})), {key: 'save', title: 'Review and save'}];
 }
 
+const REQUIREMENT_NOTES = {
+  none: 'Not needed for these process steps: it is only logged when a step needs it '
+    + '(e.g. a pre-ablation or deposition step). What you enter here is not saved.',
+  optional: 'Optional for these process steps: fill it in if it applies.',
+};
+
 function renderNav() {
   const nav = document.getElementById('nav');
   const items = navSections().map((s, index) => {
+    const level = s.key === 'save' ? 'required' : sectionRequirement(section(s.key), app.form);
     const count = s.key === 'save' ? app.errors.length : errorsFor(s.key).length;
-    const state = s.key === 'save' ? (count ? '' : 'done') : (count ? 'todo' : 'done');
+    let state = s.key === 'save' ? (count ? '' : 'done') : (count ? 'todo' : 'done');
+    if (level === 'none') state = 'skipped';
     return el('li', {}, el('button', {
-      type: 'button', class: s.key === app.current ? 'active' : '', onclick: () => go(s.key),
-    }, el('span', {class: 'nav-index ' + state}, state === 'done' ? '✓' : String(index + 1)),
-    el('span', {class: 'nav-title'}, s.title),
+      type: 'button', class: (s.key === app.current ? 'active' : '') + (level === 'none' ? ' not-needed' : ''),
+      onclick: () => go(s.key),
+      title: level === 'required' ? '' : REQUIREMENT_NOTES[level],
+    }, el('span', {class: 'nav-index ' + state}, state === 'done' ? '✓' : (state === 'skipped' ? '–' : String(index + 1))),
+    el('span', {class: 'nav-title'}, s.title,
+      level === 'none' ? el('span', {class: 'nav-note'}, 'not needed') : null,
+      level === 'optional' ? el('span', {class: 'nav-note'}, 'optional') : null),
     count && s.key !== 'save' ? el('span', {class: 'nav-count'}, String(count)) : null));
   });
   nav.replaceChildren(...items);
@@ -717,7 +932,13 @@ function renderNav() {
   next.hidden = position >= keys.length - 1;
 }
 
+let referencesLoaded = 0;
+
 function go(key, focusPath) {
+  if (key !== app.current && (key === 'targets' || key === 'samples') && Date.now() - referencesLoaded > 30000) {
+    referencesLoaded = Date.now();
+    loadReferences();
+  }
   app.current = key;
   window.history.replaceState(null, '', '#' + key);
   render();
@@ -749,7 +970,12 @@ function render() {
 }
 
 function sectionHeader(s, intro) {
-  return [el('h1', {}, s.title), intro ? el('p', {class: 'section-intro'}, intro) : null];
+  const level = sectionRequirement(s, app.form);
+  return [
+    el('h1', {}, s.title),
+    intro ? el('p', {class: 'section-intro'}, intro) : null,
+    level === 'required' ? null : el('div', {class: 'info requirement-' + level}, REQUIREMENT_NOTES[level]),
+  ];
 }
 
 function renderObject(container, s) {
@@ -757,6 +983,10 @@ function renderObject(container, s) {
   if (s.intro) card.append(el('div', {class: 'info'}, s.intro));
   if (s.key === 'run' && app.form.recipe) {
     card.append(el('div', {class: 'info'}, 'The process steps were loaded from a recipe.'));
+  }
+  if (s.key === 'in_situ' && awaitingTechniques(app.form).length) {
+    card.append(el('div', {class: 'info'},
+      `Awaiting data: ${awaitingTechniques(app.form).join(', ')}. The logbook can be saved without them.`));
   }
   renderFields(card, s.fields, app.form[s.key], s.key);
   container.append(card);
@@ -801,12 +1031,38 @@ function itemCard(s, list, index, bodyFill, options = {}) {
   return card;
 }
 
+/* "How many": adds or removes new samples at the end of the list. */
+function countControl(s, list) {
+  const count = list.filter(madeHere).length;
+  const input = el('input', {type: 'number', min: 0, max: 99, value: count, class: 'count-input'});
+  const apply = () => {
+    const wanted = Math.max(0, Math.min(99, Number(input.value) || 0));
+    let made = list.filter(madeHere);
+    while (made.length < wanted) {
+      list.push(newItem(s));
+      made = list.filter(madeHere);
+    }
+    const extra = made.slice(wanted);
+    const filled = extra.filter((item) => item.substrate || (item.layers || []).length || item.comments);
+    if (filled.length && !window.confirm(`Remove ${extra.length} sample(s), of which ${filled.length} filled in?`)) {
+      input.value = made.length;
+      return;
+    }
+    for (const item of extra) list.splice(list.indexOf(item), 1);
+    changed();
+    render();
+  };
+  return el('div', {class: 'count-row'},
+    el('label', {}, `Number of new and external samples`), input,
+    el('button', {type: 'button', class: 'btn btn-outlined', onclick: apply}, 'Set'));
+}
+
 function renderList(container, s) {
-  const intro = s.key === 'targets'
-    ? 'Select the targets that are in the system and enter their target number for this run.'
-    : 'Create the substrates of this run, or pick substrates that already exist.';
+  const intro = s.intro || (s.key === 'targets'
+    ? 'Select the targets that are in the system and enter their target number for this run.' : '');
   const card = el('div', {class: 'card'}, sectionHeader(s, intro), el('div', {class: 'list-error', 'data-list-errors': s.key}));
   const list = app.form[s.key];
+  if (s.count_control) card.append(countControl(s, list));
   list.forEach((item, index) => {
     card.append(itemCard(s, list, index, (body, it, path) => renderFields(body, s.fields, it, path)));
   });
@@ -824,10 +1080,13 @@ function renderList(container, s) {
 
 function renderSteps(container, s) {
   const card = el('div', {class: 'card'}, sectionHeader(s,
-    'Add the steps in the order they were done. Steps can be added more than once, e.g. for multilayers.'),
+    'Add the steps in the order they were done. Steps can be added more than once, e.g. for multilayers. '
+    + 'A run without deposition, e.g. annealing or only characterisation, needs no laser details or targets.'),
   el('div', {class: 'list-error', 'data-list-errors': s.key}));
   if (!app.form.run.system) {
-    card.append(el('div', {class: 'info'}, 'Choose the PVD system under System details first: the fields of the steps depend on it.'));
+    card.append(el('div', {class: 'info'}, 'Choose the PVD system under Run first: the fields of the steps depend on it.'));
+  } else if (app.form.run.system === 'SA-PLD') {
+    card.append(el('div', {class: 'info'}, 'In the SA-PLD a deposition covers all samples loaded in the chamber.'));
   }
   const list = app.form.steps;
   list.forEach((item, index) => {
@@ -839,7 +1098,7 @@ function renderSteps(container, s) {
   for (const [key, variant] of Object.entries(s.variants)) {
     actions.append(el('button', {
       type: 'button', class: 'btn btn-outlined',
-      onclick: () => { list.push(newItem(s, key)); changed(); render(); },
+      onclick: () => { list.push(newItem(s, key, list)); changed(); render(); },
     }, `+ ${variant.label}`));
   }
   card.append(actions);
@@ -897,8 +1156,10 @@ async function openLogbookDialog() {
       try {
         const data = await fetchLogbook(picked.entry);
         const form = await dashboard('api/form-from-archive', {data, mode: 'edit'});
+        localizeRun(form.run);
         app.form = {recipe: null, ...form};
         app.edit = {upload_id: picked.entry.upload_id, entry_id: picked.entry.entry_id, mainfile: picked.entry.mainfile};
+        app.draft = null;
         app.upload = picked.entry.upload_id;
         app.pendingFiles = {};
         app.touched.clear();
@@ -906,7 +1167,9 @@ async function openLogbookDialog() {
         closeDialog();
         changed();
         go('run');
-        showBanner(`Opened ${picked.title}. Saving overwrites this logbook.`);
+        const awaiting = awaitingTechniques(app.form);
+        showBanner(`Opened ${picked.title}. Saving overwrites this logbook.`
+          + (awaiting.length ? ` Awaiting in-situ data: ${awaiting.join(', ')}.` : ''));
       } catch (e) {
         showBanner('Could not open the logbook: ' + e.message, 'error');
       }
@@ -929,7 +1192,7 @@ async function recipeDialog() {
       .filter((e) => !app.edit || e.entry.entry_id !== app.edit.entry_id);
     openDialog(`Load recipe (${system})`, [
       el('p', {class: 'muted'}, 'The process steps of the chosen logbook are added after the current steps. '
-        + 'Substrates are not copied: choose the substrate in each deposition step afterwards.'),
+        + 'Samples are not copied: the steps apply to the samples of this run.'),
       ...pickList(entries, async (picked) => {
         try {
           const data = await fetchLogbook(picked.entry);
@@ -942,7 +1205,8 @@ async function recipeDialog() {
           changed();
           go('steps');
           showBanner(`Added ${recipe.steps.length} steps from ${picked.title}`
-            + (hasTargets ? '.' : ' and its targets.') + ' Check the targets and choose the substrates.');
+            + (hasTargets ? '.' : ' and its targets.') + ' Check the targets'
+            + (system === 'LA-PLD' ? ' and choose the sample of each deposition step.' : '.'));
         } catch (e) {
           showBanner('Could not load the recipe: ' + e.message, 'error');
         }
@@ -1083,7 +1347,10 @@ function renderSave(container) {
   card.append(where);
 
   const save = el('button', {type: 'button', class: 'btn btn-contained', id: 'btn-save', onclick: saveLogbook}, 'Save logbook to NOMAD');
-  card.append(el('div', {class: 'btn-row'}, save));
+  const draft = el('button', {type: 'button', class: 'btn btn-outlined', id: 'btn-save-draft', onclick: saveDraftToNomad}, 'Save draft');
+  card.append(el('div', {class: 'btn-row'}, save, draft));
+  card.append(el('p', {class: 'muted small'}, 'A draft keeps an unfinished run in the upload so it can be '
+    + 'continued on another computer. Drafts are not logbooks: only a complete, saved logbook counts as logged.'));
   card.append(el('ul', {class: 'log', id: 'save-log'}));
   container.append(card);
   renderLog();
@@ -1103,14 +1370,22 @@ function updateSaveState() {
       + 'The logbook can only be saved when it is complete.'),
     el('ul', {class: 'problems'}, items));
   } else {
+    const awaiting = awaitingTechniques(app.form);
     status.replaceChildren(el('div', {class: 'banner success', style: 'margin: 8px 0 16px'},
-      'Everything is filled in.'));
+      'Everything is filled in.' + (awaiting.length ? ` In-situ data still to come: ${awaiting.join(', ')}.` : '')));
   }
+  const noUpload = !app.edit && !app.draft && !app.upload;
+  const reason = !app.user ? 'Log in to NOMAD first' : (noUpload ? 'Choose an upload' : '');
   const save = document.getElementById('btn-save');
   if (save) {
-    save.disabled = app.saving || Boolean(app.errors.length) || !app.user
-      || (!app.edit && !app.upload);
-    save.title = !app.user ? 'Log in to NOMAD first' : (!app.edit && !app.upload ? 'Choose an upload' : '');
+    save.disabled = app.saving || Boolean(app.errors.length) || Boolean(reason);
+    save.title = reason;
+  }
+  const draft = document.getElementById('btn-save-draft');
+  if (draft) {
+    const draftErrors = validateDraft(app.form);
+    draft.disabled = app.saving || Boolean(reason) || Boolean(draftErrors.length);
+    draft.title = reason || draftErrors.map((e) => e.message).join(' ');
   }
 }
 
@@ -1134,15 +1409,14 @@ function processingMessages(response, label) {
 }
 
 async function uploadPendingFiles(uploadId, directory) {
-  const inSitu = app.form.in_situ;
   for (const [path, file] of Object.entries(app.pendingFiles)) {
-    const key = path.split('.').slice(1).join('.');
+    const [key, field] = path.split('.');
     const body = new FormData();
     body.append('file', file, file.name);
     await api(`/uploads/${uploadId}/raw/${directory}?wait_for_processing=false&overwrite_if_exists=true`, {
       method: 'PUT', body,
     });
-    inSitu[key] = `${directory}/${file.name}`;
+    app.form[key][field] = `${directory}/${file.name}`;
     delete app.pendingFiles[path];
     logLine(`Uploaded ${file.name}`, 'ok');
   }
@@ -1177,23 +1451,28 @@ async function saveLogbook() {
       } catch (e) {
         if (e.status === 409 || /exist/i.test(e.message)) {
           throw new Error(`${file.file_name} already exists in this upload. `
-            + (file.kind === 'substrate' ? 'Check the run and sample number of the substrate.' : 'Change the run name or open the existing logbook.'));
+            + (file.kind === 'sample'
+              ? 'A sample with this ID was saved before: check the date and time of the run.'
+              : 'Change the run name or time, or open the existing logbook.'));
         }
         throw e;
       }
-      const label = file.kind === 'substrate' ? `Substrate ${file.file_name}` : `Logbook ${file.file_name}`;
+      const label = file.kind === 'sample' ? `Sample ${file.archive.data.sample_id}` : `Logbook ${file.file_name}`;
       logLine(`${label} saved`, 'ok');
       processingMessages(response, label);
-      if (file.kind === 'substrate') {
-        const item = app.form.substrates.find((s) => s.uid === file.uid);
+      if (file.kind === 'sample') {
+        const item = app.form.samples.find((s) => s.uid === file.uid);
         if (item) {
+          // From now on the sample keeps this ID and its entry is updated on save.
           item.ref = file.reference;
+          item.sample_id = file.archive.data.sample_id;
           item.sample_uuid = file.archive.data.sample_uuid;
         }
       } else {
         logbookEntry = response.processing && response.processing.entry_id;
       }
     }
+    await deleteNomadDraft();
     app.edit = {upload_id: uploadId, entry_id: logbookEntry, mainfile: result.logbook_file};
     app.upload = uploadId;
     if (logbookEntry) {
@@ -1212,12 +1491,158 @@ async function saveLogbook() {
   }
 }
 
+/* ---------------------------------------------------- drafts on NOMAD */
+
+/*
+ * A draft is the form state kept as a plain file in the upload
+ * (pld_drafts/<run>.draft.json). No parser reads it, so it never becomes an
+ * entry: only the final save creates the logbook and sample entries, and it
+ * deletes the draft.
+ */
+
+async function readNomadDraft(uploadId, path) {
+  try {
+    return await api(`/uploads/${uploadId}/raw/${path}`);
+  } catch (e) {
+    if (e.status === 404) return null;
+    throw e;
+  }
+}
+
+async function saveDraftToNomad() {
+  if (app.saving) return;
+  if (!app.user) return showBanner('Log in to NOMAD to save a draft.', 'error');
+  const problems = validateDraft(app.form);
+  if (problems.length) {
+    app.shown.add('run');
+    go('run', problems[0].path);
+    return showBanner('A draft needs the PVD system, date and start time of the run.', 'error');
+  }
+  if (!app.edit && !app.draft && !app.upload) {
+    go('save');
+    return showBanner('Choose the upload to keep the draft in.', 'error');
+  }
+  app.saving = true;
+  app.log = [];
+  updateSaveState();
+  try {
+    const uploadId = app.draft ? app.draft.upload_id : await ensureUpload();
+    let path = app.draft && app.draft.upload_id === uploadId ? app.draft.path : null;
+    if (!path) {
+      const named = await dashboard('api/draft-name', {form: app.form});
+      if (named.errors.length) throw new Error(named.errors.map((e) => e.message).join(' '));
+      path = named.path;
+    }
+    // Another computer may have saved this draft since it was opened here.
+    const stored = await readNomadDraft(uploadId, path);
+    if (stored && (!app.draft || stored.savedAt !== app.draft.savedAt)) {
+      const by = stored.savedBy ? ` by ${stored.savedBy}` : '';
+      const overwrite = window.confirm(`This draft was saved${by} on ${new Date(stored.savedAt).toLocaleString()}, `
+        + 'after you opened it here. Overwrite it with this form? Cancel to load that version instead.');
+      if (!overwrite) {
+        openNomadDraft(uploadId, path, stored);
+        return;
+      }
+    }
+    const directory = path.slice(0, path.lastIndexOf('/'));
+    const fileName = path.slice(path.lastIndexOf('/') + 1);
+    const stem = fileName.replace(/\.draft\.json$/, '');
+    if (Object.keys(app.pendingFiles).length) await uploadPendingFiles(uploadId, `${FILE_DIR}/${stem}`);
+    const draft = {
+      version: DRAFT_VERSION,
+      form: app.form,
+      edit: app.edit,
+      savedAt: new Date().toISOString(),
+      savedBy: app.user.name || app.user.username || '',
+    };
+    await api(`/uploads/${uploadId}/raw/${directory}?file_name=${encodeURIComponent(fileName)}`
+      + '&overwrite_if_exists=true&wait_for_processing=false', {
+      method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(draft),
+    });
+    app.draft = {upload_id: uploadId, path, savedAt: draft.savedAt};
+    app.upload = uploadId;
+    logLine(`Draft saved as ${path}`, 'ok');
+    saveDraft();
+    showBanner(`Draft saved in the upload at ${new Date(draft.savedAt).toLocaleTimeString()}. Continue it on any `
+      + 'computer with "Continue draft". It only counts as logged once the logbook is saved.', 'success');
+  } catch (e) {
+    logLine('Saving the draft failed: ' + e.message, 'err');
+    showBanner('Saving the draft failed: ' + e.message, 'error');
+  } finally {
+    app.saving = false;
+    refresh();
+  }
+}
+
+async function deleteNomadDraft() {
+  if (!app.draft) return;
+  try {
+    await api(`/uploads/${app.draft.upload_id}/raw/${app.draft.path}`, {method: 'DELETE'});
+    logLine('Draft removed: the logbook is saved.', 'ok');
+  } catch (e) {
+    if (e.status !== 404) logLine(`The draft ${app.draft.path} could not be removed: ${e.message}`, 'warn');
+  }
+  app.draft = null;
+}
+
+function openNomadDraft(uploadId, path, stored) {
+  app.form = stored.form;
+  app.edit = stored.edit || null;
+  app.draft = {upload_id: uploadId, path, savedAt: stored.savedAt};
+  app.upload = uploadId;
+  app.pendingFiles = {};
+  app.touched.clear();
+  app.shown.clear();
+  closeDialog();
+  changed();
+  go('run');
+  showBanner(`Continuing the draft ${path}, saved ${new Date(stored.savedAt).toLocaleString()}`
+    + (stored.savedBy ? ` by ${stored.savedBy}` : '') + '.');
+}
+
+async function continueDraftDialog() {
+  if (!app.user) return showBanner('Log in to NOMAD to continue a draft.', 'error');
+  openDialog('Continue draft', el('p', {class: 'muted'}, 'Looking for drafts in your unpublished uploads…'));
+  try {
+    await loadUploads();
+    const found = await Promise.all(app.uploads.map(async (upload) => {
+      let listing;
+      try {
+        listing = await api(`/uploads/${upload.upload_id}/rawdir/${DRAFT_DIR}?page_size=200`);
+      } catch (e) {
+        return [];
+      }
+      const files = ((listing.directory_metadata || {}).content || [])
+        .filter((f) => f.is_file && f.name.endsWith('.draft.json'));
+      return Promise.all(files.map(async (f) => {
+        const path = `${DRAFT_DIR}/${f.name}`;
+        const stored = await readNomadDraft(upload.upload_id, path).catch(() => null);
+        if (!stored || !stored.form) return null;
+        return {
+          title: f.name.replace(/\.draft\.json$/, ''),
+          sub: `${upload.upload_name || upload.upload_id} · saved ${new Date(stored.savedAt).toLocaleString()}`
+            + (stored.savedBy ? ` by ${stored.savedBy}` : ''),
+          uploadId: upload.upload_id, path, stored,
+        };
+      }));
+    }));
+    const entries = found.flat().filter(Boolean).sort((a, b) => b.stored.savedAt.localeCompare(a.stored.savedAt));
+    openDialog('Continue draft', [
+      el('p', {class: 'muted'}, 'Drafts are unfinished runs kept in your uploads. The current form is replaced.'),
+      ...pickList(entries, (picked) => openNomadDraft(picked.uploadId, picked.path, picked.stored)),
+    ]);
+  } catch (e) {
+    openDialog('Continue draft', el('p', {class: 'error'}, 'Could not look for drafts: ' + e.message));
+  }
+}
+
 /* ----------------------------------------------------------- lifecycle */
 
 function newLogbook(force) {
   if (!force && !window.confirm('Start a new, empty logbook? The current form is cleared.')) return;
   app.form = newForm();
   app.edit = null;
+  app.draft = null;
   app.pendingFiles = {};
   app.touched.clear();
   app.shown.clear();
@@ -1226,6 +1651,8 @@ function newLogbook(force) {
   document.getElementById('banner').hidden = true;
   changed();
   go('run');
+  // Targets and samples added elsewhere in NOMAD since the page was opened.
+  loadReferences();
 }
 
 function step(offset) {
@@ -1240,6 +1667,8 @@ async function init() {
   document.getElementById('btn-new').addEventListener('click', () => newLogbook(false));
   document.getElementById('btn-open').addEventListener('click', openLogbookDialog);
   document.getElementById('btn-recipe').addEventListener('click', recipeDialog);
+  document.getElementById('btn-draft-open').addEventListener('click', continueDraftDialog);
+  document.getElementById('btn-draft-save').addEventListener('click', saveDraftToNomad);
   document.getElementById('btn-prev').addEventListener('click', () => step(-1));
   document.getElementById('btn-next').addEventListener('click', () => step(1));
   document.getElementById('dialog-cancel').addEventListener('click', closeDialog);
@@ -1257,11 +1686,12 @@ async function init() {
   if (draft) {
     app.form = draft.form;
     app.edit = draft.edit || null;
+    app.draft = draft.draft || null;
     app.upload = draft.upload || '';
-    const dropped = dropPendingFiles(app.form);
-    showBanner(`Your draft from ${new Date(draft.savedAt).toLocaleString()} was restored.`
+    const dropped = dropPendingFiles(app.form, draft.pending);
+    showBanner(`The form from ${new Date(draft.savedAt).toLocaleString()} was restored from this browser.`
       + (dropped ? ` Choose the ${dropped} in-situ file(s) again: files are only kept until the page is closed.` : ''),
-    '', {label: 'Discard draft', run: () => newLogbook(true)});
+    '', {label: 'Discard', run: () => newLogbook(true)});
   } else {
     app.form = newForm();
   }
@@ -1270,9 +1700,10 @@ async function init() {
   app.errors = validate(app.form, app.spec);
   render();
   await loadUser();
+  referencesLoaded = Date.now();
   await Promise.all([loadReferences(), loadUploads()]);
-  if (app.current === 'save') render();
-  else refresh();
+  // Render again: the operator is filled in from the login.
+  render();
 }
 
 init();

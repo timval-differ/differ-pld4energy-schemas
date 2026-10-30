@@ -16,8 +16,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .convert import archive_to_form, form_to_files, recipe_to_form
-from .rules import validate
+from .convert import archive_to_form, draft_path, form_to_files, recipe_to_form
+from .rules import validate, validate_draft
 from .spec import form_spec
 
 STATIC = Path(__file__).parent / 'static'
@@ -58,6 +58,17 @@ def create_app() -> FastAPI:
             return {'errors': errors, 'files': []}
         result = form_to_files(request.form, spec, request.logbook_file)
         return {'errors': [], **result}
+
+    @app.post('/api/draft-name')
+    async def post_draft_name(request: FormRequest):
+        """
+        Where a draft of the form is kept in the upload. Drafts are plain files,
+        not entries: only a complete logbook becomes an entry.
+        """
+        errors = validate_draft(request.form, spec)
+        if errors:
+            return {'errors': errors, 'path': None}
+        return {'errors': [], 'path': draft_path(request.form)}
 
     @app.post('/api/form-from-archive')
     async def post_form_from_archive(request: ArchiveRequest):

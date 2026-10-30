@@ -1,5 +1,5 @@
 """
-Conditions, computed values and validation of the PLD logbook form.
+Computed values and validation of the PLD logbook form.
 
 `static/app.js` implements the same rules for live feedback in the browser;
 the server always validates again before an archive is built.
@@ -7,80 +7,42 @@ the server always validates again before an archive is built.
 Form data layout::
 
     {
-        'run': {...}, 'laser': {...}, 'in_situ': {...},  # object sections
-        'targets': [{'uid': ..., ...}, ...],               # list sections
-        'substrates': [{'uid': ..., ...}, ...],
+        'run': {...}, 'chamber': {...}, 'laser': {...},     # object sections
+        'in_situ': {...},
+        'samples': [{'uid': ..., ...}, ...],                 # list sections
+        'targets': [{'uid': ..., ...}, ...],
         'steps': [{'uid': ..., 'type': 'deposition', ...}, ...],
     }
 
-Condition keys are looked up in the containing object, or from the form root
-when they start with '/', e.g. '/run/system'.
+Conditions are described in `dashboards.common.values`.
 """
 
 from __future__ import annotations
 
-import math
-from datetime import date
+from ..common.samples import compute_sample_id, compute_sample_name, sample_choices
+from ..common.values import (
+    evaluate,
+    is_empty,
+    options,
+    parse_date,
+    parse_time,
+    to_number,
+    visible_fields,
+)
 
-from differ_pld4e_schemas.pld_substrate import sample_user_id
+__all__ = [
+    'compute',
+    'evaluate',
+    'is_empty',
+    'options',
+    'section_requirement',
+    'to_number',
+    'validate',
+    'validate_draft',
+    'visible_fields',
+]
 
-NEW_SUBSTRATE = 'Create new substrate'
-
-
-def lookup(key: str, local: dict, root: dict):
-    if not key.startswith('/'):
-        return local.get(key)
-    value = root
-    for part in key.strip('/').split('/'):
-        value = value.get(part) if isinstance(value, dict) else None
-    return value
-
-
-def evaluate(condition: dict | None, local: dict, root: dict) -> bool:
-    if not condition:
-        return True
-    if 'all' in condition:
-        return all(evaluate(c, local, root) for c in condition['all'])
-    if 'any' in condition:
-        return any(evaluate(c, local, root) for c in condition['any'])
-    value = lookup(condition['key'], local, root)
-    if 'equals' in condition:
-        expected = condition['equals']
-        if isinstance(expected, bool):
-            return bool(value) == expected
-        return value == expected
-    if 'in' in condition:
-        return value in condition['in']
-    raise ValueError(f'Unknown condition {condition}')
-
-
-def options(field: dict, local: dict, root: dict) -> list:
-    if 'options_by' in field:
-        by = field['options_by']
-        return by['map'].get(lookup(by['key'], local, root), [])
-    return field.get('options') or []
-
-
-def to_number(value):
-    """A float, or None if the value is not a number."""
-    if isinstance(value, bool):
-        return None
-    if isinstance(value, (int, float)):
-        return float(value) if math.isfinite(value) else None
-    if isinstance(value, str):
-        try:
-            number = float(value.replace(',', '.'))
-        except ValueError:
-            return None
-        return number if math.isfinite(number) else None
-    return None
-
-
-def parse_date(value):
-    try:
-        return date.fromisoformat(value)
-    except (TypeError, ValueError):
-        return None
+LEVELS = ('none', 'optional', 'required')
 
 
 def compute(name: str, local: dict, root: dict):
@@ -92,13 +54,10 @@ def compute(name: str, local: dict, root: dict):
         if before is None or after is None or not before or not t2:
             return None
         return after / (before * t2 / 100) * 100
-    if name == 'sample_user_id':
-        return sample_user_id(
-            lookup('/run/system', local, root),
-            parse_date(lookup('/run/date', local, root)),
-            local.get('run_number'),
-            local.get('sample_number'),
-        )
+    if name == 'sample_id':
+        return compute_sample_id(local, root)
+    if name == 'sample_name':
+        return compute_sample_name(local, root)
     raise ValueError(f'Unknown computed value {name}')
 
 
@@ -108,22 +67,44 @@ def value_of(field: dict, local: dict, root: dict):
     return local.get(field['key'])
 
 
-def is_empty(value) -> bool:
-    return value is None or value in ('', [])
+def _steps_section(spec: dict) -> dict | None:
+    return next((s for s in spec['sections'] if s['kind'] == 'variant_list'), None)
+
+
+def step_level(variant: dict, item: dict, aspect: str) -> str:
+    """What one step needs of an aspect: an optional laser counts once used."""
+    level = variant.get(aspect, 'none')
+    if level == 'optional' and item.get(f'{aspect}_used'):
+        return 'required'
+    return level
+
+
+def section_requirement(section: dict, spec: dict, data: dict) -> str:
+    """
+    'required', 'optional' or 'none'. A section with a `requirement` is needed
+    as much as the step that needs it most; e.g. the laser details are required
+    once there is a deposition step and not logged at all for an annealing run.
+    """
+    requirement = section.get('requirement')
+    if not requirement:
+        return 'required'
+    steps = _steps_section(spec)
+    if steps is None:
+        return 'none'
+    level = 'none'
+    for item in data.get(steps['key']) or []:
+        variant = steps['variants'].get(item.get('type'))
+        if variant is not None:
+            level = max(
+                level,
+                step_level(variant, item, requirement['from_steps']),
+                key=LEVELS.index,
+            )
+    return level
 
 
 def target_choices(root: dict) -> list:
     return [t['target'] for t in root.get('targets') or [] if t.get('target')]
-
-
-def substrate_choices(root: dict) -> list:
-    choices = []
-    for substrate in root.get('substrates') or []:
-        if substrate.get('mode', NEW_SUBSTRATE) == NEW_SUBSTRATE:
-            choices.append(f'new:{substrate.get("uid")}')
-        elif substrate.get('substrate'):
-            choices.append(substrate['substrate'])
-    return choices
 
 
 def _number_error(field: dict, value) -> str | None:
@@ -147,13 +128,14 @@ def _field_error(field: dict, value, local: dict, root: dict) -> str | None:
             'Choose one of the options.',
         ),
         'date': (lambda: parse_date(value) is not None, 'Enter a date.'),
+        'time': (lambda: parse_time(value) is not None, 'Enter a time (hh:mm).'),
         'target_choice': (
             lambda: value in target_choices(root),
             'Choose one of the targets selected under Targets.',
         ),
-        'substrate_choice': (
-            lambda: value in substrate_choices(root),
-            'Choose one of the substrates under Substrates.',
+        'sample_choice': (
+            lambda: value in sample_choices(root),
+            'Choose one of the samples under Samples.',
         ),
     }
     if kind in checks:
@@ -162,32 +144,31 @@ def _field_error(field: dict, value, local: dict, root: dict) -> str | None:
     return None
 
 
-def visible_fields(fields: list, local: dict, root: dict) -> list:
-    return [f for f in fields if evaluate(f.get('visible_if'), local, root)]
-
-
-def _validate_fields(fields, local, path, root, errors):
+def _validate_fields(fields, local, path, root, required=True) -> list[dict]:
+    """
+    Problems of the visible fields; with `required` False only badly entered
+    values count, not missing ones.
+    """
+    errors = []
     for field in visible_fields(fields, local, root):
         if field['kind'] == 'computed':
             continue
         value = local.get(field['key'])
         field_path = f'{path}.{field["key"]}'
+        if field['kind'] == 'rows':
+            for index, row in enumerate(value or []):
+                errors += _validate_fields(
+                    field['columns'], row, f'{field_path}.{index}', root, required
+                )
+            continue
         if is_empty(value):
-            if field['required']:
+            if field['required'] and required:
                 errors.append({'path': field_path, 'message': 'Required.'})
             continue
         message = _field_error(field, value, local, root)
         if message:
             errors.append({'path': field_path, 'message': message})
-
-
-def _validate_rules(rules, local, path, root, errors):
-    for rule in rules or []:
-        if rule['type'] == 'any_of' and evaluate(rule.get('visible_if'), local, root):
-            if all(is_empty(local.get(key)) for key in rule['keys']):
-                errors.append(
-                    {'path': f'{path}.{rule["keys"][0]}', 'message': rule['message']}
-                )
+    return errors
 
 
 def _validate_unique(section, items, root, errors):
@@ -216,13 +197,16 @@ def validate(data: dict, spec: dict) -> list[dict]:
     errors: list[dict] = []
     for section in spec['sections']:
         key = section['key']
+        level = section_requirement(section, spec, data)
+        if level == 'none':
+            continue
+        required = level == 'required'
         if section['kind'] == 'object':
             local = data.get(key) or {}
-            _validate_fields(section['fields'], local, key, data, errors)
-            _validate_rules(section.get('rules'), local, key, data, errors)
+            errors += _validate_fields(section['fields'], local, key, data, required)
             continue
         items = data.get(key) or []
-        if len(items) < section.get('min_items', 0):
+        if required and len(items) < section.get('min_items', 0):
             errors.append(
                 {
                     'path': key,
@@ -239,11 +223,23 @@ def validate(data: dict, spec: dict) -> list[dict]:
                     )
                     continue
                 fields = variant['fields']
-            _validate_fields(fields, item, f'{key}.{index}', data, errors)
+            errors += _validate_fields(fields, item, f'{key}.{index}', data, required)
         if section['kind'] == 'list':
             _validate_unique(section, items, data, errors)
-        for variant_key in section.get('required_variants', []):
-            if not any(item.get('type') == variant_key for item in items):
-                label = section['variants'][variant_key]['label'].lower()
-                errors.append({'path': key, 'message': f'Add at least one {label}.'})
+    return errors
+
+
+def validate_draft(data: dict, spec: dict) -> list[dict]:
+    """
+    What a draft needs: the system, date and time, which name the draft file and
+    make up the sample IDs. Everything else may still be missing.
+    """
+    run = data.get('run') or {}
+    errors = []
+    if run.get('system') not in spec['systems']:
+        errors.append({'path': 'run.system', 'message': 'Choose the PVD system.'})
+    if parse_date(run.get('date')) is None:
+        errors.append({'path': 'run.date', 'message': 'Enter a date.'})
+    if parse_time(run.get('time')) is None:
+        errors.append({'path': 'run.time', 'message': 'Enter a time (hh:mm).'})
     return errors

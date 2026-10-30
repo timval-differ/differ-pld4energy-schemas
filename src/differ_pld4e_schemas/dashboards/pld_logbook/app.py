@@ -9,10 +9,11 @@ the form definition, validation and the conversion to archive files.
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -21,6 +22,20 @@ from .rules import validate, validate_draft
 from .spec import form_spec
 
 STATIC = Path(__file__).parent / 'static'
+ASSETS = ('app.js', 'style.css')
+
+
+def index_page() -> str:
+    """
+    The page, linking its script and style sheet with a version taken from their
+    content. Browsers cache static files, so without it an updated dashboard
+    could run an old app.js against a new form definition.
+    """
+    page = (STATIC / 'index.html').read_text(encoding='utf-8')
+    for name in ASSETS:
+        version = hashlib.sha256((STATIC / name).read_bytes()).hexdigest()[:12]
+        page = page.replace(f'static/{name}"', f'static/{name}?v={version}"')
+    return page
 
 
 class FormRequest(BaseModel):
@@ -39,7 +54,8 @@ def create_app() -> FastAPI:
 
     @app.get('/', include_in_schema=False)
     async def index():
-        return FileResponse(STATIC / 'index.html')
+        # Never cached, so a new version always loads its matching assets.
+        return HTMLResponse(index_page(), headers={'Cache-Control': 'no-cache'})
 
     app.mount('/static', StaticFiles(directory=STATIC), name='static')
 

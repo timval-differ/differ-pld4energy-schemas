@@ -1,4 +1,5 @@
 import copy
+import re
 
 import pytest
 from fastapi.testclient import TestClient
@@ -691,6 +692,13 @@ def test_app_serves_page_and_spec(client):
     assert 'PLD logbook' in client.get('/').text
     assert client.get('/static/app.js').status_code == HTTP_OK
     assert client.get('/api/spec').json()['systems'] == ['SA-PLD', 'LA-PLD']
+
+
+def test_page_loads_current_assets(client):
+    response = client.get('/')
+    assert response.headers['cache-control'] == 'no-cache'
+    assert re.search(r'static/app\.js\?v=[0-9a-f]{12}"', response.text)
+    assert re.search(r'static/style\.css\?v=[0-9a-f]{12}"', response.text)
 
 
 def test_app_refuses_incomplete_form(client):

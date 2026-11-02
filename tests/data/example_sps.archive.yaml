@@ -1,0 +1,93 @@
+# Example SPS (sputter) logbook: a Ta/Ti multilayer. Values are stored in SI
+# units (shown in mbar, nm, mA, minutes etc. in the ELN). Replace the target
+# references with references to Sputter Target entries in your upload. New
+# samples get their own Sample entry when the logbook is processed.
+data:
+  m_def: differ_pld4e_schemas.sps_deposition.SPSLogbook
+  name: Ta-Ti multilayer on Si
+  operator_name: Ada Lovelace
+  datetime: '2026-10-22T09:00:00+00:00'
+  description: Ta and Ti from the 2" positions.
+  base_pressure: 1.0e-5  # 1e-7 mbar
+  substrate_carrier: 4" carrier SPS
+  targets:
+    - target_number: 1
+      material: Ta
+    - target_number: 2
+      material: Ti
+  samples:
+    - origin: New sample
+      sample_id: SPS_2026-10-22_09:00_S01
+      # substrate: a reference to a Substrate type entry, e.g. Si 4"
+      substrate_material: Si
+      layers:
+        - material: Ta
+          thickness: 5.0e-8  # 50 nm
+        - material: Ti
+          thickness: 1.0e-8  # 10 nm
+  steps:
+    - m_def: differ_pld4e_schemas.sps_deposition.SPSPreSputteringStep
+      pressure: 0.5  # 5e-3 mbar
+      atmosphere: Background gas
+      background_gases:
+        - gas: Ar
+          flow_setpoint: 20
+          flow_readout: 19.8
+      valve_position: 40
+      plasma:
+        plasma_type: DC
+        voltage: 380
+        current: 0.26  # 260 mA
+        power: 100
+      ramp_up_rate: 0.0333  # 10 W/5 min
+      pre_sputter_time: 600  # 10 min
+    - m_def: differ_pld4e_schemas.sps_deposition.SPSHeatingStep
+      ramp_rate: 10
+      temperature_setpoint: 573.15
+      heater_output: 20  # %
+      pressure: 0.5
+      background_gases:
+        - gas: Ar
+          flow_setpoint: 20
+    - m_def: differ_pld4e_schemas.sps_deposition.SPSSputteringStep
+      pressure: 0.5
+      background_gases:
+        - gas: Ar
+          flow_setpoint: 20
+          flow_readout: 20.1
+      valve_position: 40
+      valve_position_fixed: true
+      heater_stage_position:
+        x: 0.0
+        y: 0.0
+        z: 0.1
+        spin: 0
+      heater_rotation: 10  # rpm
+      plasma:
+        plasma_type: DC
+        voltage: 385
+        current: 0.26
+        power: 100
+      shutter: open
+      sputter_time: 1200  # 20 min
+      ramp_down_rate: 0.0333
+      film_thickness: 5.0e-8  # 50 nm
+    - m_def: differ_pld4e_schemas.sps_deposition.SPSSputteringStep
+      pressure: 0.5
+      background_gases:
+        - gas: Ar
+          flow_setpoint: 20
+      valve_position: 40
+      heater_rotation: 10
+      plasma:
+        plasma_type: RF
+        load_capacitance: 1.2e-9  # 1.2 nF
+        dc_bias: 150
+        power: 150
+      shutter: open
+      sputter_time: 300
+      film_thickness: 1.0e-8  # 10 nm
+    - m_def: differ_pld4e_schemas.sps_deposition.SPSCoolDownStep
+      ramp_rate: 10
+      temperature_setpoint: 298.15
+      pressure: 0.5

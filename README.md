@@ -12,19 +12,21 @@ entries that the logbooks refer to. An earlier logbook can be used as a recipe
 to repeat a run on other samples. In-situ measurements outside a run go in a
 `PLD In-situ Techniques` entry.
 
-**Sputter deposition.** Provenance-centered sputter deposition records.
-Substrates, individual thin-film layers and completed thin-film stacks are
-represented as sample entities, while deposition steps retain the process
-parameters and layer provenance. The local `Substrate`, `ThinFilm`,
-`ThinFilmStack` and `SampleParameters` sections specialize their corresponding
-base sections from `nomad-material-processing`.
+**SPS logbook.** The `SPS Logbook` entry type records one run in the SPS
+sputter system, built like the PLD logbooks: the samples made or processed, the
+substrate carrier (and mask), the targets in positions 1 to 3 and the process
+steps (pre-sputtering, heating, sputtering, cool-down, with background gases,
+the DC/RF plasma, power ramps and the heater position). Its targets are
+`Sputter Target` entries; samples and substrate types are shared with PLD.
 
-**PLD logbook dashboard.** A guided form for SA-PLD and LA-PLD runs, served by
-NOMAD at `<NOMAD URL>/dashboards/differ_pld4e_schemas-pld-logbook/`. It starts
-each run from its samples, shows only the fields that apply to the choices made
-(system, process steps, scan type, gases, in-situ techniques), saves only
-complete logbooks (unfinished runs can be kept as drafts), and writes them as
-entries of the schemas above. See [Use the PLD logbook dashboard](docs/how_to/use_the_dashboard.md).
+**Logbook dashboards.** Guided forms served by NOMAD, for SA-PLD and LA-PLD
+runs at `<NOMAD URL>/dashboards/differ_pld4e_schemas-pld-logbook/` and for SPS
+runs at `<NOMAD URL>/dashboards/differ_pld4e_schemas-sputter-logbook/`. They
+start each run from its samples, show only the fields that apply to the choices
+made (system, process steps, scan type, gases, plasma, in-situ techniques),
+save only complete logbooks (unfinished runs can be kept as drafts), and write
+them as entries of the schemas above. See
+[Use the logbook dashboards](docs/how_to/use_the_dashboard.md).
 
 See the [documentation](docs/index.md): a tutorial, how-to guides (including
 [recipes](docs/how_to/reuse_a_recipe.md)), an explanation of the design and a
@@ -56,7 +58,7 @@ python -m pip install --upgrade pip
 python -m pip install -e '.[dev]'
 ```
 
-The example archive uses placeholder references for its substrate and target. Replace them with references to existing NOMAD entries before uploading.
+The example archives in `tests/data/` leave out the references to substrates and targets. Add references to existing NOMAD entries before uploading.
 
 ### Run the tests
 

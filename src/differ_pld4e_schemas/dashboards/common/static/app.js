@@ -1,11 +1,13 @@
 /*
- * PLD logbook dashboard.
+ * Logbook dashboard (PLD logbook, sputter logbook).
  *
- * The form is built from the definition served by `api/spec` (see spec.py).
- * The rules below mirror rules.py so problems show while typing; the server
- * validates again before it builds the archive files. Everything that needs
- * the user's NOMAD session (uploads, searching entries, writing files) goes
- * straight to the NOMAD API, which accepts the GUI's Authorization cookie.
+ * The form is built from the definition served by `api/spec` (see the spec.py
+ * of each dashboard); its `client` part holds the texts and settings of the
+ * page that differ between dashboards. The rules below mirror
+ * common/rules.py so problems show while typing; the server validates again
+ * before it builds the archive files. Everything that needs the user's NOMAD
+ * session (uploads, searching entries, writing files) goes straight to the
+ * NOMAD API, which accepts the GUI's Authorization cookie.
  */
 'use strict';
 
@@ -13,13 +15,11 @@ const BASE = window.location.pathname.replace(/\/dashboards\/.*$/, '');
 const API = BASE + '/api/v1';
 const GUI = BASE + '/gui/v2';
 const DASHBOARD = window.location.pathname.replace(/\/?$/, '/');
-const DRAFT_KEY = 'pld-logbook-draft-v2';
-const DRAFT_DIR = 'pld_drafts';
 const DRAFT_VERSION = 1;
 const NEW_SAMPLE = 'New sample';
 const MADE_HERE = ['New sample', 'External sample'];
-const FILE_DIR = 'pld_files';
 const LEVELS = ['none', 'optional', 'required'];
+const INCH = 0.0254;
 
 const app = {
   spec: null,
@@ -27,7 +27,7 @@ const app = {
   edit: null, // {upload_id, entry_id, mainfile} of an opened logbook
   draft: null, // {upload_id, path, savedAt} of the draft kept in NOMAD
   upload: '', // selected upload id, or '__new__'
-  newUploadName: 'PLD logbooks',
+  newUploadName: '',
   current: 'home', // 'home' (start page), a section key, or 'save'
   started: false, // whether the form holds a logbook being worked on
   user: null,
@@ -44,6 +44,11 @@ const app = {
 };
 
 /* ---------------------------------------------------------------- helpers */
+
+/* Texts and settings of this dashboard (the spec's `client`). */
+function client() {
+  return app.spec.client;
+}
 
 function el(tag, attrs, ...children) {
   const node = document.createElement(tag);
@@ -240,15 +245,15 @@ function sampleChoice(item) {
   return madeHere(item) ? `new:${item.uid}` : item.sample;
 }
 
-/* The films grown on a sample: one per deposition step on it (mirror rules.sample_films). */
+/* The films grown on a sample: one per film step on it (mirror LogbookRules.sample_films). */
 function sampleFilms(item, root) {
   const material = (target) => {
     const selected = (root.targets || []).find((t) => t.target === target);
     return (selected && selected.material) || (app.refs.target.find((r) => r.ref === target) || {}).material;
   };
-  const sa = (root.run || {}).system === 'SA-PLD';
+  const all = client().all_samples.includes((root.run || {}).system);
   return (root.steps || [])
-    .filter((step) => step.type === 'deposition' && (sa || step.sample === sampleChoice(item)))
+    .filter((step) => client().film_steps.includes(step.type) && (all || step.sample === sampleChoice(item)))
     .map((step) => ({target: step.target, material: material(step.target), thickness: step.film_thickness}));
 }
 
@@ -490,7 +495,7 @@ function changed() {
 /* Kept in this browser as a safeguard; see saveDraftToNomad for drafts on NOMAD. */
 function saveDraft() {
   try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({
+    localStorage.setItem(client().draft_key, JSON.stringify({
       form: app.form, edit: app.edit, draft: app.draft, upload: app.upload,
       pending: Object.keys(app.pendingFiles), savedAt: new Date().toISOString(),
     }));
@@ -503,7 +508,7 @@ function saveDraft() {
 
 function loadDraft() {
   try {
-    const draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null');
+    const draft = JSON.parse(localStorage.getItem(client().draft_key) || 'null');
     if (!draft || !draft.form || !draft.form.run) return null;
     return draft;
   } catch (e) {
@@ -513,7 +518,7 @@ function loadDraft() {
 
 function clearDraft() {
   try {
-    localStorage.removeItem(DRAFT_KEY);
+    localStorage.removeItem(client().draft_key);
   } catch (e) {
     /* storage unavailable */
   }
@@ -601,9 +606,10 @@ async function loadReferences() {
         name: data.name || data.material || metadata.entry_name || `${file} (no material entered)`,
         material: data.material || null,
         retired: data.in_stock === false,
-        info: [data.material, data.manufacturer, data.purchase_date && String(data.purchase_date).slice(0, 10),
+        info: [data.material, data.diameter && `${Number((data.diameter / INCH).toPrecision(3))}"`,
+          data.manufacturer, data.purchase_date && String(data.purchase_date).slice(0, 10),
           data.in_stock === false ? 'out of stock' : null]
-          .filter(Boolean).join(' · ') || 'This target has no material, manufacturer or purchase date yet.',
+          .filter(Boolean).join(' · ') || 'This target has no material, size, manufacturer or purchase date yet.',
       };
     }).sort((a, b) => a.name.localeCompare(b.name));
   } catch (e) {
@@ -866,6 +872,7 @@ function awaitingData(technique, inSitu) {
 }
 
 function awaitingTechniques(form) {
+  if (!section('in_situ')) return [];
   const inSitu = form.in_situ || {};
   return section('in_situ').fields
     .filter((f) => f.kind === 'bool' && inSitu[f.key] && awaitingData(f.key, inSitu))
@@ -977,10 +984,14 @@ function navSections() {
 }
 
 const REQUIREMENT_NOTES = {
-  none: 'Not needed for these process steps: it is only logged when a step needs it '
-    + '(e.g. a pre-ablation or deposition step). What you enter here is not saved.',
+  none: 'Not needed for these process steps: it is only logged when a step needs it. '
+    + 'What you enter here is not saved.',
   optional: 'Optional for these process steps: fill it in if it applies.',
 };
+
+function requirementNote(level) {
+  return level === 'none' && client().requirement_note ? client().requirement_note : REQUIREMENT_NOTES[level];
+}
 
 function renderNav() {
   const nav = document.getElementById('nav');
@@ -992,7 +1003,7 @@ function renderNav() {
     return el('li', {}, el('button', {
       type: 'button', class: (s.key === app.current ? 'active' : '') + (level === 'none' ? ' not-needed' : ''),
       onclick: () => go(s.key),
-      title: level === 'required' ? '' : REQUIREMENT_NOTES[level],
+      title: level === 'required' ? '' : requirementNote(level),
     }, el('span', {class: 'nav-index ' + state}, state === 'done' ? '✓' : (state === 'skipped' ? '–' : String(index + 1))),
     el('span', {class: 'nav-title'}, s.title,
       level === 'none' ? el('span', {class: 'nav-note'}, 'not needed') : null,
@@ -1075,9 +1086,8 @@ function fillEntryList(id, entries, empty, onPick) {
 
 function renderHome(container) {
   const intro = el('div', {class: 'card'},
-    el('h1', {}, 'PLD logbook'),
-    el('p', {class: 'section-intro'}, 'Log an SA-PLD or LA-PLD run step by step, starting from its samples. '
-      + 'Only the fields that apply are shown, and a logbook is saved once it is complete.'),
+    el('h1', {}, client().title),
+    el('p', {class: 'section-intro'}, client().intro),
     el('div', {class: 'btn-row'},
       el('button', {type: 'button', class: 'btn btn-contained', onclick: () => newLogbook(false)}, 'New logbook'),
       app.started ? el('button', {type: 'button', class: 'btn btn-outlined', onclick: () => go('run')},
@@ -1114,7 +1124,7 @@ function sectionHeader(s, intro) {
   return [
     el('h1', {}, s.title),
     intro ? el('p', {class: 'section-intro'}, intro) : null,
-    level === 'required' ? null : el('div', {class: 'info requirement-' + level}, REQUIREMENT_NOTES[level]),
+    level === 'required' ? null : el('div', {class: 'info requirement-' + level}, requirementNote(level)),
   ];
 }
 
@@ -1224,14 +1234,13 @@ function renderList(container, s) {
 }
 
 function renderSteps(container, s) {
-  const card = el('div', {class: 'card'}, sectionHeader(s,
-    'Add the steps in the order they were done. Steps can be added more than once, e.g. for multilayers. '
-    + 'A run without deposition, e.g. annealing or only characterisation, needs no laser details or targets.'),
-  el('div', {class: 'list-error', 'data-list-errors': s.key}));
-  if (!app.form.run.system) {
+  const card = el('div', {class: 'card'}, sectionHeader(s, s.intro),
+    el('div', {class: 'list-error', 'data-list-errors': s.key}));
+  const system = app.form.run.system;
+  if (!system) {
     card.append(el('div', {class: 'info'}, 'Choose the PVD system under Run first: the fields of the steps depend on it.'));
-  } else if (app.form.run.system === 'SA-PLD') {
-    card.append(el('div', {class: 'info'}, 'In the SA-PLD a deposition covers all samples loaded in the chamber.'));
+  } else if ((client().system_notes || {})[system]) {
+    card.append(el('div', {class: 'info'}, client().system_notes[system]));
   }
   const list = app.form.steps;
   list.forEach((item, index) => {
@@ -1382,7 +1391,7 @@ async function recipeDialog() {
           go('steps');
           showBanner(`Added ${recipe.steps.length} steps from ${picked.title}`
             + (hasTargets ? '.' : ' and its targets.') + ' Check the targets'
-            + (system === 'LA-PLD' ? ' and choose the sample of each deposition step.' : '.'));
+            + (client().all_samples.includes(system) ? '.' : ' and choose the sample of each deposition step.'));
         } catch (e) {
           showBanner('Could not load the recipe: ' + e.message, 'error');
         }
@@ -1410,7 +1419,7 @@ async function ensureUpload() {
   if (app.edit) return app.edit.upload_id;
   if (app.upload && app.upload !== '__new__') return app.upload;
   if (app.upload === '__new__') {
-    const name = encodeURIComponent(app.newUploadName || 'PLD logbooks');
+    const name = encodeURIComponent(app.newUploadName || client().upload_name);
     const response = await api(`/uploads?upload_name=${name}`, {method: 'POST'});
     app.upload = response.upload_id;
     await loadUploads();
@@ -1485,17 +1494,16 @@ function newTargetDialog() {
   newEntryDialog({
     kind: 'target',
     noun: 'target',
-    intro: 'Creates a PLD Target entry. Do not put the target number in the name: it is entered per run.',
-    fields: [
-      {key: 'material', label: 'Material', required: true},
-      {key: 'name', label: 'Name (optional, defaults to material)'},
-      {key: 'manufacturer', label: 'Manufacturer'},
-      {key: 'purchase_date', label: 'Purchase date', type: 'date'},
-    ],
-    build: (v) => Object.fromEntries(Object.entries({
-      material: v.material, name: v.name, manufacturer: v.manufacturer,
-      purchase_date: v.purchase_date && v.purchase_date + 'T00:00:00+00:00',
-    }).filter(([, value]) => value)),
+    intro: client().target_entry.intro,
+    // A field with a `scale` is a number, multiplied into the schema's unit.
+    fields: client().target_entry.fields,
+    build: (v) => Object.fromEntries(client().target_entry.fields.map((f) => {
+      const value = v[f.key];
+      if (!value) return [f.key, null];
+      if (f.type === 'date') return [f.key, value + 'T00:00:00+00:00'];
+      if (f.scale) return [f.key, toNumber(value) === null ? null : toNumber(value) * f.scale];
+      return [f.key, value];
+    }).filter(([, value]) => value !== null)),
     place: (ref) => {
       const empty = app.form.targets.find((t) => !t.target);
       if (empty) empty.target = ref;
@@ -1665,7 +1673,7 @@ async function saveLogbook() {
     const uploadId = await ensureUpload();
     logLine(`Saving to upload ${uploadId}`);
     if (Object.keys(app.pendingFiles).length) {
-      const directory = `${FILE_DIR}/${result.logbook_file.replace(/\.archive\.json$/, '')}`;
+      const directory = `${client().file_dir}/${result.logbook_file.replace(/\.archive\.json$/, '')}`;
       await uploadPendingFiles(uploadId, directory);
       result = await dashboard('api/archive', {form: app.form, logbook_file: logbookFile});
     }
@@ -1774,7 +1782,7 @@ function reportBlocks() {
   const complete = Boolean(app.edit) && !app.errors.length;
   const missing = app.errors.length;
   const blocks = [
-    {kind: 'title', text: `PLD logbook · ${runLabel(form)}`},
+    {kind: 'title', text: `${client().title} · ${runLabel(form)}`},
     complete
       ? {kind: 'status', text: `Saved logbook ${app.edit.mainfile}`}
       : {kind: 'alert', text: 'DRAFT / INCOMPLETE: this is not a logged logbook'
@@ -1806,7 +1814,7 @@ function reportBlocks() {
  * sandboxed frame in which browsers ignore window.print(), but allow downloads.
  */
 function exportPdf() {
-  const title = `PLD logbook ${runLabel(app.form)}`;
+  const title = `${client().title} ${runLabel(app.form)}`;
   const blob = makePdf(reportBlocks(), title);
   const fileName = title.replace(/ · /g, ' ').replace(/:/g, '-').replace(/[^\w .-]+/g, '_') + '.pdf';
   const link = el('a', {href: URL.createObjectURL(blob), download: fileName});
@@ -1820,7 +1828,7 @@ function exportPdf() {
 
 /*
  * A draft is the form state kept as a plain file in the upload
- * (pld_drafts/<run>.draft.json). No parser reads it, so it never becomes an
+ * (e.g. pld_drafts/<run>.draft.json). No parser reads it, so it never becomes an
  * entry: only the final save creates the logbook and sample entries, and it
  * deletes the draft.
  */
@@ -1873,7 +1881,7 @@ async function saveDraftToNomad() {
     const directory = path.slice(0, path.lastIndexOf('/'));
     const fileName = path.slice(path.lastIndexOf('/') + 1);
     const stem = fileName.replace(/\.draft\.json$/, '');
-    if (Object.keys(app.pendingFiles).length) await uploadPendingFiles(uploadId, `${FILE_DIR}/${stem}`);
+    if (Object.keys(app.pendingFiles).length) await uploadPendingFiles(uploadId, `${client().file_dir}/${stem}`);
     const draft = {
       version: DRAFT_VERSION,
       form: app.form,
@@ -1934,14 +1942,14 @@ async function findDrafts() {
   const found = await Promise.all(app.uploads.map(async (upload) => {
     let listing;
     try {
-      listing = await api(`/uploads/${upload.upload_id}/rawdir/${DRAFT_DIR}?page_size=200`);
+      listing = await api(`/uploads/${upload.upload_id}/rawdir/${client().draft_dir}?page_size=200`);
     } catch (e) {
       return [];
     }
     const files = ((listing.directory_metadata || {}).content || [])
       .filter((f) => f.is_file && f.name.endsWith('.draft.json'));
     return Promise.all(files.map(async (f) => {
-      const path = `${DRAFT_DIR}/${f.name}`;
+      const path = `${client().draft_dir}/${f.name}`;
       const stored = await readNomadDraft(upload.upload_id, path).catch(() => null);
       if (!stored || !stored.form) return null;
       return {
@@ -2001,6 +2009,7 @@ async function init() {
     return;
   }
   checkServerVersion();
+  app.newUploadName = client().upload_name;
   // The logbook last worked on in this browser is offered on the start page,
   // or opened straight away when the page is reloaded inside the form.
   const draft = loadDraft();

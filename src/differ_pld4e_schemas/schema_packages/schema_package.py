@@ -1,37 +1,29 @@
 from differ_pld4e_schemas import (
     base_sections,
-    environment,
     gas,
     in_situ,
     laser,
     m_package,
     pld_deposition,
+    process_steps,
     sample,
-    sample_parameters,
-    source,
-    sputter_deposition,
+    sps_deposition,
     stages,
-    substrate,
     target,
-    thin_film,
 )
 
 __all__ = [
     'base_sections',
-    'environment',
     'gas',
     'in_situ',
     'laser',
     'm_package',
     'pld_deposition',
+    'process_steps',
     'sample',
-    'sample_parameters',
-    'source',
-    'sputter_deposition',
+    'sps_deposition',
     'stages',
-    'substrate',
     'target',
-    'thin_film',
 ]
 
 # All modules share m_package, and NOMAD renames the package to the module of the

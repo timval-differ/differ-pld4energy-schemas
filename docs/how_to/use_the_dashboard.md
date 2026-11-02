@@ -1,26 +1,33 @@
-# Use the PLD logbook dashboard
+# Use the logbook dashboards
 
-The **PLD logbook** dashboard is a guided form for the logbook of an SA-PLD or
-LA-PLD run. It saves the run as normal entries of this plugin's schemas: an
-SA-PLD or LA-PLD logbook, plus a Sample entry for each new or external sample.
-Everything it saves can afterwards be viewed and edited in NOMAD as usual; see
-[Use the PLD logbooks](use_this_plugin.md).
+The plugin has two logbook dashboards, guided forms for the logbook of one run:
 
-Compared with the NOMAD entry editor, the dashboard:
+- **PLD logbook** for SA-PLD and LA-PLD runs;
+- **Sputter logbook** for SPS runs (see [The sputter logbook](#the-sputter-logbook)).
 
-- starts each run with the samples it makes or processes;
-- shows only the fields that apply to your choices (system, process steps, scan
-  type, gases, in-situ techniques, ...);
-- asks for the laser details and targets only when a process step needs the
-  laser;
-- only saves the logbook when **every required field** is filled in; until then
+They work the same way. Each saves the run as normal entries of this plugin's
+schemas: an SA-PLD, LA-PLD or SPS logbook, plus a Sample entry for each new or
+external sample. Everything they save can afterwards be viewed and edited in
+NOMAD as usual; see [Use the PLD logbooks](use_this_plugin.md). This page
+describes the PLD logbook first.
+
+Compared with the NOMAD entry editor, the dashboards:
+
+- start each run with the samples it makes or processes;
+- show only the fields that apply to your choices (system, process steps, scan
+  type, gases, plasma, in-situ techniques, ...);
+- ask for the targets (and in the PLD logbook the laser details) only when a
+  process step needs them;
+- only save the logbook when **every required field** is filled in; until then
   the run can be kept as a [draft](#drafts-continue-on-another-computer);
-- converts lab units (mbar, mJ, °C, mm, nm, ...) to the units NOMAD stores.
+- convert lab units (mbar, mJ, °C, mm, nm, ...) to the units NOMAD stores.
 
 ## Open it
 
-Log in to NOMAD first. Then open **PLD logbook** from NOMAD's dashboards menu,
-or go to `<NOMAD URL>/dashboards/differ_pld4e_schemas-pld-logbook/`
+Log in to NOMAD first. Then open **PLD logbook** or **Sputter logbook** from
+NOMAD's dashboards menu, or go to
+`<NOMAD URL>/dashboards/differ_pld4e_schemas-pld-logbook/` or
+`<NOMAD URL>/dashboards/differ_pld4e_schemas-sputter-logbook/`
 (locally: <http://localhost:8000/nomad-oasis/dashboards/differ_pld4e_schemas-pld-logbook/>).
 
 It opens on the **start page**:
@@ -115,7 +122,8 @@ A run often spans several computers, and a logbook can only be saved once it is
 complete. To keep an unfinished run, use **Save draft** (top bar or *Review and
 save*). It needs the system, date and start time, and an upload.
 
-- The draft is stored in the upload as `pld_drafts/<run>.draft.json`, together
+- The draft is stored in the upload as `pld_drafts/<run>.draft.json`
+  (`sps_drafts/` for the sputter logbook), together
   with the in-situ files you picked. It is **not** an entry: it does not show up
   in searches and **does not count as logged**. Only the saved logbook does.
 - On another computer, the start page lists the drafts in your unpublished
@@ -164,6 +172,39 @@ updates the Sample entries it created; samples from other runs are never
 changed. A sample keeps its ID once its entry exists, even if you change the
 date or time of the run. The logbook must be in an upload you can edit (not
 published).
+
+## The sputter logbook
+
+The **Sputter logbook** is filled in like the PLD logbook, with these
+differences:
+
+1. **Run.** The PVD system is always *SPS*. Sample IDs are
+   `SPS_yyyy-mm-dd_hh:mm_S##`.
+2. **Samples.** As in the PLD logbook. The sample names come from the
+   sputtering steps, e.g. `Si_Ta-50nm_Ti-10nm`.
+3. **System details.** The substrate carrier (*4" carrier SPS*, *1 cm² sub
+   plate* or *Fixed stage*) and the main chamber pressure. With the fixed stage,
+   say whether a mask is used and which one.
+4. **Targets.** Only needed when a step sputters (pre-sputtering or
+   sputtering). Pick each target and its position: positions 1 and 2 take 2"
+   targets, position 3 a 4" target. Targets come from the *sputter* target
+   database, separate from the PLD targets; *New target in the database* asks
+   for the diameter in inch. NOMAD warns on save when a target does not fit its
+   position.
+5. **Process steps.** Pre-sputtering, heating, sputtering and cool-down. For a
+   multilayer, add a pre-sputtering and sputtering step per layer.
+    - **Plasma:** choose DC, RF or DC+RF. DC asks for the voltage U, RF for the
+      load capacitance CL, DC+RF for both. The current I and the DC bias are
+      optional; the power is required.
+    - **Power ramps** (ramp up, ramp down) are entered in W per 5 minutes, as
+      in the lab. NOMAD shows them in W/min: 10 W/5 min is 2 W/min.
+    - **Sputtering:** a new sputtering step starts with the target, gases and
+      plasma of the pre-sputtering step before it. Enter the heater position (x,
+      y, z, spin), heater rotation, shutter, sputter time and the **film
+      thickness**. A sputtering step covers all samples on the carrier.
+6. **General comments.** Anything else about the run.
+
+There is no laser and no in-situ section.
 
 ## Good to know
 

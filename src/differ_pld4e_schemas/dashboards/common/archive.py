@@ -74,7 +74,7 @@ def to_archive_value(value, field: dict, quantity):
     if kind == 'bool':
         return bool(value)
     if kind in ('number', 'integer'):
-        number = to_number(value)
+        number = to_number(value) * field.get('scale', 1)
         if field.get('unit') and quantity.unit is not None:
             number = ureg.Quantity(number, field['unit']).to(quantity.unit).magnitude
         return int(round(number)) if kind == 'integer' else number
@@ -88,6 +88,7 @@ def to_form_value(value, field: dict, quantity):
     if kind in ('number', 'integer') and value is not None:
         if field.get('unit') and quantity.unit is not None:
             value = ureg.Quantity(value, quantity.unit).to(field['unit']).magnitude
+        value /= field.get('scale', 1)
         value = int(round(value)) if kind == 'integer' else float(f'{value:.12g}')
     if kind == 'target_choice':
         return normalize_reference(value)

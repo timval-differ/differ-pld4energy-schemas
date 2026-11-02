@@ -11,16 +11,17 @@ The plugin adds these entry types to NOMAD:
 | --- | --- |
 | **SA-PLD Logbook** | One run on the SA-PLD system: the samples it makes or processes, system details, laser calibration, targets, process steps and in-situ data. |
 | **LA-PLD Logbook** | One run on the LA-PLD system. Same as SA-PLD, plus the larger carriers, the particle reduction plate and polar/cartesian heater scans. |
-| **PLD Target** | One physical target (the target database). |
-| **Substrate type** | One kind of substrate, e.g. SrTiO3 10x10 mm (the substrate database). |
-| **Sample** | One sample: a substrate with the films grown on it, with its sample ID. Usually created for you by a logbook; not specific to PLD. |
+| **SPS Logbook** | One run on the SPS sputter system: the samples, substrate carrier and mask, targets (positions 1 to 3) and process steps (pre-sputtering, heating, sputtering, cool-down). |
+| **PLD Target** | One physical PLD target (the PLD target database). |
+| **Sputter Target** | One physical sputter target, with its diameter (the sputter target database). |
+| **Substrate type** | One kind of substrate, e.g. SrTiO3 10x10 mm (the substrate database, shared by all systems). |
+| **Sample** | One sample: a substrate with the films grown on it, with its sample ID. Usually created for you by a logbook; not specific to one system. |
 | **PLD In-situ Techniques** | In-situ measurements (RHEED, MIC, SE, LA-EDS, OES, SHG) that are not part of a new deposition run, e.g. post-processing of an older sample. |
-| **Deposition** | A sputter deposition run (the original sputter schemas of this plugin). |
 
-It also adds the **PLD logbook dashboard**: a guided form for SA-PLD and LA-PLD
-runs that starts from the samples, shows only the fields that apply, and only
-saves complete logbooks (unfinished runs can be kept as drafts).
-See [Use the PLD logbook dashboard](how_to/use_the_dashboard.md).
+It also adds two **logbook dashboards**, the *PLD logbook* (SA-PLD and LA-PLD)
+and the *Sputter logbook* (SPS): guided forms that start from the samples, show
+only the fields that apply, and only save complete logbooks (unfinished runs can
+be kept as drafts). See [Use the logbook dashboards](how_to/use_the_dashboard.md).
 
 <div markdown="block" class="home-grid">
 <div markdown="block">
@@ -39,7 +40,7 @@ Record your first PLD run from start to finish.
 Step-by-step instructions for specific tasks:
 
 - [Use the PLD logbooks](how_to/use_this_plugin.md)
-- [Use the PLD logbook dashboard](how_to/use_the_dashboard.md)
+- [Use the logbook dashboards](how_to/use_the_dashboard.md)
 - [Reproduce a run with a recipe](how_to/reuse_a_recipe.md)
 - [Install this plugin](how_to/install_this_plugin.md)
 - [Contribute to this plugin](how_to/contribute_to_this_plugin.md)

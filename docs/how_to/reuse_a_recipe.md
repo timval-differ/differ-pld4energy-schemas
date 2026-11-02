@@ -76,8 +76,8 @@ Check after every recipe:
 - **Same system only.** An SA-PLD recipe can only be applied to an SA-PLD
   logbook and an LA-PLD recipe only to an LA-PLD logbook: the step types differ.
   Selecting a recipe of the other system gives an error and nothing is copied.
-  The recipe picker may also list other process entries, such as sputter
-  depositions. Choose a PLD logbook.
+  The recipe picker may also list other process entries, such as SPS
+  logbooks. Choose a PLD logbook.
 - **Steps are added, not replaced.** Steps already in the logbook stay and the
   recipe steps are added after them. Delete steps you don't need.
 - **Applying twice adds the steps twice.** **Apply recipe** is unticked after

@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from nomad.datamodel.datamodel import EntryArchive
     from structlog.stdlib import BoundLogger
 
-__all__ = ['PLDTarget', 'Target', 'in_stock_quantity', 'm_package']
+__all__ = ['PLDTarget', 'SputterTarget', 'Target', 'in_stock_quantity', 'm_package']
 
 
 def in_stock_quantity():
@@ -33,7 +33,7 @@ def in_stock_quantity():
 
 
 class Target(ArchiveSection):
-    """Sputtering target material and geometry."""
+    """Target material and geometry."""
 
     m_def = Section()
     material = Quantity(
@@ -61,14 +61,14 @@ class Target(ArchiveSection):
     )
 
 
-class PLDTarget(Target, EntryData):
+class TargetEntry(Target):
     """
-    A target in the PLD target database. The entry is named after the target
-    material only: the position of a target in the system changes, so the target
-    number is entered per run in the logbook.
+    A target in a target database. The entry is named after the target material
+    only: the position of a target in the system changes, so the target number
+    is entered per run in the logbook.
     """
 
-    m_def = Section(label='PLD Target')
+    m_def = Section()
     name = Quantity(
         type=str,
         description='Display name, e.g. Fe2O3. Defaults to the target material.',
@@ -86,3 +86,25 @@ class PLDTarget(Target, EntryData):
             self.name = self.material
         if self.name and archive is not None and archive.metadata is not None:
             archive.metadata.entry_name = self.name
+
+
+class PLDTarget(TargetEntry, EntryData):
+    """A target in the PLD target database."""
+
+    m_def = Section(label='PLD Target')
+
+
+class SputterTarget(TargetEntry, EntryData):
+    """
+    A target in the sputter target database. Enter its diameter: the target
+    positions of the SPS take targets of a given size.
+    """
+
+    m_def = Section(label='Sputter Target')
+    diameter = Quantity(
+        type=float,
+        unit='m',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.NumberEditQuantity, defaultDisplayUnit='inch'
+        ),
+    )

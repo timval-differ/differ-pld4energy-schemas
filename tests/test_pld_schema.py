@@ -41,7 +41,7 @@ from differ_pld4e_schemas.sample import (
     SubstrateType,
     sample_name,
 )
-from differ_pld4e_schemas.sputter_deposition import SputterDepositionStep
+from differ_pld4e_schemas.sps_deposition import SPSSputteringStep, SPSStep
 from differ_pld4e_schemas.target import PLDTarget
 
 TARGET_NUMBER = 3
@@ -260,7 +260,10 @@ def test_step_target_not_selected_is_reported():
 def test_sputter_step_is_not_offered_for_pld(logbook):
     steps = logbook.m_def.all_sub_sections['steps'].sub_section
     offered = {steps, *steps.all_inheriting_sections}
-    assert SputterDepositionStep.m_def not in offered
+    assert SPSSputteringStep.m_def not in offered
+    assert not any(
+        section in offered for section in SPSStep.m_def.all_inheriting_sections
+    )
     assert not any('Sputter' in section.name for section in offered)
 
 
@@ -570,7 +573,9 @@ def test_logbook_qualified_name():
 
 
 def test_copied_same_upload_reference_becomes_absolute():
-    from differ_pld4e_schemas.pld_deposition import _absolute_reference
+    from differ_pld4e_schemas.references import (
+        absolute_reference as _absolute_reference,
+    )
 
     target = PLDTarget(material='Fe2O3')
     EntryArchive(

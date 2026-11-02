@@ -1,6 +1,6 @@
 # Reference
 
-All sections of the PLD schemas with their fields. **Unit** is the unit shown in
+All sections of the PLD and SPS schemas with their fields. **Unit** is the unit shown in
 the form; archive files take the SI unit (see
 [Explanation › Units](../explanation/explanation.md#units)). Fields marked
 **generated** are filled in on save and cannot be edited
@@ -16,7 +16,9 @@ The `m_def` to use in archive files is
 | --- | --- | --- |
 | SA-PLD Logbook | `SAPLDLogbook` | `pld_deposition.py` |
 | LA-PLD Logbook | `LAPLDLogbook` | `pld_deposition.py` |
+| SPS Logbook | `SPSLogbook` | `sps_deposition.py` |
 | PLD Target | `PLDTarget` | `target.py` |
+| Sputter Target | `SputterTarget` | `target.py` |
 | Sample | `Sample` | `sample.py` |
 | Substrate type | `SubstrateType` | `sample.py` |
 | PLD In-situ Techniques | `InSituTechniquesEntry` | `in_situ.py` |
@@ -151,6 +153,8 @@ See [Reproduce a run with a recipe](../how_to/reuse_a_recipe.md).
 
 ### Heating step and cool-down step
 
+Shared by all systems (also the SPS).
+
 | Field | Type | Unit | Notes |
 | --- | --- | --- | --- |
 | `ramp_rate` | number | K/min (= °C/min) | |
@@ -272,11 +276,75 @@ LA-PLD cartesian heater scan.
 | `max_laser_frequency` | number | Hz |
 | `number_of_scans` | integer | |
 
+## SPS logbook
+
+### SPS Logbook
+
+| Field | Type | Unit | Notes |
+| --- | --- | --- | --- |
+| `name`, `datetime`, `operator_name`, `operator_email`, `lab_id` | | | As in the PLD logbooks. |
+| `description` | rich text | | General comments. |
+| `pvd_system` | text | | **Generated**: `SPS`. |
+| `samples` | sub-section, repeats | | [SampleInRun](#sampleinrun), as in the PLD logbooks. Sample IDs start with `SPS_`. |
+| `substrate_carrier` | choice | | `4" carrier SPS`, `1 cm² sub plate`, `Fixed stage`. |
+| `mask_used` | yes/no | | Fixed stage only; a warning is given otherwise. |
+| `mask_type` | text | | The mask used on the fixed stage. |
+| `base_pressure` | number | mbar | Pressure of the main chamber. |
+| `targets` | sub-section, repeats | | [SelectedSputterTarget](#selectedsputtertarget) |
+| `steps` | sub-section, repeats | | SPS steps, see below. |
+
+### SelectedSputterTarget
+
+| Field | Type | Unit | Notes |
+| --- | --- | --- | --- |
+| `target_number` | integer | | Position 1, 2 (2" targets) or 3 (4" target). A warning is given if the target's diameter does not fit. |
+| `target` | reference to Sputter Target | | |
+| `material`, `diameter` | | | **Generated**: copied from the target entry. |
+
+### SPS process steps
+
+| Step | Section |
+| --- | --- |
+| Pre-sputtering step | `SPSPreSputteringStep` |
+| Heating step | `SPSHeatingStep` |
+| Sputtering step | `SPSSputteringStep` |
+| Cool-down step | `SPSCoolDownStep` |
+
+Every step has the [fields of every step](#fields-of-every-step) (pressure,
+gases, valve). The heating and cool-down steps are those of the PLD logbooks.
+The pre-sputtering and sputtering steps have:
+
+| Field | Type | Unit | Notes |
+| --- | --- | --- | --- |
+| `target` | reference to Sputter Target | | One of the selected targets. Filled in on save if only one target is selected. |
+| `target_number` | integer | | **Generated**: from the target details. |
+| `plasma` | sub-section | | [SputterPlasma](#sputterplasma) |
+| `ramp_up_rate` | number | W/min | Pre-sputtering only. Entered in W/5 min in the dashboard. |
+| `pre_sputter_time` | number | min | Pre-sputtering only. |
+| `heater_stage_position` | sub-section | | Sputtering only: [HeaterStagePosition](#heaterstageposition) (x, y, z, spin). |
+| `heater_rotation` | number | rpm | Sputtering only. |
+| `shutter` | choice | | Sputtering only: `open`, `closed`. |
+| `sputter_time` | number | min | Sputtering only. |
+| `ramp_down_rate` | number | W/min | Sputtering only. Entered in W/5 min in the dashboard. |
+| `film_thickness` | number | nm | Sputtering only. The film grown on the samples; it makes up the sample names. |
+| `samples` | references to Sample | | Sputtering only: the samples deposited on (all samples of the run). |
+
+### SputterPlasma
+
+| Field | Type | Unit | Notes |
+| --- | --- | --- | --- |
+| `plasma_type` | choice | | `DC`, `RF` or `DC+RF`. |
+| `voltage` | number | V | U, for DC. |
+| `load_capacitance` | number | nF | CL, for RF. |
+| `current` | number | mA | I. |
+| `dc_bias` | number | V | |
+| `power` | number | W | |
+
 ## Database entries
 
 ### PLD Target
 
-Extends the sputter `Target` section.
+Extends the `Target` section.
 
 | Field | Type | Unit | Notes |
 | --- | --- | --- | --- |
@@ -288,6 +356,12 @@ Extends the sputter `Target` section.
 | `thickness` | number | m | |
 | `purity` | text | | e.g. `99.999%`. |
 | `in_stock` | yes/no | | Default yes. When no, the dashboard no longer offers it; logbooks that used it keep it. |
+
+### Sputter Target
+
+The sputter target database, separate from the PLD targets. Same fields as the
+PLD Target; enter the `diameter` (shown in inch), which decides the positions the
+target fits.
 
 ### Substrate type
 

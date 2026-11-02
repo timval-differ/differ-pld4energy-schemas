@@ -1,19 +1,29 @@
 from __future__ import annotations
 
-import re
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from nomad.datamodel.data import ArchiveSection, EntryData
 from nomad.datamodel.metainfo.annotations import ELNAnnotation, ELNComponentEnum
 from nomad.metainfo import Datetime, MEnum, Quantity, Reference, Section, SubSection
-from nomad.metainfo.metainfo import MetainfoReferenceError
 
 from differ_pld4e_schemas import m_package
-from differ_pld4e_schemas.base_sections import Process, ProcessStep
-from differ_pld4e_schemas.gas import ATMOSPHERES, BACKGROUND_GAS, UHV, BackgroundGas
+from differ_pld4e_schemas.base_sections import Process
 from differ_pld4e_schemas.in_situ import InSituTechniques
 from differ_pld4e_schemas.laser import LaserCalibration, LaserParameters
+from differ_pld4e_schemas.process_steps import (
+    CoolDownStep,
+    GasProcessStep,
+    HeatingStep,
+)
+from differ_pld4e_schemas.process_steps import (
+    heater_output_quantity as _heater_output,
+)
+from differ_pld4e_schemas.process_steps import (
+    temperature_quantity as _temperature,
+)
+from differ_pld4e_schemas.references import copy_section as _copy
+from differ_pld4e_schemas.references import reference_key as _reference_key
 from differ_pld4e_schemas.sample import Sample, SampleRun
 from differ_pld4e_schemas.stages import (
     CartesianHeaterScan,
@@ -29,6 +39,8 @@ if TYPE_CHECKING:
     from structlog.stdlib import BoundLogger
 
 __all__ = [
+    'CoolDownStep',
+    'HeatingStep',
     'LAPLDDepositionStep',
     'LAPLDLogbook',
     'PLDLogbook',
@@ -50,84 +62,6 @@ CARRIERS = {
         'Sample select carrier',
     ),
 }
-
-
-def _temperature(**kwargs):
-    return Quantity(
-        type=float,
-        unit='K',
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.NumberEditQuantity, defaultDisplayUnit='celsius'
-        ),
-        **kwargs,
-    )
-
-
-def _ramp_rate():
-    return Quantity(
-        type=float,
-        unit='K / minute',
-        description='Ramp rate; 1 K/min equals 1 °C/min.',
-        a_eln=ELNAnnotation(component=ELNComponentEnum.NumberEditQuantity),
-    )
-
-
-def _heater_output():
-    return Quantity(
-        type=float,
-        description='Heater output (%) once the temperature setpoint is reached.',
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.NumberEditQuantity, label='Heater output (%)'
-        ),
-    )
-
-
-def _reference_key(section):
-    """Compare references whether they are resolved sections or proxies."""
-    url = getattr(section, 'm_proxy_value', None)
-    if isinstance(url, str):
-        match = re.search(r'archive/([^#/]+)#/?(.*)$', url)
-        if match:
-            return match.group(1), match.group(2) or 'data'
-        return url
-    return id(section)
-
-
-def _absolute_reference(value):
-    """
-    References to entries in the same upload are stored as '../upload/...', which
-    would point into the wrong upload once copied to a logbook in another upload.
-    Rewrite them as '../uploads/<upload_id>/...'; other values are kept as they are.
-    """
-    url = getattr(value, 'm_proxy_value', None)
-    if isinstance(url, str) and not url.startswith('../upload/'):
-        return value
-    try:
-        resolved = value.m_proxy_resolve() if isinstance(url, str) else value
-        metadata = resolved.m_root().metadata
-    except (AttributeError, MetainfoReferenceError):
-        return value
-    if metadata is None or not metadata.upload_id or not metadata.entry_id:
-        return value
-    return (
-        f'../uploads/{metadata.upload_id}/archive/{metadata.entry_id}'
-        f'#{resolved.m_path()}'
-    )
-
-
-def _copy(section):
-    """Copy a section with its sub-sections; references are kept, not copied."""
-    copied = section.m_def.section_cls()
-    for quantity in section.m_def.all_quantities.values():
-        if section.m_is_set(quantity):
-            value = section.m_get(quantity)
-            if isinstance(quantity.type, Reference):
-                value = _absolute_reference(value)
-            copied.m_set(quantity, value)
-    for sub_section in section.m_def.all_sub_sections.values():
-        for child in section.m_get_sub_sections(sub_section):
-            copied.m_add_sub_section(sub_section, _copy(child))
-    return copied
 
 
 class SelectedTarget(ArchiveSection):
@@ -195,46 +129,10 @@ class RecipeLoader(ArchiveSection):
     )
 
 
-class PLDProcessStep(ProcessStep):
+class PLDProcessStep(GasProcessStep):
     """Common part of all PLD process steps. Use `description` for comments."""
 
     m_def = Section()
-    pressure = Quantity(
-        type=float,
-        unit='Pa',
-        description='Chamber pressure during the step.',
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.NumberEditQuantity, defaultDisplayUnit='mbar'
-        ),
-    )
-    atmosphere = Quantity(
-        type=MEnum(*ATMOSPHERES),
-        default=BACKGROUND_GAS,
-        description='UHV: no background gas, only the chamber pressure is recorded.',
-        a_eln=ELNAnnotation(component=ELNComponentEnum.RadioEnumEditQuantity),
-    )
-    background_gases = SubSection(section_def=BackgroundGas, repeats=True)
-    valve_position = Quantity(
-        type=float,
-        description='Position of the gas valve (shared by all gases), in %.',
-        a_eln=ELNAnnotation(
-            component=ELNComponentEnum.NumberEditQuantity,
-            label='Valve position (%)',
-        ),
-    )
-    valve_position_fixed = Quantity(
-        type=bool,
-        description='Whether the valve position was kept fixed during the step.',
-        a_eln=ELNAnnotation(component=ELNComponentEnum.BoolEditQuantity),
-    )
-
-    def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
-        super().normalize(archive, logger)
-        if self.atmosphere == UHV and self.background_gases:
-            logger.warning(
-                f'Step "{self.name or self.m_def.label}" is in UHV but lists '
-                'background gases.'
-            )
 
 
 class TargetedStep(PLDProcessStep):
@@ -259,13 +157,6 @@ class PreAblationStep(TargetedStep):
     m_def = Section(label='Pre-ablation step')
 
 
-class HeatingStep(PLDProcessStep):
-    m_def = Section(label='Heating step')
-    ramp_rate = _ramp_rate()
-    temperature_setpoint = _temperature()
-    heater_output = _heater_output()
-
-
 class AnnealingStep(PLDProcessStep):
     """Keeping the samples at a temperature, e.g. in a run without deposition."""
 
@@ -280,12 +171,6 @@ class AnnealingStep(PLDProcessStep):
             component=ELNComponentEnum.NumberEditQuantity, defaultDisplayUnit='minute'
         ),
     )
-
-
-class CoolDownStep(PLDProcessStep):
-    m_def = Section(label='Cool-down step')
-    ramp_rate = _ramp_rate()
-    temperature_setpoint = _temperature()
 
 
 class PLDDepositionStep(TargetedStep):

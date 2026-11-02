@@ -104,7 +104,7 @@ plugin, and the sample names always use the materials as entered there.
 
 The `Sample` section (`sample.py`) knows nothing about PLD: it records the
 system it was made in as text. The same section and the `SampleRun` base of the
-logbook can therefore be used by the sputter logbook and by later diagnostics,
+logbook are therefore also used by the SPS logbook, and can be used by later diagnostics,
 so a sample made in one system can be processed and measured in another.
 
 ## SA-PLD and LA-PLD
@@ -123,10 +123,28 @@ only in:
 Each system has its own step classes (`SAPLDStep` and `LAPLDStep` and their
 subclasses). When you add a step, NOMAD offers all sections that inherit from
 the step type of the `steps` sub-section. Separate step classes mean an SA-PLD
-logbook offers only SA-PLD steps. It also means the sputter deposition step,
-which belongs to the separate sputter schema, is never offered in a PLD
-logbook. The shared content of the steps (pre-ablation, heating, annealing,
-deposition, cool-down) lives in common base classes, so it is defined only once.
+logbook offers only SA-PLD steps. The SPS logbook works the same way with
+`SPSStep`, so a sputter step is never offered in a PLD logbook and a PLD step
+never in the SPS logbook. The shared content of the steps (pre-ablation,
+heating, annealing, deposition, cool-down) lives in common base classes, so it
+is defined only once; the parts every system has (pressure, background gases,
+heating and cool-down) are in `process_steps.py` and shared with the SPS.
+
+## The SPS logbook
+
+The `SPSLogbook` (`sps_deposition.py`) follows the PLD logbooks: it is a
+`SampleRun`, so its samples, sample IDs (`SPS_...`) and names work the same,
+and its targets come from a database, the *Sputter Target* entries. These are
+separate from the PLD targets: a sputter target is a different object, with a
+diameter that decides which of the three positions it fits (1 and 2: 2", 3:
+4"). Each pre-sputtering or sputtering step records the plasma (DC, RF or both)
+in its own `SputterPlasma` sub-section. Every sputtering step grows a film on
+all samples of the run, like an SA-PLD deposition.
+
+The power ramps are noted in the lab per 5 minutes. pint, which converts the
+units, cannot express "per 5 minutes", so they are stored as rates (W/s, shown
+in W/min) and the dashboard converts from W/5 min with a `scale` on the form
+field.
 
 ## Generated (read-only) fields
 
@@ -278,8 +296,14 @@ browser ──► NOMAD API (with the user's session)
 - **`convert.py`** turns a complete form into archive files and reads saved
   logbooks back into a form.
 
-The parts that do not depend on PLD are in `dashboards/common/`, so a sputter
-logbook dashboard can reuse them:
+The sputter logbook dashboard (`dashboards/sputter_logbook/`) has its own
+`spec.py`, `rules.py` and `convert.py`, and shares everything else with the PLD
+logbook in `dashboards/common/`: the same page (`static/`) and FastAPI app
+(`app.py`), the rules (`LogbookRules` in `rules.py`), the conversion of the
+parts every logbook has (`LogbookConverter` in `convert.py`) and the field
+groups every system has (`steps.py`). The page itself knows no system: what
+differs (title, texts, draft folder, which steps grow films) comes from the
+`client` part of the form definition. Also shared:
 
 - `fields.py` builds field definitions;
 - `values.py` evaluates conditions and reads form values;

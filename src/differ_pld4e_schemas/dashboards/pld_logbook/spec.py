@@ -25,8 +25,6 @@ from __future__ import annotations
 # Importing the schema package fixes the package name that qualified section
 # names (the m_def written into archive files) are built from.
 import differ_pld4e_schemas.schema_packages.schema_package  # noqa: F401
-from differ_pld4e_schemas.gas import ATMOSPHERES as GAS_ATMOSPHERES
-from differ_pld4e_schemas.gas import BACKGROUND_GAS, GASES
 from differ_pld4e_schemas.in_situ import InSituTechniquesEntry
 from differ_pld4e_schemas.laser import (
     LASER_CALIBRATION_INSTRUCTIONS,
@@ -47,89 +45,23 @@ from differ_pld4e_schemas.target import PLDTarget
 
 from ..common.fields import comments, field, number
 from ..common.samples import sample_section
+from ..common.steps import (
+    gas_fields,
+    heater_output,
+    pressure,
+    ramp_fields,
+    temperature,
+)
+from .rules import ALL_SAMPLES, FILM_STEPS
 
+DRAFT_DIR = 'pld_drafts'
 SYSTEMS = ('SA-PLD', 'LA-PLD')
 LOGBOOK_SECTIONS = {'SA-PLD': SAPLDLogbook, 'LA-PLD': LAPLDLogbook}
-ATMOSPHERES = list(GAS_ATMOSPHERES)
 LASER_LEVELS = ('none', 'optional', 'required')
 
 SA = {'key': '/run/system', 'equals': 'SA-PLD'}
 LA = {'key': '/run/system', 'equals': 'LA-PLD'}
 LASER_STEPS = {'from_steps': 'laser'}
-
-
-def gas_fields():
-    group = 'Background gases'
-    in_gas = {'key': 'atmosphere', 'equals': BACKGROUND_GAS}
-    fields = [
-        field(
-            'atmosphere',
-            'Atmosphere',
-            'select',
-            options=ATMOSPHERES,
-            default=BACKGROUND_GAS,
-            group=group,
-        )
-    ]
-    for gas in GASES:
-        on = {'all': [in_gas, {'key': f'gas_{gas}', 'equals': True}]}
-        fields += [
-            field(
-                f'gas_{gas}',
-                gas,
-                'bool',
-                archive=None,
-                group=group,
-                gas=gas,
-                row_start=True,
-                visible_if=in_gas,
-            ),
-            number(
-                f'gas_{gas}_flow_setpoint',
-                f'{gas} set flow',
-                'cm^3/minute',
-                unit_label='sccm',
-                archive='flow_setpoint',
-                visible_if=on,
-                group=group,
-                gas=gas,
-            ),
-            number(
-                f'gas_{gas}_flow_readout',
-                f'{gas} read-out flow',
-                'cm^3/minute',
-                unit_label='sccm',
-                archive='flow_readout',
-                visible_if=on,
-                group=group,
-                gas=gas,
-            ),
-        ]
-    # One valve for all gases.
-    any_gas = {
-        'all': [
-            in_gas,
-            {'any': [{'key': f'gas_{gas}', 'equals': True} for gas in GASES]},
-        ]
-    }
-    fields += [
-        number(
-            'valve_position',
-            'Valve position',
-            unit_label='%',
-            visible_if=any_gas,
-            group=group,
-            row_start=True,
-        ),
-        field(
-            'valve_position_fixed',
-            'Valve position fixed',
-            'bool',
-            visible_if=any_gas,
-            group=group,
-        ),
-    ]
-    return fields
 
 
 def laser_fields():
@@ -324,22 +256,6 @@ def polar_scan_fields(visible_if):
     ]
 
 
-def temperature(key, label, **kwargs):
-    return number(key, label, 'degC', unit_label='°C', **kwargs)
-
-
-def pressure(label):
-    return number('pressure', label, 'mbar')
-
-
-def heater_output():
-    return number(
-        'heater_output',
-        'Heater output once the setpoint is reached',
-        unit_label='%',
-    )
-
-
 def variant(label, sections, fields, laser='none', laser_keys=(), **kwargs):
     """
     A step variant. For an optional laser, the fields named in
@@ -443,16 +359,6 @@ def step_variants():
         comments(),
     ]
 
-    def ramp(label, *extra):
-        return [
-            *gas_fields(),
-            number('ramp_rate', 'Ramp rate', 'K/minute', unit_label='°C/min'),
-            temperature('temperature_setpoint', 'Temperature setpoint'),
-            *extra,
-            pressure(label),
-            comments(),
-        ]
-
     annealing = [
         *gas_fields(),
         temperature('temperature_setpoint', 'Temperature setpoint'),
@@ -472,7 +378,7 @@ def step_variants():
         'heating': variant(
             'Heating step',
             _sections('HeatingStep'),
-            ramp('Heating pressure', heater_output()),
+            ramp_fields('Heating pressure', heater_output()),
         ),
         'annealing': variant('Annealing step', _sections('AnnealingStep'), annealing),
         'deposition': variant(
@@ -485,7 +391,7 @@ def step_variants():
         'cool_down': variant(
             'Cool-down step',
             _sections('CoolDownStep'),
-            ramp('Cool-down pressure'),
+            ramp_fields('Cool-down pressure'),
         ),
     }
 
@@ -573,9 +479,49 @@ def in_situ_fields():
     return fields
 
 
+def client_settings() -> dict:
+    """Texts and settings of the page (see `static/app.js`)."""
+    return {
+        'title': 'PLD logbook',
+        'intro': (
+            'Log an SA-PLD or LA-PLD run step by step, starting from its samples. '
+            'Only the fields that apply are shown, and a logbook is saved once it '
+            'is complete.'
+        ),
+        'draft_key': 'pld-logbook-draft-v2',
+        'draft_dir': DRAFT_DIR,
+        'file_dir': 'pld_files',
+        'upload_name': 'PLD logbooks',
+        'film_steps': list(FILM_STEPS),
+        'all_samples': list(ALL_SAMPLES),
+        'system_notes': {
+            'SA-PLD': 'In the SA-PLD a deposition covers all samples loaded in the '
+            'chamber.',
+        },
+        'requirement_note': (
+            'Not needed for these process steps: it is only logged when a step '
+            'needs it (e.g. a pre-ablation or deposition step). What you enter here '
+            'is not saved.'
+        ),
+        'target_entry': {
+            'intro': (
+                'Creates a PLD Target entry. Do not put the target number in the '
+                'name: it is entered per run.'
+            ),
+            'fields': [
+                {'key': 'material', 'label': 'Material', 'required': True},
+                {'key': 'name', 'label': 'Name (optional, defaults to material)'},
+                {'key': 'manufacturer', 'label': 'Manufacturer'},
+                {'key': 'purchase_date', 'label': 'Purchase date', 'type': 'date'},
+            ],
+        },
+    }
+
+
 def form_spec() -> dict:
     """The complete form definition, as sent to the browser."""
     return {
+        'client': client_settings(),
         'systems': list(SYSTEMS),
         'logbook_sections': {
             system: section.m_def.qualified_name()
@@ -720,6 +666,12 @@ def form_spec() -> dict:
                 'title': 'Process steps',
                 'kind': 'variant_list',
                 'item_label': 'Step',
+                'intro': (
+                    'Add the steps in the order they were done. Steps can be added '
+                    'more than once, e.g. for multilayers. A run without deposition, '
+                    'e.g. annealing or only characterisation, needs no laser details '
+                    'or targets.'
+                ),
                 'variants': step_variants(),
             },
             {

@@ -10,6 +10,8 @@ Field keys:
     unit         pint unit the user enters the value in (converted to the
                  schema's SI unit when the archive is built)
     unit_label   how the unit is shown, if different from `unit`
+    scale        factor from the entered value to `unit`, for units pint cannot
+                 express, e.g. 0.2 for W/5 min entered as W/minute
     archive      dotted path of the quantity in the archive section, relative to
                  the section the containing object maps to; None if the value is
                  handled by the converter itself

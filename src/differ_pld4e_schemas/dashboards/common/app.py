@@ -20,6 +20,8 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from .rules import step_time_warnings
+
 STATIC = Path(__file__).parent / 'static'
 ASSETS = ('app.js', 'pdf.js', 'style.css')
 
@@ -78,7 +80,10 @@ def create_app(form_spec: dict, rules, converter) -> FastAPI:
 
     @app.post('/api/validate')
     async def post_validate(request: FormRequest):
-        return {'errors': rules.validate(request.form, spec)}
+        return {
+            'errors': rules.validate(request.form, spec),
+            'warnings': step_time_warnings(request.form),
+        }
 
     @app.post('/api/archive')
     async def post_archive(request: FormRequest):

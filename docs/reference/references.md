@@ -147,7 +147,7 @@ See [Reproduce a run with a recipe](../how_to/reuse_a_recipe.md).
 | `name` | text | | |
 | `start_time` | date/time | | Start of the step, to find it in the system logs. The dashboard asks for hh:mm and takes the date of the run (the next day after midnight). |
 | `end_time` | date/time | | End of the step, entered like `start_time`. |
-| `duration` | number | s | Filled in by the dashboard from the start and end time. |
+| `duration` | number | s | Filled in by the dashboard from the start and end time, when both are given. |
 | `comment` | rich text | | Comments. |
 | `pressure` | number | mbar | Chamber pressure during the step. |
 | `atmosphere` | choice | | `Background gas` (default) or `UHV`: no gases, only the pressure. |

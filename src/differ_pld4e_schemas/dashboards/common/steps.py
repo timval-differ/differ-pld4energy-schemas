@@ -90,8 +90,9 @@ def gas_fields():
 
 def time_fields():
     """
-    Start and end of a step, to find it in the system logs. Saved as date and
-    time by the converter, see `values.step_times`.
+    Start and end of a step, to find it in the system logs; optional. Saved as
+    date and time by the converter, see `values.step_times`. A new step starts
+    at the end of the step before it (set by the browser).
     """
     help_text = 'As in the system log; after midnight the next day is taken.'
     return [
@@ -100,6 +101,7 @@ def time_fields():
             label,
             'time',
             archive=None,
+            required=False,
             prefill=False,
             help=help_text,
             group='Time',

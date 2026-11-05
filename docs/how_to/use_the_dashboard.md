@@ -96,10 +96,15 @@ leave a section with **Next**, or straight away for fields you have edited.
    step can be moved up or down, removed, and folded away with a click on its
    title. A run without deposition (e.g. only annealing or only
    characterisation) is fine.
-    - **Time:** the start and end time (hh:mm) of each step, as in the system
-      log, so the pressure, temperature, ... of the step can be found in the
-      logs later. The date is that of the run; a time after midnight is taken
-      as the next day. A prefilled step or a recipe does not copy the times.
+    - **Time:** the start and end time of each step, in 24-hour hh:mm (e.g.
+      `14:05`; `1405` or `14.05` is turned into that), as in the system log, so
+      the pressure, temperature, ... of the step can be found in the logs
+      later. The date is that of the run; a time after midnight is taken as the
+      next day. Both times are optional. A new step starts at the end time of
+      the step before it; change it if there was a pause. An end time before
+      the start time is an error. A step that starts before the step before it
+      ends gets a warning, but can still be saved. A prefilled step or a
+      recipe does not copy the times.
     - **Background gases:** choose *UHV* to record only the chamber pressure, or
       *Background gas* and tick each gas to fill in its set and read-out flow.
       All gases share one valve, so its position (0 closed to 1000 open) is

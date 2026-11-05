@@ -153,6 +153,23 @@ def _validate_step_times(root: dict) -> list[dict]:
     ]
 
 
+def step_time_warnings(root: dict) -> list[dict]:
+    """
+    Steps that start before the step before them ends, as {'path', 'message'}.
+    Only a warning: the logbook can still be saved. A gap between steps is fine.
+    """
+    times = step_times(root.get('run') or {}, root.get('steps') or [])
+    return [
+        {
+            'path': f'steps.{index}.start_time',
+            'message': 'Starts before the previous step ends.',
+        }
+        for index in range(1, len(times))
+        if times[index][0] and times[index - 1][1]
+        and times[index][0] < times[index - 1][1]
+    ]
+
+
 def _validate_fields(fields, local, path, root, required=True) -> list[dict]:
     """
     Problems of the visible fields; with `required` False only badly entered

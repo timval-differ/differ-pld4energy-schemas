@@ -420,7 +420,68 @@ function validate(data, spec) {
       }
     }
   }
+  errors.push(...stepTimeErrors(data));
   return errors;
+}
+
+function clockMinutes(value) {
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value || '')
+    ? Number(value.slice(0, 2)) * 60 + Number(value.slice(3)) : null;
+}
+
+/*
+ * [start, end] of each step in minutes from the run's day, null where not
+ * given (mirror values.step_times): a time far (12 h) before the time before
+ * it is on the next day, e.g. 00:10 after 23:30.
+ */
+function stepMoments(data) {
+  const run = data.run || {};
+  const day = 24 * 60;
+  let previous = /^\d{4}-\d{2}-\d{2}$/.test(run.date || '') ? clockMinutes(run.time) : null;
+  return (data.steps || []).map((step) => ['start_time', 'end_time'].map((key) => {
+    const clock = clockMinutes(step[key]);
+    if (clock === null || previous === null) return null;
+    let moment = Math.floor(previous / day) * day + clock;
+    if (previous - moment > 12 * 60) moment += day;
+    previous = moment;
+    return moment;
+  }));
+}
+
+/* Steps that end before they start (mirror rules._validate_step_times). */
+function stepTimeErrors(data) {
+  const errors = [];
+  stepMoments(data).forEach(([start, end], index) => {
+    if (start !== null && end !== null && end < start) {
+      errors.push({path: `steps.${index}.end_time`, message: 'The end time is before the start time.'});
+    }
+  });
+  return errors;
+}
+
+/*
+ * Steps that start before the step before them ends (mirror
+ * rules.step_time_warnings). Only a warning: saving still works.
+ */
+function stepTimeWarnings(data) {
+  const moments = stepMoments(data);
+  const warnings = [];
+  for (let index = 1; index < moments.length; index++) {
+    const start = moments[index][0];
+    const previousEnd = moments[index - 1][1];
+    if (start !== null && previousEnd !== null && start < previousEnd) {
+      warnings.push({path: `steps.${index}.start_time`, message: 'Starts before the previous step ends.'});
+    }
+  }
+  return warnings;
+}
+
+/* 24-hour hh:mm from what was typed, e.g. 930, 9:30 or 9.30 → 09:30; else as typed. */
+function normalTime(value) {
+  const match = /^(\d{1,2})[:.]?(\d{2})$/.exec((value || '').trim());
+  if (!match) return value;
+  const time = `${match[1].padStart(2, '0')}:${match[2]}`;
+  return clockMinutes(time) === null ? value : time;
 }
 
 /* What a draft needs (mirror rules.validate_draft): it names the draft file. */
@@ -467,11 +528,20 @@ function prefill(listSection, variantKey, list) {
   return values;
 }
 
+/* A new step starts by default when the step before it ended. */
+function startAfterPrevious(fields, list) {
+  const previous = (list || [])[(list || []).length - 1];
+  if (!previous || isEmpty(previous.end_time) || !fields.some((f) => f.key === 'start_time')) return {};
+  return {start_time: previous.end_time};
+}
+
 function newItem(listSection, variantKey, list) {
   if (variantKey) {
+    const fields = listSection.variants[variantKey].fields;
     return {
-      uid: uid(), type: variantKey, ...defaults(listSection.variants[variantKey].fields),
+      uid: uid(), type: variantKey, ...defaults(fields),
       ...prefill(listSection, variantKey, list),
+      ...startAfterPrevious(fields, list),
     };
   }
   return {uid: uid(), ...defaults(listSection.fields)};
@@ -865,8 +935,16 @@ function control(field, local, path) {
       return {body: input, input};
     }
     case 'date':
-    case 'time':
       input = el('input', {type: field.kind, id, value: local[field.key] || '', onchange: (e) => set(e.target.value || null)});
+      return {body: el('div', {class: 'input-wrap'}, input), input};
+    case 'time':
+      // Text, not <input type="time">: that shows AM/PM in some browser languages.
+      input = el('input', {
+        type: 'text', id, inputMode: 'numeric', placeholder: 'hh:mm (24 h)', maxLength: 5,
+        autocomplete: 'off', value: local[field.key] || '',
+        oninput: (e) => set(e.target.value || null),
+        onchange: (e) => { e.target.value = normalTime(e.target.value); set(e.target.value || null); },
+      });
       return {body: el('div', {class: 'input-wrap'}, input), input};
     default: {
       const numeric = field.kind === 'number' || field.kind === 'integer';
@@ -1005,6 +1083,8 @@ function refresh() {
   const root = app.form;
   const byPath = new Map();
   for (const error of app.errors) if (!byPath.has(error.path)) byPath.set(error.path, error.message);
+  // Warnings show at once, without waiting for the field to be touched.
+  const warnings = new Map(stepTimeWarnings(root).map((w) => [w.path, w.message]));
   const grids = new Set();
   for (const r of app.rendered) {
     const visible = evaluate(r.field.visible_if, r.local, root);
@@ -1045,8 +1125,10 @@ function refresh() {
     }
     const message = visible ? byPath.get(r.path) : null;
     const show = message && (app.touched.has(r.path) || sectionShown(r.path));
+    const warning = !show && visible ? warnings.get(r.path) : null;
     r.wrap.classList.toggle('invalid', Boolean(show));
-    r.error.textContent = show ? message : '';
+    r.wrap.classList.toggle('warning', Boolean(warning));
+    r.error.textContent = show ? message : (warning || '');
   }
   for (const grid of grids) {
     if (grid.fieldset) grid.fieldset.hidden = [...grid.children].every((c) => c.hidden);

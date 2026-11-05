@@ -9,6 +9,7 @@ from structlog.testing import CapturingLogger
 from differ_pld4e_schemas import pld_deposition
 from differ_pld4e_schemas.dashboards import pld_logbook_dashboard_entry_point
 from differ_pld4e_schemas.dashboards.common.archive import SKIPPED_KINDS, quantity_of
+from differ_pld4e_schemas.dashboards.common.rules import step_time_warnings
 from differ_pld4e_schemas.dashboards.pld_logbook import spec as spec_module
 from differ_pld4e_schemas.dashboards.pld_logbook.convert import (
     archive_to_form,
@@ -973,9 +974,14 @@ def test_recipe_drops_samples_and_times():
         assert 'end_time' not in step
 
 
-def test_step_times_are_required():
-    errors = messages(validate(form(steps__1__start_time=None), SPEC))
-    assert errors['steps.1.start_time'] == 'Required.'
+def test_step_times_are_optional():
+    data = form(steps__0__start_time=None, steps__1__end_time=None)
+    assert validate(data, SPEC) == []
+    heating, deposition = _logbook(data)['steps']
+    assert 'start_time' not in heating
+    assert 'duration' not in heating
+    assert 'end_time' not in deposition
+    assert 'duration' not in deposition
     errors = messages(validate(form(steps__1__end_time='25:00'), SPEC))
     assert errors['steps.1.end_time'] == 'Enter a time (hh:mm).'
 
@@ -1011,6 +1017,20 @@ def test_step_starting_just_before_the_run_start_stays_on_the_run_date():
 def test_end_before_start_is_reported():
     errors = messages(validate(form(steps__1__end_time='10:00'), SPEC))
     assert errors['steps.1.end_time'] == 'The end time is before the start time.'
+
+
+def test_steps_in_order_give_no_warning():
+    assert step_time_warnings(FORM) == []
+    # A gap between steps is fine, and so is a step without times.
+    assert step_time_warnings(form(steps__1__start_time='11:00')) == []
+    assert step_time_warnings(form(steps__0__end_time=None)) == []
+
+
+def test_step_starting_before_the_previous_ends_is_a_warning():
+    data = form(steps__1__start_time='09:50', steps__1__end_time='10:30')
+    assert validate(data, SPEC) == []
+    warnings = messages(step_time_warnings(data))
+    assert warnings == {'steps.1.start_time': 'Starts before the previous step ends.'}
 
 
 def test_step_times_read_back_in_the_run_time_zone():

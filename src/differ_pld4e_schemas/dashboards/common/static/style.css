@@ -279,6 +279,8 @@ legend { padding: 0 6px; font-weight: 600; color: var(--text-secondary); font-si
 .field.invalid input, .field.invalid select, .field.invalid textarea { border-color: var(--error); }
 .field.invalid .unit { border-color: var(--error); }
 .field .error { color: var(--error); font-size: 12px; min-height: 0; }
+.field.warning input { border-color: var(--warning); }
+.field.warning .error { color: var(--warning); }
 .field .helper { color: var(--text-secondary); font-size: 12px; }
 .computed {
   padding: 8px 10px;

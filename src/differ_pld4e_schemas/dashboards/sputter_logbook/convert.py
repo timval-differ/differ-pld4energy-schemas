@@ -17,7 +17,9 @@ __all__ = ['archive_to_form', 'draft_path', 'form_to_files', 'recipe_to_form']
 
 
 class SputterConverter(LogbookConverter):
-    def extra_to_archive(self, data: dict, spec: dict, logbook: dict) -> None:
+    def extra_to_archive(
+        self, data: dict, spec: dict, logbook: dict, references: dict
+    ) -> None:
         system = data['run']['system']
         fill(
             logbook,
@@ -27,7 +29,9 @@ class SputterConverter(LogbookConverter):
             data,
         )
 
-    def extra_to_form(self, data: dict, spec: dict, form: dict) -> None:
+    def extra_to_form(
+        self, data: dict, spec: dict, form: dict, by_reference: dict
+    ) -> None:
         system = form['run']['system']
         form['comments'] = read(
             data, self.logbook_sections[system], sections_of(spec)['comments']['fields']

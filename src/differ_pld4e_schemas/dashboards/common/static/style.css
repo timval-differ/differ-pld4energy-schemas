@@ -320,6 +320,10 @@ legend { padding: 0 6px; font-weight: 600; color: var(--text-secondary); font-si
 .file-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .file-name { font-size: 13px; color: var(--text); word-break: break-all; }
 .file-pending { color: var(--warning); font-size: 12px; }
+.file-list { display: flex; flex-direction: column; gap: 2px; }
+
+.step-choices { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.step-choice { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
 
 /* Buttons */
 .btn {

@@ -39,6 +39,7 @@ The `m_def` to use in archive files is
 | `base_pressure` | number | mbar | Base pressure of the main chamber. |
 | `substrate_carrier` | choice | | SA-PLD: `Omicron carrier`, `1" carrier`. LA-PLD also `4" wafer carrier`, `Sample select carrier`. |
 | `particle_reduction_plate` | choice | | LA-PLD only: `in use`, `not in use`. |
+| `system_logfiles` | list of files | | Logfiles of the run exported from the TSST software (`.txt`). Optional. |
 
 | Sub-section | Section | Repeats |
 | --- | --- | --- |
@@ -47,7 +48,8 @@ The `m_def` to use in archive files is
 | `targets` | [SelectedTarget](#selectedtarget) | yes |
 | `load_recipe` | [RecipeLoader](#recipeloader-load-recipe) | no |
 | `steps` | SA-PLD: `SAPLDStep` types; LA-PLD: `LAPLDStep` types, see [Process steps](#process-steps) | yes |
-| `in_situ_techniques` | [InSituTechniques](#insitutechniques) | no |
+| `in_situ_measurements` | [InSituTechniques](#insitutechniques) | yes |
+| `in_situ_techniques` | [InSituTechniques](#insitutechniques) | no; logbooks saved before measurements had a sample and steps |
 
 The laser details and targets are only needed when a step uses the laser
 (pre-ablation, deposition); the dashboard leaves them out otherwise.
@@ -138,7 +140,7 @@ See [Reproduce a run with a recipe](../how_to/reuse_a_recipe.md).
 | `pressure` | number | mbar | Chamber pressure during the step. |
 | `atmosphere` | choice | | `Background gas` (default) or `UHV`: no gases, only the pressure. |
 | `background_gases` | sub-section, repeats | | [BackgroundGas](#backgroundgas), one per gas. |
-| `valve_position` | number | % | Gas valve, shared by all gases. |
+| `valve_position` | number | | Gas valve, shared by all gases: 0 (closed) to 1000 (open). |
 | `valve_position_fixed` | yes/no | | Valve kept at a fixed position. |
 
 ### Pre-ablation step
@@ -161,6 +163,27 @@ Shared by all systems (also the SPS).
 | `temperature_setpoint` | number | °C | |
 | `heater_output` | number | % | Heating step only: heater output once the setpoint is reached. |
 
+The PLD heating and cool-down steps add `ramp_on` (yes/no) and the
+[temperature control](#temperature-control) fields; the SA-PLD ones also
+`power_ramp_rate` (%/min), the ramp rate in power mode.
+
+### Temperature control
+
+PLD heating, annealing, deposition and cool-down steps record the settings of
+the *Temperature control* panel of the system software.
+
+| Field | Type | Unit | Notes |
+| --- | --- | --- | --- |
+| `fix_output` | yes/no | | Fix output switch. Default no. |
+| `drift_compensation` | yes/no | | Default no. |
+| `heating_mode` | choice | | SA-PLD only: `Laser heating (PID)` (setpoint in °C) or `Laser heating (power)` (setpoint in %). |
+| `power_setpoint` | number | % | SA-PLD only: setpoint in power mode. |
+| `laser_output_limitation` | number | % | SA-PLD only: set with the knob on the laser output limitation unit. Default 50. |
+| `supply_voltage` | number | V | LA-PLD only: set on the main heater power supply. |
+| `supply_current` | number | A | LA-PLD only: set on the main heater power supply. |
+| `actual_voltage` | number | V | LA-PLD only: read out on the main heater power supply. |
+| `actual_current` | number | A | LA-PLD only: read out on the main heater power supply. |
+
 ### Annealing step
 
 | Field | Type | Unit | Notes |
@@ -175,7 +198,9 @@ All fields of the pre-ablation step, plus:
 
 | Field | Type | Unit | Notes |
 | --- | --- | --- | --- |
+| `film_thickness_unit` | choice | | `nm` (default) or `pulses`: how the intended thickness is given. |
 | `film_thickness` | number | nm | Thickness of the film grown in this step. |
+| `film_thickness_pulses` | integer | | The thickness as a number of laser pulses; the sample name shows it as `<n>p`. |
 | `samples` | references to Sample | | The samples deposited on: all samples of the run (SA-PLD) or the chosen one (LA-PLD). |
 | `heater_stage_position` | sub-section | | [HeaterStagePosition](#heaterstageposition) |
 | `heater_scan_type` | choice | | `Polar scan` (default), `Cartesian scan`. The matching sub-section is added on save. |
@@ -397,12 +422,14 @@ records where it was made. Extends NOMAD's `CompositeSystem`.
 
 ### InSituTechniques
 
-Used as `in_situ_techniques` in a logbook, and as the stand-alone entry
-**PLD In-situ Techniques** (`InSituTechniquesEntry`).
+One measurement: used as `in_situ_measurements` in a logbook (one per
+measurement), and as the stand-alone entry **PLD In-situ Techniques**
+(`InSituTechniquesEntry`).
 
 | Field | Type | Notes |
 | --- | --- | --- |
-| `sample` | reference to Sample | Optional. |
+| `sample` | reference to Sample | The measured sample. Required in the dashboard. |
+| `process_steps` | references to process steps | The steps of the logbook the measurement was taken during, e.g. `#/data/steps/2`. Required in the dashboard. |
 | `process` | reference to a logbook | Optional. |
 
 | Sub-section | Section | Repeats |
@@ -416,18 +443,23 @@ Used as `in_situ_techniques` in a logbook, and as the stand-alone entry
 
 Every technique has a `comments` field and a **generated** `data_status`:
 `awaiting data` until one of its files is added, then `complete`. All file
-fields are uploads and optional.
+fields are lists of uploads (several files of one format, e.g. a series of
+RHEED images) and optional.
 
 | Technique | Field | Content |
 | --- | --- | --- |
-| RHEED | `pattern_native_file` | Pattern capture, KSA 400 `.img` |
-| | `pattern_export_file` | Pattern capture, exported `.png` |
-| | `roi_intensity_native_file` | ROI intensity map, KSA 400 `.kdt` |
-| | `roi_intensity_export_file` | ROI intensity map, exported `.txt` |
-| MIC | `native_file` | EZ-Curve `.ezc` |
-| | `export_file` | Exported `.csv` |
-| LA-EDS | `sp0_file` | Spectrum `.sp0` |
-| SE, OES, SHG | `file` | Data file (format to be specified) |
+| RHEED | `pattern_native_files` | Pattern captures, KSA 400 `.img` |
+| | `pattern_export_files` | Pattern captures, exported `.png` |
+| | `roi_intensity_native_files` | ROI intensity maps, KSA 400 `.kdt` |
+| | `roi_intensity_export_files` | ROI intensity maps, exported `.txt` |
+| MIC | `native_files` | EZ-Curve `.ezc` |
+| | `export_files` | Exported `.csv` |
+| LA-EDS | `sp0_files` | Spectra `.sp0` |
+| SE, OES, SHG | `files` | Data files (format to be specified) |
+
+Entries saved before a field took several files have the single file in the
+field without the final `s` (e.g. `pattern_export_file`); it is moved into the
+list when the entry is processed again.
 
 ### LA-EDS
 

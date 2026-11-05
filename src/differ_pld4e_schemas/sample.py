@@ -60,19 +60,23 @@ def _number_text(value) -> str:
 
 def sample_name(substrate_material, layers):
     """
-    `Substrate_Film-<t>nm_Film-<t>nm` from the substrate material and (material,
-    thickness in nm) pairs; layers without a material are left out.
+    `Substrate_Film-<t>nm_Film-<n>p` from the substrate material and (material,
+    thickness in nm[, number of pulses]) tuples. A film whose thickness is given
+    as a number of pulses shows it as `<n>p`; layers without a material are
+    left out.
     """
     if not substrate_material:
         return None
     parts = [substrate_material]
-    for layer_material, thickness in layers or []:
+    for layer_material, thickness, *pulses in layers or []:
         if not layer_material:
             continue
-        if thickness is None:
-            parts.append(layer_material)
-        else:
+        if thickness is not None:
             parts.append(f'{layer_material}-{_number_text(thickness)}nm')
+        elif pulses and pulses[0] is not None:
+            parts.append(f'{layer_material}-{_number_text(pulses[0])}p')
+        else:
+            parts.append(layer_material)
     return '_'.join(parts)
 
 
@@ -95,6 +99,7 @@ def _layer_pairs(layers):
         (
             layer.material,
             layer.thickness.to('nm').magnitude if layer.thickness is not None else None,
+            layer.number_of_pulses,
         )
         for layer in layers or []
     ]
@@ -156,6 +161,12 @@ class Layer(ArchiveSection):
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.NumberEditQuantity, defaultDisplayUnit='nm'
         ),
+    )
+    number_of_pulses = Quantity(
+        type=int,
+        description='Intended thickness of the film as a number of laser pulses, '
+        'when it is not given in nm.',
+        a_eln=ELNAnnotation(component=ELNComponentEnum.NumberEditQuantity),
     )
     target = Quantity(
         type=Reference(Target.m_def),
@@ -300,6 +311,7 @@ class SampleInRun(_SampleDetails):
                 Layer(
                     material=layer.material,
                     thickness=layer.thickness,
+                    number_of_pulses=layer.number_of_pulses,
                     target=layer.target,
                 )
             )

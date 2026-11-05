@@ -35,10 +35,19 @@ from differ_pld4e_schemas.laser import (
 from differ_pld4e_schemas.pld_deposition import (
     CARRIERS,
     CARTESIAN_SCAN,
+    LASER_OUTPUT_LIMITATION,
     POLAR_SCAN,
     TARGET_NUMBERS,
+    THICKNESS_IN_NM,
+    THICKNESS_IN_PULSES,
+    THICKNESS_UNITS,
     LAPLDLogbook,
     SAPLDLogbook,
+)
+from differ_pld4e_schemas.process_steps import (
+    HEATING_MODES,
+    LASER_HEATING_PID,
+    LASER_HEATING_POWER,
 )
 from differ_pld4e_schemas.sample import Sample, SubstrateType
 from differ_pld4e_schemas.stages import SCAN_AREAS, SCAN_AXES, SCAN_SIZES
@@ -50,7 +59,6 @@ from ..common.steps import (
     gas_fields,
     heater_output,
     pressure,
-    ramp_fields,
     temperature,
 )
 from .rules import ALL_SAMPLES, FILM_STEPS
@@ -347,6 +355,131 @@ def _sections(name):
     return {'SA-PLD': f'SAPLD{name}', 'LA-PLD': f'LAPLD{name}'}
 
 
+def temperature_control_fields(setpoint, setpoint_label, ramp=False, output=False):
+    """
+    The "Temperature control" panel of the system software. The SA-PLD heats
+    with a laser, in PID mode (°C) or power mode (%); the LA-PLD has a main
+    heater power supply and always works in °C. `ramp` adds the ramp, `output`
+    the heater output once the setpoint is reached.
+    """
+    group = 'Temperature control'
+    pid = {'all': [SA, {'key': 'heating_mode', 'equals': LASER_HEATING_PID}]}
+    power = {'all': [SA, {'key': 'heating_mode', 'equals': LASER_HEATING_POWER}]}
+    in_degc = {'any': [LA, pid]}
+    ramp_on = {'key': 'ramp_on', 'equals': True}
+    percent = {'unit_label': '%', 'min': 0, 'max': 100, 'group': group}
+    fields = [
+        # No default: the operator chooses it.
+        field(
+            'heating_mode',
+            'Heating mode',
+            'select',
+            options=list(HEATING_MODES),
+            visible_if=SA,
+            group=group,
+        ),
+        temperature(setpoint, setpoint_label, visible_if=in_degc, group=group),
+        number(
+            'power_setpoint',
+            'Power setpoint',
+            visible_if=power,
+            **percent,
+        ),
+    ]
+    if ramp:
+        fields += [
+            field('ramp_on', 'Ramp on', 'bool', group=group),
+            number(
+                'ramp_rate',
+                'Ramp rate',
+                'K/minute',
+                unit_label='°C/min',
+                visible_if={'all': [ramp_on, in_degc]},
+                group=group,
+            ),
+            number(
+                'power_ramp_rate',
+                'Ramp rate',
+                unit_label='%/min',
+                visible_if={'all': [ramp_on, power]},
+                group=group,
+            ),
+        ]
+    fields += [
+        field('fix_output', 'Fix output', 'bool', group=group),
+        field('drift_compensation', 'Drift compensation', 'bool', group=group),
+    ]
+    if output:
+        fields.append(dict(heater_output(), visible_if=pid, group=group))
+    fields.append(
+        number(
+            'laser_output_limitation',
+            'Laser output limitation',
+            default=f'{LASER_OUTPUT_LIMITATION:g}',
+            visible_if=SA,
+            help='Set with the knob on the laser output limitation unit.',
+            **percent,
+        )
+    )
+    fields += [
+        number(key, label, unit, visible_if=LA, group='Main heater power supply')
+        for key, label, unit in (
+            ('supply_voltage', 'Voltage', 'V'),
+            ('supply_current', 'Current', 'A'),
+            ('actual_voltage', 'Actual voltage', 'V'),
+            ('actual_current', 'Actual current', 'A'),
+        )
+    ]
+    return fields
+
+
+def ramp_step(pressure_label, output=False):
+    """A heating or cool-down step."""
+    return [
+        *gas_fields(),
+        *temperature_control_fields(
+            'temperature_setpoint', 'Temperature setpoint', ramp=True, output=output
+        ),
+        pressure(pressure_label),
+        comments(),
+    ]
+
+
+def film_thickness_fields():
+    group = 'Film thickness'
+    help_text = (
+        'The film grown in this step; together with the target it makes up the '
+        'sample name.'
+    )
+    return [
+        select(
+            'film_thickness_unit',
+            'Thickness given in',
+            THICKNESS_UNITS,
+            default=THICKNESS_IN_NM,
+            group=group,
+        ),
+        number(
+            'film_thickness',
+            'Film thickness',
+            'nm',
+            help=help_text,
+            visible_if={'key': 'film_thickness_unit', 'equals': THICKNESS_IN_NM},
+            group=group,
+        ),
+        field(
+            'film_thickness_pulses',
+            'Film thickness',
+            'integer',
+            unit_label='pulses',
+            min=1,
+            help=help_text,
+            visible_if={'key': 'film_thickness_unit', 'equals': THICKNESS_IN_PULSES},
+            group=group,
+        ),
+    ]
+
+
 def step_variants():
     target = field('target', 'Target', 'target_choice')
     pre_ablation = [
@@ -377,19 +510,13 @@ def step_variants():
             visible_if=LA,
         ),
         target,
-        number(
-            'film_thickness',
-            'Film thickness',
-            'nm',
-            help='The film grown in this step; together with the target it makes '
-            'up the sample name.',
-        ),
+        *film_thickness_fields(),
+        *temperature_control_fields('substrate_temperature', 'Substrate temperature'),
         *heater_stage_fields(),
         *heater_scan_fields(),
         *polar_scan_fields(polar),
         *cartesian_scan_fields(cartesian),
         *target_stage_fields(),
-        temperature('substrate_temperature', 'Substrate temperature'),
         pressure('Deposition pressure'),
         *gas_fields(),
         *laser_fields(),
@@ -398,8 +525,9 @@ def step_variants():
 
     annealing = [
         *gas_fields(),
-        temperature('temperature_setpoint', 'Temperature setpoint'),
-        heater_output(),
+        *temperature_control_fields(
+            'temperature_setpoint', 'Temperature setpoint', output=True
+        ),
         number('dwell_time', 'Dwell time', 'minute', unit_label='min'),
         pressure('Annealing pressure'),
         comments(),
@@ -415,7 +543,7 @@ def step_variants():
         'heating': variant(
             'Heating step',
             _sections('HeatingStep'),
-            ramp_fields('Heating pressure', heater_output()),
+            ramp_step('Heating pressure', output=True),
         ),
         'annealing': variant('Annealing step', _sections('AnnealingStep'), annealing),
         'deposition': variant(
@@ -428,7 +556,7 @@ def step_variants():
         'cool_down': variant(
             'Cool-down step',
             _sections('CoolDownStep'),
-            ramp_fields('Cool-down pressure'),
+            ramp_step('Cool-down pressure'),
         ),
     }
 
@@ -437,32 +565,50 @@ IN_SITU_TECHNIQUES = {
     'rheed': (
         'RHEED (KSA 400)',
         [
-            ('pattern_native_file', 'Pattern capture, native (.img)', '.img'),
-            ('pattern_export_file', 'Pattern capture, exported (.png)', '.png'),
-            ('roi_intensity_native_file', 'ROI intensity map, native (.kdt)', '.kdt'),
-            ('roi_intensity_export_file', 'ROI intensity map, exported (.txt)', '.txt'),
+            ('pattern_native_files', 'Pattern captures, native (.img)', '.img'),
+            ('pattern_export_files', 'Pattern captures, exported (.png)', '.png'),
+            ('roi_intensity_native_files', 'ROI intensity maps, native (.kdt)', '.kdt'),
+            (
+                'roi_intensity_export_files',
+                'ROI intensity maps, exported (.txt)',
+                '.txt',
+            ),
         ],
     ),
     'mic': (
         'MIC (EZ-Curve)',
         [
-            ('native_file', 'Native file (.ezc)', '.ezc'),
-            ('export_file', 'Exported file (.csv)', '.csv'),
+            ('native_files', 'Native files (.ezc)', '.ezc'),
+            ('export_files', 'Exported files (.csv)', '.csv'),
         ],
     ),
-    'se': ('SE', [('file', 'Data file', '')]),
-    'la_eds': ('LA-EDS (RSX1000)', [('sp0_file', 'Spectrum (.sp0)', '.sp0')]),
-    'oes': ('OES', [('file', 'Data file', '')]),
-    'shg': ('SHG', [('file', 'Data file', '')]),
+    'se': ('SE', [('files', 'Data files', '')]),
+    'la_eds': ('LA-EDS (RSX1000)', [('sp0_files', 'Spectra (.sp0)', '.sp0')]),
+    'oes': ('OES', [('files', 'Data files', '')]),
+    'shg': ('SHG', [('files', 'Data files', '')]),
 }
 
 
 def in_situ_fields():
     """
-    Data files are optional: they are often collected from other computers
-    after the run, and a technique without files is marked as awaiting data.
+    The fields of one in-situ measurement: the sample and the process steps it
+    was taken during, then the techniques used. Data files are optional: they
+    are often collected from other computers after the run, and a technique
+    without files is marked as awaiting data. A file field takes several files
+    of its format, e.g. a series of RHEED images.
     """
-    fields = []
+    group = 'Sample and process steps'
+    fields = [
+        field('sample', 'Sample', 'sample_choice', archive=None, group=group),
+        field(
+            'steps',
+            'Process steps',
+            'step_choice',
+            archive=None,
+            help='The steps the measurement was taken during.',
+            group=group,
+        ),
+    ]
     for technique, (label, files) in IN_SITU_TECHNIQUES.items():
         on = {'key': technique, 'equals': True}
         fields.append(
@@ -473,9 +619,8 @@ def in_situ_fields():
                 field(
                     f'{technique}_{name}',
                     file_label,
-                    'file',
+                    'files',
                     accept=accept,
-                    required=False,
                     archive=f'{technique}.{name}',
                     visible_if=on,
                     group=label,
@@ -708,13 +853,34 @@ def form_spec() -> dict:
             {
                 'key': 'in_situ',
                 'title': 'In-situ techniques',
-                'kind': 'object',
+                'kind': 'list',
+                'item_label': 'Measurement',
+                'min_items': 0,
                 'intro': (
-                    'Tick the techniques you used. Their data files can be added '
-                    'now or later, e.g. once they are collected from the other '
-                    'computers: open the saved logbook and add them.'
+                    'Add a measurement, choose the sample and the process steps '
+                    'it was taken during, then tick the techniques you used. Their '
+                    'data files can be added now or later, e.g. once they are '
+                    'collected from the other computers: open the saved logbook '
+                    'and add them.'
                 ),
                 'fields': in_situ_fields(),
+            },
+            {
+                'key': 'logfiles',
+                'title': 'System logfiles',
+                'kind': 'object',
+                'intro': (
+                    'The logfiles of the run, exported as .txt from the TSST '
+                    'software. Optional, and can be added later.'
+                ),
+                'fields': [
+                    field(
+                        'system_logfiles',
+                        'TSST logfiles (.txt)',
+                        'files',
+                        accept='.txt',
+                    ),
+                ],
             },
         ],
     }

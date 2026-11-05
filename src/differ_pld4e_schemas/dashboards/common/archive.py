@@ -14,7 +14,7 @@ from nomad.units import ureg
 from .values import is_empty, to_number, visible_fields
 
 # Kinds whose value the converter of each dashboard handles itself.
-SKIPPED_KINDS = ('computed', 'reference', 'sample_choice')
+SKIPPED_KINDS = ('computed', 'reference', 'sample_choice', 'step_choice')
 
 
 def file_name_for(text: str) -> str:
@@ -80,6 +80,8 @@ def to_archive_value(value, field: dict, quantity):
         return int(round(number)) if kind == 'integer' else number
     if kind == 'target_choice':
         return value
+    if kind == 'files':
+        return [str(name) for name in value]
     return str(value)
 
 
@@ -92,6 +94,9 @@ def to_form_value(value, field: dict, quantity):
         value = int(round(value)) if kind == 'integer' else float(f'{value:.12g}')
     if kind == 'target_choice':
         return normalize_reference(value)
+    if kind == 'files' and not isinstance(value, list):
+        # Saved before a field took several files.
+        return [value]
     return value
 
 

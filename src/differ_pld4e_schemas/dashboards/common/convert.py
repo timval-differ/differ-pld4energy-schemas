@@ -146,11 +146,21 @@ class LogbookConverter:
 
     # Hooks for the sections of one dashboard.
 
-    def extra_to_archive(self, data: dict, spec: dict, logbook: dict) -> None:
-        """Write the dashboard's own sections into the logbook archive."""
+    def extra_to_archive(
+        self, data: dict, spec: dict, logbook: dict, references: dict
+    ) -> None:
+        """
+        Write the dashboard's own sections into the logbook archive.
+        `references` maps the form's sample choices to Sample references.
+        """
 
-    def extra_to_form(self, data: dict, spec: dict, form: dict) -> None:
-        """Read the dashboard's own sections from the logbook archive."""
+    def extra_to_form(
+        self, data: dict, spec: dict, form: dict, by_reference: dict
+    ) -> None:
+        """
+        Read the dashboard's own sections from the logbook archive.
+        `by_reference` maps Sample references to the form's sample choices.
+        """
 
     # Files and drafts.
 
@@ -220,7 +230,7 @@ class LogbookConverter:
             if targets:
                 logbook['targets'] = targets
         logbook['steps'] = self.steps_to_archive(data, spec, system, references)
-        self.extra_to_archive(data, spec, logbook)
+        self.extra_to_archive(data, spec, logbook, references)
         if data.get('recipe') and 'load_recipe' in logbook_cls.m_def.all_sub_sections:
             logbook['load_recipe'] = {'recipe': data['recipe']}
 
@@ -257,10 +267,14 @@ class LogbookConverter:
         return None
 
     def steps_to_form(self, data, spec, system, samples, by_reference) -> list:
-        """Form steps; samples used by steps but not in the logbook are added."""
+        """
+        Form steps; samples used by steps but not in the logbook are added.
+        Each step keeps its position in the archive as `archive_index` (removed
+        again by `archive_to_form`), so references to it can be resolved.
+        """
         steps = []
         variants = sections_of(spec)['steps']['variants']
-        for item in data.get('steps') or []:
+        for index, item in enumerate(data.get('steps') or []):
             variant_key = self.variant_of(variants, item.get('m_def'), system)
             if variant_key is None:
                 continue
@@ -269,7 +283,7 @@ class LogbookConverter:
             form_item.update(
                 gases_to_form(variant['fields'], item.get('background_gases'))
             )
-            form_item.update(uid=new_uid(), type=variant_key)
+            form_item.update(uid=new_uid(), type=variant_key, archive_index=index)
             step_samples = item.get('samples') or []
             if system not in self.rules.all_samples and step_samples:
                 reference = normalize_reference(step_samples[0])
@@ -321,7 +335,9 @@ class LogbookConverter:
             'targets': targets_to_form(data),
             'steps': steps,
         }
-        self.extra_to_form(data, spec, form)
+        self.extra_to_form(data, spec, form, by_reference)
+        for step in steps:
+            del step['archive_index']
         recipe = (data.get('load_recipe') or {}).get('recipe')
         if recipe:
             form['recipe'] = recipe

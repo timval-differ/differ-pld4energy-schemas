@@ -40,6 +40,7 @@ EXISTING = '../uploads/u0/archive/sample0#/data'
 SI_WAFER = '../uploads/u0/archive/substrate_si#/data'
 EXPECTED_T1 = 0.42 / 0.5 / 0.92 * 100
 EXPECTED_PULSES = 3000
+PULSES = 1500
 HTTP_OK = 200
 HTTP_BAD_REQUEST = 400
 FILES_FOR_ONE_NEW_SAMPLE = 2
@@ -85,12 +86,27 @@ LASER = {
     'number_of_laser_pulses': EXPECTED_PULSES,
 }
 
+# Values for both systems; the browser only sends those of the chosen system,
+# the others are hidden and ignored.
+HEATER_CONTROL = {
+    'heating_mode': 'Laser heating (PID)',
+    'laser_output_limitation': 50,
+    'fix_output': False,
+    'drift_compensation': True,
+    'supply_voltage': 20,
+    'supply_current': 5,
+    'actual_voltage': 19.8,
+    'actual_current': 4.9,
+}
+
 DEPOSITION = {
     'uid': 'step2',
     'type': 'deposition',
     'sample': 'new:sub1',
     'target': TARGET,
+    'film_thickness_unit': 'nm',
     'film_thickness': 20,
+    **HEATER_CONTROL,
     'x': 1,
     'y': 2,
     'z': 50,
@@ -149,6 +165,8 @@ FORM = {
         {
             'uid': 'step1',
             'type': 'heating',
+            **HEATER_CONTROL,
+            'ramp_on': True,
             'ramp_rate': 10,
             'temperature_setpoint': 700,
             'heater_output': 35,
@@ -157,20 +175,32 @@ FORM = {
         },
         DEPOSITION,
     ],
-    'in_situ': {
-        'rheed': True,
-        'rheed_pattern_native_file': 'pld_files/run1/pattern.img',
-        'la_eds': True,
-        'la_eds_sp0_file': 'pld_files/run1/spectrum.sp0',
-        'la_eds_energy_offset': 100,
-        'la_eds_energy_per_channel': 10,
-    },
+    'in_situ': [
+        {
+            'uid': 'm1',
+            'sample': 'new:sub1',
+            'steps': ['step2'],
+            'rheed': True,
+            'rheed_pattern_export_files': [
+                'pld_files/run1/in_situ_1/pattern1.png',
+                'pld_files/run1/in_situ_1/pattern2.png',
+            ],
+            'la_eds': True,
+            'la_eds_sp0_files': ['pld_files/run1/in_situ_1/spectrum.sp0'],
+            'la_eds_energy_offset': 100,
+            'la_eds_energy_per_channel': 10,
+        }
+    ],
+    'logfiles': {'system_logfiles': ['pld_files/run1/logfiles/tsst.txt']},
 }
 
 ANNEALING = {
     'uid': 'anneal',
     'type': 'annealing',
     'atmosphere': 'UHV',
+    **HEATER_CONTROL,
+    'heating_mode': 'Laser heating (power)',
+    'power_setpoint': 40,
     'temperature_setpoint': 600,
     'heater_output': 40,
     'dwell_time': 30,
@@ -202,6 +232,7 @@ def annealing_form():
     data['steps'] = [ANNEALING]
     data['laser'] = {}
     data['targets'] = [{'uid': 't1'}]
+    data['in_situ'] = []
     return data
 
 
@@ -389,9 +420,17 @@ def test_uhv_needs_only_the_pressure():
     assert 'valve_position' not in deposition
 
 
-def test_heating_records_heater_output():
-    errors = messages(validate(form(steps__0__heater_output=None), SPEC))
+def test_heating_records_heater_output_in_pid_mode():
+    errors = messages(validate(sa_form(steps__0__heater_output=None), SPEC))
     assert errors['steps.0.heater_output'] == 'Required.'
+    # In power mode the output is the power setpoint; the LA-PLD reads out
+    # its power supply instead.
+    power = sa_form(
+        steps__0__heater_output=None, steps__0__heating_mode='Laser heating (power)'
+    )
+    assert 'steps.0.heater_output' not in messages(validate(power, SPEC))
+    la = messages(validate(form(steps__0__heater_output=None), SPEC))
+    assert 'steps.0.heater_output' not in la
 
 
 def test_manual_transmission_required_when_manual():
@@ -507,6 +546,86 @@ def test_deposition_step_records_the_film_thickness():
     errors = messages(validate(form(steps__1__film_thickness=None), SPEC))
     assert errors['steps.1.film_thickness'] == 'Required.'
     assert _logbook()['steps'][1]['film_thickness'] == pytest.approx(2e-8)
+
+
+def test_film_thickness_as_number_of_pulses():
+    data = form(
+        steps__1__film_thickness_unit='pulses',
+        steps__1__film_thickness=None,
+        steps__1__film_thickness_pulses=PULSES,
+    )
+    assert validate(data, SPEC) == []
+    assert compute('sample_name', data['samples'][0], data) == 'Si_SrTiO3-1500p'
+    files = form_to_files(data, SPEC)['files']
+    assert files[0]['archive']['data']['layers'][0]['number_of_pulses'] == PULSES
+    assert 'thickness' not in files[0]['archive']['data']['layers'][0]
+    step = files[-1]['archive']['data']['steps'][1]
+    assert step['film_thickness_unit'] == 'pulses'
+    assert step['film_thickness_pulses'] == PULSES
+    assert 'film_thickness' not in step
+    errors = messages(validate(form(steps__1__film_thickness_unit='pulses'), SPEC))
+    assert errors['steps.1.film_thickness_pulses'] == 'Required.'
+
+
+def test_valve_position_is_0_to_1000():
+    assert validate(form(steps__1__valve_position=850), SPEC) == []
+    errors = messages(validate(form(steps__1__valve_position=1001), SPEC))
+    assert errors['steps.1.valve_position'] == 'Must be at most 1000.'
+
+
+def test_sa_heating_mode_sets_the_setpoint_units():
+    errors = messages(validate(sa_form(steps__1__heating_mode=None), SPEC))
+    assert errors['steps.1.heating_mode'] == 'Required.'
+    assert _logbook(sa_form())['steps'][1]['heating_mode'] == 'Laser heating (PID)'
+    power = sa_form(
+        steps__0__heating_mode='Laser heating (power)', steps__0__ramp_rate=None
+    )
+    errors = messages(validate(power, SPEC))
+    assert errors['steps.0.power_setpoint'] == 'Required.'
+    assert errors['steps.0.power_ramp_rate'] == 'Required.'
+    assert 'steps.0.temperature_setpoint' not in errors
+    assert 'steps.0.ramp_rate' not in errors
+    annealing = _logbook(annealing_form())['steps'][0]
+    assert annealing['heating_mode'] == 'Laser heating (power)'
+    assert annealing['power_setpoint'] == pytest.approx(40)
+    assert 'temperature_setpoint' not in annealing
+
+
+def test_ramp_rate_only_when_the_ramp_is_on():
+    errors = messages(validate(form(steps__0__ramp_rate=None), SPEC))
+    assert errors['steps.0.ramp_rate'] == 'Required.'
+    off = form(steps__0__ramp_rate=None, steps__0__ramp_on=False)
+    assert 'steps.0.ramp_rate' not in messages(validate(off, SPEC))
+
+
+def test_switches_are_recorded():
+    step = _logbook()['steps'][1]
+    assert step['fix_output'] is False
+    assert step['drift_compensation'] is True
+
+
+def test_laser_output_limitation_only_for_sa_pld():
+    variants = _sections()['steps']['variants']
+    for key in ('heating', 'annealing', 'deposition', 'cool_down'):
+        field = next(
+            f for f in variants[key]['fields'] if f['key'] == 'laser_output_limitation'
+        )
+        assert field['default'] == '50'
+    sa = _logbook(sa_form())['steps'][1]
+    assert sa['laser_output_limitation'] == pytest.approx(50)
+    assert 'supply_voltage' not in sa
+    assert 'laser_output_limitation' not in _logbook()['steps'][1]
+
+
+def test_la_pld_records_the_main_heater_power_supply():
+    step = _logbook()['steps'][1]
+    assert step['supply_voltage'] == pytest.approx(20)
+    assert step['supply_current'] == pytest.approx(5)
+    assert step['actual_voltage'] == pytest.approx(19.8)
+    assert step['actual_current'] == pytest.approx(4.9)
+    assert 'heating_mode' not in step
+    errors = messages(validate(form(steps__1__actual_current=None), SPEC))
+    assert errors['steps.1.actual_current'] == 'Required.'
 
 
 def test_films_come_from_the_deposition_steps():
@@ -628,10 +747,62 @@ def test_la_deposition_sample_must_be_in_the_run():
 
 
 def test_in_situ_technique_without_files_is_valid():
-    data = form(in_situ__rheed_pattern_native_file=None)
+    data = form(in_situ__0__rheed_pattern_export_files=[])
     assert validate(data, SPEC) == []
     logbook = _logbook(data)
-    assert logbook['in_situ_techniques']['rheed'] == [{}]
+    assert logbook['in_situ_measurements'][0]['rheed'] == [{}]
+
+
+def test_in_situ_measurement_needs_sample_and_steps():
+    errors = messages(
+        validate(form(in_situ__0__sample=None, in_situ__0__steps=[]), SPEC)
+    )
+    assert errors['in_situ.0.sample'] == 'Required.'
+    assert errors['in_situ.0.steps'] == 'Required.'
+    errors = messages(validate(form(in_situ__0__steps=['gone']), SPEC))
+    assert errors['in_situ.0.steps'] == 'Choose steps listed under Process steps.'
+
+
+def test_run_without_in_situ_measurements_is_valid():
+    assert validate(form(in_situ=[]), SPEC) == []
+    assert 'in_situ_measurements' not in _logbook(form(in_situ=[]))
+
+
+def test_in_situ_measurement_archive():
+    measurement = _logbook()['in_situ_measurements'][0]
+    assert measurement['sample'] == (f'../upload/archive/mainfile/{SAMPLE_FILE}#data')
+    assert measurement['process_steps'] == ['#/data/steps/1']
+    assert measurement['rheed'][0]['pattern_export_files'] == [
+        'pld_files/run1/in_situ_1/pattern1.png',
+        'pld_files/run1/in_situ_1/pattern2.png',
+    ]
+
+
+def test_in_situ_steps_follow_reordered_steps():
+    data = form()
+    data['steps'].reverse()
+    assert _logbook(data)['in_situ_measurements'][0]['process_steps'] == [
+        '#/data/steps/0'
+    ]
+
+
+def test_old_in_situ_techniques_load_as_one_measurement():
+    logbook = _logbook()
+    logbook['in_situ_techniques'] = {'rheed': [{'pattern_export_file': 'a.png'}]}
+    del logbook['in_situ_measurements']
+    loaded = archive_to_form(logbook, SPEC)
+    assert len(loaded['in_situ']) == 1
+    old = loaded['in_situ'][0]
+    assert old['rheed'] is True
+    assert old['rheed_pattern_export_files'] == ['a.png']
+    assert old['steps'] == []
+
+
+def test_system_logfiles():
+    logbook = _logbook()
+    assert logbook['system_logfiles'] == ['pld_files/run1/logfiles/tsst.txt']
+    assert archive_to_form(logbook, SPEC)['logfiles'] == FORM['logfiles']
+    assert validate(form(logfiles={}), SPEC) == []
 
 
 # Drafts
@@ -685,7 +856,9 @@ def test_logbook_archive_has_si_values():
         {'gas': 'O2', 'flow_setpoint': 5, 'flow_readout': 4.9}
     ]
     assert deposition['samples'] == [f'../upload/archive/mainfile/{SAMPLE_FILE}#data']
-    assert logbook['steps'][0]['heater_output'] == pytest.approx(35)
+    assert logbook['steps'][0]['ramp_on'] is True
+    assert logbook['steps'][0]['actual_voltage'] == pytest.approx(19.8)
+    assert 'heater_output' not in logbook['steps'][0]
 
 
 def test_sa_deposition_covers_all_samples():
@@ -711,7 +884,9 @@ def test_logbook_archive_loads_and_normalizes_with_schema():
     assert logbook.steps[1].laser.number_of_laser_pulses == EXPECTED_PULSES
     logbook.laser_details.normalize(archive, CapturingLogger())
     assert logbook.laser_details.transmission_window_1 == pytest.approx(EXPECTED_T1)
-    assert logbook.in_situ_techniques.la_eds[0].sp0_file.endswith('spectrum.sp0')
+    measurement = logbook.in_situ_measurements[0]
+    assert measurement.la_eds[0].sp0_files[0].endswith('spectrum.sp0')
+    assert measurement.process_steps[0].m_proxy_resolve() is logbook.steps[1]
     assert logbook.samples[0].layers[0].thickness.to('nm').magnitude == (
         pytest.approx(20)
     )
@@ -771,7 +946,15 @@ def test_round_trip():
     assert loaded['samples'][0]['substrate'] == SI_WAFER
     assert loaded['samples'][0]['substrate_material'] == 'Si'
     assert loaded['targets'][0]['target_number'] == '2'
-    assert loaded['in_situ']['rheed'] is True
+    measurement = loaded['in_situ'][0]
+    assert measurement['rheed'] is True
+    assert measurement['sample'] == f'new:{loaded["samples"][0]["uid"]}'
+    assert measurement['steps'] == [step['uid']]
+    assert (
+        measurement['rheed_pattern_export_files']
+        == (FORM['in_situ'][0]['rheed_pattern_export_files'])
+    )
+    assert 'archive_index' not in step
     loaded['run']['utc_offset'] = '+02:00'
     assert validate(loaded, SPEC) == []
 

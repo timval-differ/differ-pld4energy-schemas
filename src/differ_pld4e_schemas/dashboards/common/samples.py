@@ -4,7 +4,8 @@ conversion to and from archive files. Independent of the system, so any run
 dashboard can use it; it only expects the run's system, date and time under
 `/run/system`, `/run/date` and `/run/time`. The films of a sample are not part
 of this section: the dashboard derives them from its process steps and passes
-them in as {'target', 'material', 'thickness' (nm)}.
+them in as {'target', 'material', 'thickness' (nm), 'pulses'}; a film has its
+thickness in nm or as a number of pulses.
 
 Form data of one sample::
 
@@ -194,7 +195,11 @@ def compute_sample_name(item: dict, root: dict, films: list):
     if item.get('origin', NEW_SAMPLE) not in MADE_HERE:
         return item.get('name')
     layers = [
-        (film.get('material'), to_number(film.get('thickness')))
+        (
+            film.get('material'),
+            to_number(film.get('thickness')),
+            to_number(film.get('pulses')),
+        )
         for film in [*prior_films(item), *films]
     ]
     return sample_name(_substrate_material(item), layers)
@@ -276,6 +281,8 @@ def _layers_to_archive(films: list) -> list:
             layer['thickness'] = to_archive_value(
                 film['thickness'], THICKNESS, quantity_of(Layer, 'thickness')
             )
+        elif to_number(film.get('pulses')) is not None:
+            layer['number_of_pulses'] = int(to_number(film['pulses']))
         if layer:
             layers.append(layer)
     return layers

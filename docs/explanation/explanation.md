@@ -44,7 +44,7 @@ SA-PLD / LA-PLD Logbook (entry)
 │   ├── Annealing step
 │   ├── Pulsed laser deposition step ── target, samples[] ──► PLD Target, Sample
 │   └── Cool-down step
-└── in_situ_techniques
+└── in_situ_measurements[] ── sample, process_steps[] ──► Sample, steps of this logbook
 
 PLD In-situ Techniques (entry) ── sample ──► Sample
 ```
@@ -224,8 +224,9 @@ the form. In archive files (YAML/JSON) values must be given in the SI unit.
 
 Exceptions, stored as plain numbers:
 
-- percentages (window transmissions, attenuator position, valve position,
-  heater output), in %;
+- percentages (window transmissions, attenuator position, heater output,
+  control box output), in %;
+- the valve position, from 0 (closed) to 1000 (open);
 - gas flows are stored in cm³/min, which is the same number as sccm.
 
 Ramp rates are in K/min, which is the same number as °C/min. Temperatures are
@@ -236,8 +237,9 @@ stored in K and shown in °C.
 In-situ techniques are their own section and not part of a deposition step,
 because a sample can be measured outside a deposition run, e.g. during
 post-processing of an older sample. They can be recorded in the logbook of the
-run or in a stand-alone **PLD In-situ Techniques** entry. Both have optional
-links to a sample and to a run.
+run or in a stand-alone **PLD In-situ Techniques** entry. In a logbook each
+measurement names its sample and the process steps it was taken during; the
+stand-alone entry has optional links to a sample and to a run.
 
 For each technique the native file (which only the instrument software can
 open) and the exported file (which other programs can read) are stored

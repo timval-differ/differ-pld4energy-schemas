@@ -96,23 +96,41 @@ leave a section with **Next**, or straight away for fields you have edited.
    characterisation) is fine.
     - **Background gases:** choose *UHV* to record only the chamber pressure, or
       *Background gas* and tick each gas to fill in its set and read-out flow.
-      All gases share one valve, so its position is entered once per step.
+      All gases share one valve, so its position (0 closed to 1000 open) is
+      entered once per step.
     - **Target stage:** start x, y and z position, offsets, scan width and scan
       speed in x and y.
-    - **Heating and annealing:** note the heater output (%) once the setpoint is
-      reached.
+    - **Temperature control** (heating, annealing, deposition and cool-down):
+      the fields follow the *Temperature control* panel of the system
+      software. Tick *Ramp on*, *Fix output* and *Drift compensation* as set
+      there; the ramp rate is only asked for when the ramp is on.
+      - SA-PLD: choose the **heating mode**. *Laser heating (PID)* takes the
+        setpoint in °C and the ramp rate in °C/min, and asks for the heater
+        output (%) once the setpoint is reached. *Laser heating (power)* takes
+        the setpoint in % and the ramp rate in %/min. Also note the **laser
+        output limitation** set with the knob (50% unless changed).
+      - LA-PLD: setpoint in °C and ramp rate in °C/min, plus the set and
+        actual voltage and current of the main heater power supply.
     - **Pulsed laser deposition:** a new deposition step starts with the target,
       target stage, gases and laser settings of the pre-ablation step before it;
-      change what differs. Enter the **film thickness**: each deposition step
+      change what differs. Enter the **film thickness**, in nm or, with
+      *Thickness given in* set to *pulses*, as a number of laser pulses (the
+      sample name then shows e.g. `YSZ-1500p`). Each deposition step
       grows one film, of its target's material, on its samples, and these films
       make up the sample names. In the SA-PLD a deposition covers all samples
       loaded in the chamber; in the LA-PLD choose the sample. The target and
       heater stage fields follow the *Manual movement* and *Define scan
       pattern* dialogs of the system software; choose the heater scan type
       (*Polar scan* is the default) to get its scan fields.
-7. **In-situ techniques.** Tick each technique you used. Add its data files now
-   or later: a technique without files is saved as *awaiting data*.
-8. **Review and save.** Lists everything that is still missing; click an item
+7. **In-situ techniques.** Optional. For each measurement: *+ Add
+   measurement*, choose the **sample**, tick the **process steps** it was taken
+   during, then switch on each technique you used and add its data files. A file
+   field takes several files of its format, e.g. a series of RHEED `.png`
+   images. Files can also be added later: a technique without files is saved as
+   *awaiting data*.
+8. **System logfiles.** Optional: add the `.txt` logfiles exported from the
+   TSST software.
+9. **Review and save.** Lists everything that is still missing; click an item
    to jump to the field. Choose an upload (or *+ New upload*) and save.
 
 Saving creates the Sample entries first and then the logbook, and shows
@@ -157,7 +175,11 @@ on your computer only; the logbook in NOMAD remains the record.
 In-situ data often has to be collected from other computers after the run. Save
 the logbook without the files: the techniques show as *awaiting data* in the
 dashboard and in NOMAD. Later, open the logbook from the start page, add the files under *In-situ
-techniques* and save again.
+techniques* and save again. The same goes for the system logfiles.
+
+Logbooks saved before measurements had a sample and process steps open with
+their techniques as one measurement: choose its sample and steps before saving
+again.
 
 ## Repeat a run (recipe)
 

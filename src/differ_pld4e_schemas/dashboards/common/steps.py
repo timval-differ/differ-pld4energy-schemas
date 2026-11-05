@@ -7,6 +7,7 @@ and its heating and cool-down steps.
 from __future__ import annotations
 
 from differ_pld4e_schemas.gas import ATMOSPHERES, BACKGROUND_GAS, GASES
+from differ_pld4e_schemas.process_steps import VALVE_POSITION_MAX
 
 from .fields import comments, field, number
 
@@ -69,7 +70,9 @@ def gas_fields():
         number(
             'valve_position',
             'Valve position',
-            unit_label='%',
+            min=0,
+            max=VALVE_POSITION_MAX,
+            help=f'0 (closed) to {VALVE_POSITION_MAX} (open).',
             visible_if=any_gas,
             group=group,
             row_start=True,

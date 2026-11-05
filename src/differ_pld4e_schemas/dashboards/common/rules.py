@@ -45,6 +45,13 @@ def sample_choice(item: dict):
     return item.get('sample')
 
 
+def film_thickness(step: dict) -> dict:
+    """{'thickness'} in nm or {'pulses'}, as chosen with `film_thickness_unit`."""
+    if step.get('film_thickness_unit') == 'pulses':
+        return {'pulses': step.get('film_thickness_pulses')}
+    return {'thickness': step.get('film_thickness')}
+
+
 def _steps_section(spec: dict) -> dict | None:
     return next((s for s in spec['sections'] if s['kind'] == 'variant_list'), None)
 
@@ -93,7 +100,14 @@ def _number_error(field: dict, value) -> str | None:
         return 'Enter a whole number.'
     if 'min' in field and number < field['min']:
         return f'Must be at least {field["min"]}.'
+    if 'max' in field and number > field['max']:
+        return f'Must be at most {field["max"]}.'
     return None
+
+
+def step_choices(root: dict) -> list:
+    """Values a measurement uses to name a process step of the run."""
+    return [step.get('uid') for step in root.get('steps') or [] if step.get('uid')]
 
 
 def _field_error(field: dict, value, local: dict, root: dict) -> str | None:
@@ -114,6 +128,10 @@ def _field_error(field: dict, value, local: dict, root: dict) -> str | None:
         'sample_choice': (
             lambda: value in sample_choices(root),
             'Choose one of the samples under Samples.',
+        ),
+        'step_choice': (
+            lambda: set(value) <= set(step_choices(root)),
+            'Choose steps listed under Process steps.',
         ),
     }
     if kind in checks:
@@ -183,7 +201,7 @@ class LogbookRules:
         """
         The films grown on a sample in this run, in order: one per film step
         on it, from the step's target (its material as selected under Targets)
-        and film thickness.
+        and film thickness, in nm or as a number of pulses.
         """
         materials = {
             t.get('target'): t.get('material') for t in root.get('targets') or []
@@ -193,7 +211,7 @@ class LogbookRules:
             {
                 'target': step.get('target'),
                 'material': materials.get(step.get('target')),
-                'thickness': step.get('film_thickness'),
+                **film_thickness(step),
             }
             for step in root.get('steps') or []
             if step.get('type') in self.film_steps

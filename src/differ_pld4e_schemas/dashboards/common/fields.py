@@ -5,8 +5,9 @@ Field keys:
     key          key in the form data of the containing section or list item
     label        label shown in the form
     kind         text | textarea | number | integer | select | bool | date |
-                 time | reference | target_choice | sample_choice | rows |
-                 file | computed
+                 time | reference | target_choice | sample_choice |
+                 step_choice (several process steps, by uid) | rows |
+                 files (a list of uploaded file paths) | computed
     unit         pint unit the user enters the value in (converted to the
                  schema's SI unit when the archive is built)
     unit_label   how the unit is shown, if different from `unit`
@@ -26,13 +27,16 @@ Field keys:
                  entry by the browser, e.g. the material of a target
     group        heading the field is shown under
     help         short explanation shown under the field
+    min, max     limits of a number
 """
 
 from __future__ import annotations
 
 
 def field(key, label, kind='text', **kwargs):
-    kwargs.setdefault('required', kind not in ('textarea', 'bool', 'computed', 'rows'))
+    kwargs.setdefault(
+        'required', kind not in ('textarea', 'bool', 'computed', 'rows', 'files')
+    )
     kwargs.setdefault('archive', key)
     return {'key': key, 'label': label, 'kind': kind, **kwargs}
 

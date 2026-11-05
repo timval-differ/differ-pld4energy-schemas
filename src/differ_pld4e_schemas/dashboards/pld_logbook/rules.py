@@ -3,7 +3,7 @@ Computed values and validation of the PLD logbook form; the shared rules are
 in `dashboards.common.rules`.
 
 Besides the common sections, the form data has `'laser': {...}` and
-`'in_situ': {...}`.
+`'in_situ': [{...}, ...]` (the measurements) and `'logfiles': {...}`.
 """
 
 from __future__ import annotations

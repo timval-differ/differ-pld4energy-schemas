@@ -254,7 +254,13 @@ function sampleFilms(item, root) {
   const all = client().all_samples.includes((root.run || {}).system);
   return (root.steps || [])
     .filter((step) => client().film_steps.includes(step.type) && (all || step.sample === sampleChoice(item)))
-    .map((step) => ({target: step.target, material: material(step.target), thickness: step.film_thickness}));
+    .map((step) => ({target: step.target, material: material(step.target), ...filmThickness(step)}));
+}
+
+/* In nm or as a number of pulses (mirror rules.film_thickness). */
+function filmThickness(step) {
+  return step.film_thickness_unit === 'pulses'
+    ? {pulses: step.film_thickness_pulses} : {thickness: step.film_thickness};
 }
 
 function sampleName(item, root = app.form) {
@@ -269,7 +275,10 @@ function sampleName(item, root = app.form) {
   for (const film of [...prior, ...sampleFilms(item, root)]) {
     if (!film.material) continue;
     const thickness = toNumber(film.thickness);
-    parts.push(thickness === null ? film.material : `${film.material}-${Number(thickness.toPrecision(6))}nm`);
+    const pulses = toNumber(film.pulses);
+    if (thickness !== null) parts.push(`${film.material}-${Number(thickness.toPrecision(6))}nm`);
+    else if (pulses !== null) parts.push(`${film.material}-${Number(pulses.toPrecision(6))}p`);
+    else parts.push(film.material);
   }
   return parts.join('_');
 }
@@ -293,6 +302,11 @@ function sampleChoices(root) {
     else if (item.sample) choices.push(item.sample);
   }
   return choices;
+}
+
+/* Values a measurement uses to name process steps (mirror rules.step_choices). */
+function stepChoices(root) {
+  return (root.steps || []).filter((s) => s.uid).map((s) => s.uid);
 }
 
 /* What one step needs of an aspect (e.g. the laser): an optional one counts once used. */
@@ -323,6 +337,7 @@ function fieldError(field, value, local, root) {
     if (number === null) return 'Enter a number.';
     if (kind === 'integer' && !Number.isInteger(number)) return 'Enter a whole number.';
     if ('min' in field && number < field.min) return `Must be at least ${field.min}.`;
+    if ('max' in field && number > field.max) return `Must be at most ${field.max}.`;
   } else if (kind === 'select') {
     if (!fieldOptions(field, local, root).includes(value)) return 'Choose one of the options.';
   } else if (kind === 'date') {
@@ -333,6 +348,9 @@ function fieldError(field, value, local, root) {
     if (!targetChoices(root).includes(value)) return 'Choose one of the targets selected under Targets.';
   } else if (kind === 'sample_choice') {
     if (!sampleChoices(root).includes(value)) return 'Choose one of the samples under Samples.';
+  } else if (kind === 'step_choice') {
+    const steps = stepChoices(root);
+    if (!value.every((v) => steps.includes(v))) return 'Choose steps listed under Process steps.';
   }
   return null;
 }
@@ -462,7 +480,7 @@ function newForm() {
   const form = {recipe: null};
   for (const s of app.spec.sections) {
     if (s.kind === 'object') form[s.key] = defaults(s.fields);
-    else if (s.kind === 'list') form[s.key] = [newItem(s)];
+    else if (s.kind === 'list' && s.min_items !== 0) form[s.key] = [newItem(s)];
     else form[s.key] = [];
   }
   const now = new Date();
@@ -470,6 +488,36 @@ function newForm() {
   form.run.time = localTime(now);
   form.run.utc_offset = utcOffset(now);
   fillOperator(form);
+  return form;
+}
+
+/*
+ * A draft kept from an earlier version of the form: sections added since get
+ * their defaults, the in-situ techniques (once one set per run) become one
+ * measurement, and a file field that took one file now takes a list.
+ */
+function upgradeForm(form) {
+  for (const s of app.spec.sections) {
+    const value = form[s.key];
+    if (s.kind === 'object') {
+      if (!value || typeof value !== 'object') form[s.key] = defaults(s.fields);
+    } else if (!Array.isArray(value)) {
+      const filled = value && typeof value === 'object' && Object.values(value).some((v) => v === true);
+      form[s.key] = filled ? [{uid: uid(), steps: [], ...value}] : [];
+    }
+    const items = s.kind === 'object' ? [form[s.key]] : form[s.key];
+    for (const item of items) {
+      const fields = s.kind === 'variant_list' ? (s.variants[item.type] || {fields: []}).fields : s.fields;
+      for (const field of fields) {
+        if (field.kind !== 'files') continue;
+        // Renamed from `..._file`, which held one file.
+        const old = field.key.slice(0, -1);
+        if (isEmpty(item[field.key]) && typeof item[old] === 'string') item[field.key] = [item[old]];
+        if (typeof item[field.key] === 'string') item[field.key] = [item[field.key]];
+        delete item[old];
+      }
+    }
+  }
   return form;
 }
 
@@ -530,14 +578,35 @@ function clearDraft() {
  */
 function dropPendingFiles(form, pendingPaths) {
   let dropped = 0;
-  for (const path of pendingPaths || []) {
-    const [key, field] = path.split('.');
-    if (form[key] && form[key][field]) {
-      form[key][field] = null;
+  // From the end, so the positions of the files still to drop stay valid.
+  const paths = [...(pendingPaths || [])].sort((a, b) => {
+    const [pa, pb] = [a, b].map((p) => Number(p.split('.').pop()));
+    return pb - pa;
+  });
+  for (const path of paths) {
+    const parts = path.split('.');
+    const last = parts.pop();
+    const container = formAt(form, parts);
+    if (Array.isArray(container) && container[Number(last)] !== undefined) {
+      container.splice(Number(last), 1);
+      dropped += 1;
+    } else if (container && container[last]) {
+      // Kept by an earlier version of the page, for a field of one file.
+      container[last] = null;
       dropped += 1;
     }
   }
   return dropped;
+}
+
+/* The value at a form path given as parts, e.g. ['in_situ', '0', 'files']. */
+function formAt(form, parts) {
+  let value = form;
+  for (const part of parts) {
+    if (value === null || value === undefined) return undefined;
+    value = value[Array.isArray(value) ? Number(part) : part];
+  }
+  return value;
 }
 
 /* ------------------------------------------------------- NOMAD lookups */
@@ -768,30 +837,31 @@ function control(field, local, path) {
       input = el('div', {class: 'computed', id});
       return {body: input, input};
     }
-    case 'file': {
-      const name = el('span', {class: 'file-name'});
-      const pending = el('span', {class: 'file-pending'});
+    case 'files': {
+      // Several files of one format; each is uploaded on save (see uploadPendingFiles).
+      const files = el('div', {class: 'file-list'});
       input = el('input', {
-        type: 'file', id, accept: field.accept || undefined,
+        type: 'file', id, multiple: true, accept: field.accept || undefined,
         onchange: (e) => {
-          const file = e.target.files[0];
-          if (!file) return;
-          app.pendingFiles[path] = file;
-          set(file.name);
+          const values = local[field.key] || (local[field.key] = []);
+          for (const file of e.target.files) {
+            app.pendingFiles[`${path}.${values.length}`] = file;
+            values.push(file.name);
+          }
+          input.value = '';
+          app.touched.add(path);
+          changed();
         },
       });
-      const clear = el('button', {
-        type: 'button', class: 'btn btn-text btn-icon btn-danger', title: 'Remove file',
-        onclick: () => {
-          delete app.pendingFiles[path];
-          input.value = '';
-          set(null);
-        },
-      }, '✕');
       input.hidden = true;
-      const choose = el('button', {type: 'button', class: 'btn btn-outlined', onclick: () => input.click()}, 'Choose file');
-      body = el('div', {class: 'file-row'}, input, choose, name, pending, clear);
-      return {body, input, fileName: name, filePending: pending, fileClear: clear};
+      const choose = el('button', {type: 'button', class: 'btn btn-outlined', onclick: () => input.click()}, 'Add files');
+      body = el('div', {class: 'rows'}, input, files, choose);
+      return {body, input, fileList: files};
+    }
+    case 'step_choice': {
+      // One checkbox per process step, rebuilt by refresh when the steps change.
+      input = el('div', {class: 'step-choices', id});
+      return {body: input, input};
     }
     case 'date':
     case 'time':
@@ -852,7 +922,7 @@ function renderFields(container, fields, local, path) {
     const fieldPath = `${path}.${field.key}`;
     const made = control(field, local, fieldPath);
     const error = el('div', {class: 'error'});
-    const wide = ['textarea', 'file', 'rows'].includes(field.kind);
+    const wide = ['textarea', 'files', 'rows', 'step_choice'].includes(field.kind);
     const classes = 'field' + (wide ? ' wide' : '') + (field.row_start ? ' row-start' : '');
     const helper = el('div', {class: 'helper'}, field.help || '');
     const wrap = el('div', {class: classes, 'data-path': fieldPath},
@@ -866,19 +936,64 @@ function renderFields(container, fields, local, path) {
   }
 }
 
-/* Whether a ticked in-situ technique has no data file yet. */
-function awaitingData(technique, inSitu) {
-  return section('in_situ').fields
-    .filter((f) => f.technique === technique)
-    .every((f) => isEmpty(inSitu[f.key]));
+/* Remove one file of a `files` field; files still to upload keep their place. */
+function removeFile(local, key, path, index) {
+  local[key].splice(index, 1);
+  const pending = {};
+  for (const [pendingPath, file] of Object.entries(app.pendingFiles)) {
+    if (!pendingPath.startsWith(`${path}.`)) {
+      pending[pendingPath] = file;
+      continue;
+    }
+    const position = Number(pendingPath.slice(path.length + 1));
+    if (position !== index) pending[`${path}.${position > index ? position - 1 : position}`] = file;
+  }
+  app.pendingFiles = pending;
+  app.touched.add(path);
+  changed();
 }
 
+function renderStepChoices(r) {
+  const chosen = r.local[r.field.key] || [];
+  const steps = app.form.steps || [];
+  const toggle = (stepUid, on) => {
+    const current = (r.local[r.field.key] || []).filter((v) => v !== stepUid);
+    // Kept in the order of the steps.
+    r.local[r.field.key] = on
+      ? steps.map((s) => s.uid).filter((v) => v === stepUid || current.includes(v)) : current;
+    app.touched.add(r.path);
+    changed();
+  };
+  const boxes = steps.map((s, index) => {
+    const id = `${r.input.id}-${s.uid}`;
+    return el('label', {class: 'step-choice', for: id},
+      el('input', {type: 'checkbox', id, checked: chosen.includes(s.uid), onchange: (e) => toggle(s.uid, e.target.checked)}),
+      itemTitle(`steps.${index}`));
+  });
+  // A step that was removed after it was chosen.
+  if (chosen.some((v) => !steps.some((s) => s.uid === v))) {
+    boxes.push(el('button', {
+      type: 'button', class: 'btn btn-text',
+      onclick: () => toggle(chosen.find((v) => !steps.some((s) => s.uid === v)), false),
+    }, 'Remove a step that no longer exists'));
+  }
+  r.input.replaceChildren(...(boxes.length ? boxes : [el('span', {class: 'muted'}, 'Add process steps first')]));
+}
+
+/* Whether a ticked in-situ technique of a measurement has no data file yet. */
+function awaitingData(technique, measurement) {
+  return section('in_situ').fields
+    .filter((f) => f.technique === technique)
+    .every((f) => isEmpty(measurement[f.key]));
+}
+
+/* E.g. ['Measurement 1: RHEED (KSA 400)']. */
 function awaitingTechniques(form) {
   if (!section('in_situ')) return [];
-  const inSitu = form.in_situ || {};
-  return section('in_situ').fields
-    .filter((f) => f.kind === 'bool' && inSitu[f.key] && awaitingData(f.key, inSitu))
-    .map((f) => f.group);
+  const techniques = section('in_situ').fields.filter((f) => f.kind === 'bool');
+  return (Array.isArray(form.in_situ) ? form.in_situ : []).flatMap((measurement, index) => techniques
+    .filter((f) => measurement[f.key] && awaitingData(f.key, measurement))
+    .map((f) => `Measurement ${index + 1}: ${f.group}`));
 }
 
 function sectionShown(path) {
@@ -904,11 +1019,17 @@ function refresh() {
       r.input.textContent = computed === null ? '–'
         : (typeof computed === 'number' ? `${formatNumber(computed)} ${r.field.unit_label || ''}` : computed);
     }
-    if (kind === 'file') {
-      r.fileName.textContent = value ? String(value).split('/').pop() : 'No file chosen';
-      r.filePending.textContent = value && app.pendingFiles[r.path] ? 'uploaded on save' : '';
-      r.fileClear.hidden = !value;
+    if (kind === 'files') {
+      r.fileList.replaceChildren(...(value || []).map((name, index) => el('div', {class: 'file-row'},
+        el('span', {class: 'file-name'}, String(name).split('/').pop()),
+        el('span', {class: 'file-pending'}, app.pendingFiles[`${r.path}.${index}`] ? 'uploaded on save' : ''),
+        el('button', {
+          type: 'button', class: 'btn btn-text btn-icon btn-danger', title: 'Remove file',
+          onclick: () => removeFile(r.local, r.field.key, r.path, index),
+        }, '✕'))));
+      if (!(value || []).length) r.fileList.append(el('span', {class: 'muted'}, 'No files added'));
     }
+    if (kind === 'step_choice') renderStepChoices(r);
     if (r.field.required && r.field.required_if) {
       const label = r.wrap.querySelector('label');
       if (label) label.classList.toggle('required', evaluate(r.field.required_if, r.local, root));
@@ -960,6 +1081,11 @@ function itemTitle(path) {
   if (key === 'samples') {
     const name = sampleId(item, app.form) || sampleName(item);
     return `${s.item_label} ${Number(index) + 1}` + (name ? `: ${name}` : '');
+  }
+  if (key === 'in_situ') {
+    const field = s.fields.find((f) => f.kind === 'sample_choice');
+    const sample = field && displayValue(field, item);
+    return `${s.item_label} ${Number(index) + 1}` + (sample ? `: ${sample}` : '');
   }
   return `${s.item_label} ${Number(index) + 1}`;
 }
@@ -1136,10 +1262,6 @@ function renderObject(container, s) {
   if (s.key === 'run' && app.form.recipe) {
     card.append(el('div', {class: 'info'}, 'The process steps were loaded from a recipe.'));
   }
-  if (s.key === 'in_situ' && awaitingTechniques(app.form).length) {
-    card.append(el('div', {class: 'info'},
-      `Awaiting data: ${awaitingTechniques(app.form).join(', ')}. The logbook can be saved without them.`));
-  }
   renderFields(card, s.fields, app.form[s.key], s.key);
   container.append(card);
 }
@@ -1216,6 +1338,10 @@ function renderList(container, s) {
   const card = el('div', {class: 'card'}, sectionHeader(s, intro), el('div', {class: 'list-error', 'data-list-errors': s.key}));
   const list = app.form[s.key];
   if (s.count_control) card.append(countControl(s, list));
+  if (s.key === 'in_situ' && awaitingTechniques(app.form).length) {
+    card.append(el('div', {class: 'info'},
+      `Awaiting data: ${awaitingTechniques(app.form).join(', ')}. The logbook can be saved without them.`));
+  }
   list.forEach((item, index) => {
     card.append(itemCard(s, list, index, (body, it, path) => renderFields(body, s.fields, it, path)));
   });
@@ -1644,15 +1770,24 @@ function processingMessages(response, label) {
   for (const message of entry.warnings || []) logLine(`${label}: ${message}`, 'warn');
 }
 
+/*
+ * A pending file is kept under `<field path>.<position in the list>`, e.g.
+ * `in_situ.0.rheed_pattern_export_files.2`. The files of a list item go into
+ * a folder of their own (`in_situ_1`), so equal file names of two
+ * measurements do not overwrite each other.
+ */
 async function uploadPendingFiles(uploadId, directory) {
   for (const [path, file] of Object.entries(app.pendingFiles)) {
-    const [key, field] = path.split('.');
+    const parts = path.split('.');
+    const position = Number(parts.pop());
+    const list = formAt(app.form, parts);
+    const folder = parts.length > 2 ? `${directory}/${parts[0]}_${Number(parts[1]) + 1}` : `${directory}/${parts[0]}`;
     const body = new FormData();
     body.append('file', file, file.name);
-    await api(`/uploads/${uploadId}/raw/${directory}?wait_for_processing=false&overwrite_if_exists=true`, {
+    await api(`/uploads/${uploadId}/raw/${folder}?wait_for_processing=false&overwrite_if_exists=true`, {
       method: 'PUT', body,
     });
-    app.form[key][field] = `${directory}/${file.name}`;
+    if (Array.isArray(list)) list[position] = `${folder}/${file.name}`;
     delete app.pendingFiles[path];
     logLine(`Uploaded ${file.name}`, 'ok');
   }
@@ -1758,7 +1893,13 @@ function displayValue(field, local) {
     const option = choiceOptions(field, local).find((o) => o.value === value);
     return option ? option.label : value;
   }
-  if (field.kind === 'file') return String(value).split('/').pop();
+  if (field.kind === 'files') return value.map((name) => String(name).split('/').pop()).join(', ');
+  if (field.kind === 'step_choice') {
+    return value.map((stepUid) => {
+      const index = (root.steps || []).findIndex((s) => s.uid === stepUid);
+      return index < 0 ? 'removed step' : itemTitle(`steps.${index}`);
+    }).join('; ');
+  }
   const unit = field.unit_label || field.unit;
   return field.kind === 'number' && unit ? `${value} ${unit}` : String(value);
 }
@@ -1924,7 +2065,7 @@ async function deleteNomadDraft() {
 async function openNomadDraft(uploadId, path, stored, force) {
   const same = app.draft && app.draft.upload_id === uploadId && app.draft.path === path;
   if (!force && !same && !(await confirmReplace())) return;
-  app.form = stored.form;
+  app.form = upgradeForm(stored.form);
   app.edit = stored.edit || null;
   app.draft = {upload_id: uploadId, path, savedAt: stored.savedAt};
   app.upload = uploadId;
@@ -2023,8 +2164,9 @@ async function init() {
     app.upload = draft.upload || '';
     app.started = true;
     const dropped = dropPendingFiles(app.form, draft.pending);
+    upgradeForm(app.form);
     if (dropped) {
-      showBanner(`Choose the ${dropped} in-situ file(s) of the current logbook again: `
+      showBanner(`Choose the ${dropped} file(s) of the current logbook again: `
         + 'files are only kept until the page is closed.');
     }
     if (navSections().some((s) => s.key === linked)) app.current = linked;

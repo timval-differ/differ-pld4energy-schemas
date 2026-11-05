@@ -458,6 +458,39 @@ def test_sample_name():
     assert sample_name('FTO', []) == 'FTO'
     assert sample_name('MgO', [('YSZ', 2.5), (None, 3)]) == 'MgO_YSZ-2.5nm'
     assert sample_name(None, [('YSZ', 2.5)]) is None
+    assert sample_name('MgO', [('YSZ', None, 1500), ('STO', 5, None)]) == (
+        'MgO_YSZ-1500p_STO-5nm'
+    )
+
+
+def test_sa_pld_steps_have_laser_heating():
+    assert SAPLDDepositionStep().laser_output_limitation == pytest.approx(50)
+    assert SAPLDAnnealingStep().laser_output_limitation == pytest.approx(50)
+    quantities = SAPLDHeatingStep.m_def.all_quantities
+    assert {
+        'heating_mode',
+        'power_setpoint',
+        'ramp_on',
+        'power_ramp_rate',
+        'fix_output',
+        'drift_compensation',
+    } <= set(quantities)
+    assert 'supply_voltage' not in quantities
+
+
+def test_la_pld_steps_have_the_main_heater_power_supply():
+    quantities = LAPLDDepositionStep.m_def.all_quantities
+    assert {
+        'supply_voltage',
+        'supply_current',
+        'actual_voltage',
+        'actual_current',
+        'fix_output',
+        'drift_compensation',
+    } <= set(quantities)
+    assert 'heating_mode' not in quantities
+    assert 'laser_output_limitation' not in LAPLDAnnealingStep.m_def.all_quantities
+    assert LAPLDDepositionStep().drift_compensation is False
 
 
 def test_target_number_outside_the_positions_is_reported():
@@ -539,9 +572,31 @@ def test_in_situ_technique_awaits_data_until_a_file_is_added():
     records = _normalize_section(rheed)
     assert rheed.data_status == 'awaiting data'
     assert any('no data file' in message for _, message in records)
-    rheed.pattern_export_file = 'pld_files/run/pattern.png'
+    rheed.pattern_export_files = ['pld_files/run/a.png', 'pld_files/run/b.png']
     assert not _normalize_section(rheed)
     assert rheed.data_status == 'complete'
+
+
+def test_single_in_situ_file_of_older_logbooks_moves_into_the_list():
+    archive = EntryArchive.m_from_dict(
+        {
+            'data': {
+                'm_def': SAPLDLogbook.m_def.qualified_name(),
+                'in_situ_techniques': {
+                    'rheed': [{'pattern_export_file': 'pld_files/run/a.png'}],
+                    'se': [{'file': 'pld_files/run/se.dat'}],
+                },
+            }
+        }
+    )
+    in_situ = archive.data.in_situ_techniques
+    rheed, se = in_situ.rheed[0], in_situ.se[0]
+    _normalize_section(rheed)
+    _normalize_section(se)
+    assert rheed.pattern_export_files == ['pld_files/run/a.png']
+    assert rheed.pattern_export_file is None
+    assert rheed.data_status == 'complete'
+    assert se.files == ['pld_files/run/se.dat']
 
 
 def test_in_situ_techniques_are_top_level():

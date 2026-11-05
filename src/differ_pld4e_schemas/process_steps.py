@@ -21,6 +21,14 @@ if TYPE_CHECKING:
 
 __all__ = ['CoolDownStep', 'GasProcessStep', 'HeatingStep', 'm_package']
 
+# The gas valve is set in steps from 0 (closed) to 1000 (open).
+VALVE_POSITION_MAX = 1000
+# Laser heating modes of the SA-PLD: PID follows a temperature setpoint (°C),
+# power a power setpoint (%).
+LASER_HEATING_PID = 'Laser heating (PID)'
+LASER_HEATING_POWER = 'Laser heating (power)'
+HEATING_MODES = (LASER_HEATING_PID, LASER_HEATING_POWER)
+
 
 def temperature_quantity(**kwargs):
     return Quantity(
@@ -52,6 +60,15 @@ def heater_output_quantity():
     )
 
 
+def heating_mode_quantity():
+    return Quantity(
+        type=MEnum(*HEATING_MODES),
+        description='Whether the laser heater follows a temperature setpoint (PID) '
+        'or a power setpoint.',
+        a_eln=ELNAnnotation(component=ELNComponentEnum.RadioEnumEditQuantity),
+    )
+
+
 class GasProcessStep(ProcessStep):
     """
     A process step with its chamber pressure and background gases. Use
@@ -76,10 +93,12 @@ class GasProcessStep(ProcessStep):
     background_gases = SubSection(section_def=BackgroundGas, repeats=True)
     valve_position = Quantity(
         type=float,
-        description='Position of the gas valve (shared by all gases), in %.',
+        description='Position of the gas valve (shared by all gases), from 0 to '
+        f'{VALVE_POSITION_MAX}.',
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.NumberEditQuantity,
-            label='Valve position (%)',
+            minValue=0,
+            maxValue=VALVE_POSITION_MAX,
         ),
     )
     valve_position_fixed = Quantity(

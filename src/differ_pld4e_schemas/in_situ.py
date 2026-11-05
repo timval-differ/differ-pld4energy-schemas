@@ -9,7 +9,7 @@ from nomad.datamodel.metainfo.plot import PlotlyFigure, PlotSection
 from nomad.metainfo import MEnum, Quantity, Reference, Section, SubSection
 
 from differ_pld4e_schemas import m_package
-from differ_pld4e_schemas.base_sections import Process
+from differ_pld4e_schemas.base_sections import Process, ProcessStep
 from differ_pld4e_schemas.sample import Sample
 
 if TYPE_CHECKING:
@@ -33,12 +33,26 @@ AWAITING_DATA = 'awaiting data'
 DATA_COMPLETE = 'complete'
 
 
-def _file(description):
+def _files(description):
+    # A list: e.g. several RHEED images of one measurement.
     return Quantity(
         type=str,
+        shape=['*'],
         description=description,
         a_browser={'adaptor': 'RawFileAdaptor'},
         a_eln=ELNAnnotation(component=ELNComponentEnum.FileEditQuantity),
+    )
+
+
+def _single_file():
+    """
+    One file, as saved before a technique took several files of a format. It
+    is moved into the list of the same name plus `s` on normalization.
+    """
+    return Quantity(
+        type=str,
+        description='Superseded by the list of files of the same name.',
+        a_browser={'adaptor': 'RawFileAdaptor'},
     )
 
 
@@ -65,15 +79,29 @@ class InSituTechnique(ArchiveSection):
     )
 
     def file_quantities(self) -> list:
-        # Every data file quantity is named `file` or `..._file`.
+        # Every list of data files is named `files` or `..._files`.
         return [
             quantity
             for name, quantity in self.m_def.all_quantities.items()
-            if name == 'file' or name.endswith('_file')
+            if name == 'files' or name.endswith('_files')
         ]
+
+    def _move_single_files(self) -> None:
+        """Move a file saved as `..._file` into the list `..._files`."""
+        quantities = self.m_def.all_quantities
+        for quantity in self.file_quantities():
+            single = quantities.get(quantity.name[:-1])
+            if single is None or not self.m_get(single):
+                continue
+            files = list(self.m_get(quantity) or [])
+            if self.m_get(single) not in files:
+                files.insert(0, self.m_get(single))
+            self.m_set(quantity, files)
+            self.m_set(single, None)
 
     def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
         super().normalize(archive, logger)
+        self._move_single_files()
         if any(self.m_get(quantity) for quantity in self.file_quantities()):
             self.data_status = DATA_COMPLETE
         else:
@@ -85,20 +113,26 @@ class RHEED(InSituTechnique):
     """RHEED captures from the KSA 400 software."""
 
     m_def = Section(label='RHEED')
-    pattern_native_file = _file('Pattern capture, native KSA 400 format (.img).')
-    pattern_export_file = _file('Pattern capture, exported image (.png).')
-    roi_intensity_native_file = _file(
-        'ROI intensity map, native KSA 400 format (.kdt).'
+    pattern_native_files = _files('Pattern captures, native KSA 400 format (.img).')
+    pattern_export_files = _files('Pattern captures, exported images (.png).')
+    roi_intensity_native_files = _files(
+        'ROI intensity maps, native KSA 400 format (.kdt).'
     )
-    roi_intensity_export_file = _file('ROI intensity map, exported (.txt).')
+    roi_intensity_export_files = _files('ROI intensity maps, exported (.txt).')
+    pattern_native_file = _single_file()
+    pattern_export_file = _single_file()
+    roi_intensity_native_file = _single_file()
+    roi_intensity_export_file = _single_file()
 
 
 class MIC(InSituTechnique):
     """Magnification inferred curvature, from the EZ-Curve software."""
 
     m_def = Section(label='MIC')
-    native_file = _file('Native EZ-Curve file (.ezc).')
-    export_file = _file('Exported curvature data (.csv).')
+    native_files = _files('Native EZ-Curve files (.ezc).')
+    export_files = _files('Exported curvature data (.csv).')
+    native_file = _single_file()
+    export_file = _single_file()
 
 
 class LAEDS(InSituTechnique, PlotSection):
@@ -111,7 +145,8 @@ class LAEDS(InSituTechnique, PlotSection):
     """
 
     m_def = Section(label='LA-EDS')
-    sp0_file = _file('Spectrum file (.sp0).')
+    sp0_files = _files('Spectrum files (.sp0).')
+    sp0_file = _single_file()
     energy_offset = Quantity(
         type=float,
         unit='eV',
@@ -164,33 +199,43 @@ class SE(InSituTechnique):
     """Spectroscopic ellipsometry. File format still to be specified."""
 
     m_def = Section(label='SE')
-    file = _file('SE data file.')
+    files = _files('SE data files.')
+    file = _single_file()
 
 
 class OES(InSituTechnique):
     """Optical emission spectroscopy. File format still to be specified."""
 
     m_def = Section(label='OES')
-    file = _file('OES data file.')
+    files = _files('OES data files.')
+    file = _single_file()
 
 
 class SHG(InSituTechnique):
     """Second harmonic generation. File format still to be specified."""
 
     m_def = Section(label='SHG')
-    file = _file('SHG data file.')
+    files = _files('SHG data files.')
+    file = _single_file()
 
 
 class InSituTechniques(ArchiveSection):
     """
-    In-situ diagnostics. Not tied to a deposition step, so an older sample can be
-    measured again, e.g. during post-processing.
+    In-situ diagnostics of one sample. In a logbook a measurement names the
+    process steps it was taken during; on its own (see `InSituTechniquesEntry`)
+    an older sample can be measured again, e.g. during post-processing.
     """
 
     m_def = Section()
     sample = Quantity(
         type=Reference(Sample.m_def),
-        description='Optional: the sample that was measured.',
+        description='The sample that was measured.',
+        a_eln=ELNAnnotation(component=ELNComponentEnum.ReferenceEditQuantity),
+    )
+    process_steps = Quantity(
+        type=Reference(ProcessStep.m_def),
+        shape=['*'],
+        description='The process steps of the run the measurement was taken during.',
         a_eln=ELNAnnotation(component=ELNComponentEnum.ReferenceEditQuantity),
     )
     process = Quantity(

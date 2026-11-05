@@ -20,6 +20,9 @@ from differ_pld4e_schemas.process_steps import (
     heater_output_quantity as _heater_output,
 )
 from differ_pld4e_schemas.process_steps import (
+    heating_mode_quantity as _heating_mode,
+)
+from differ_pld4e_schemas.process_steps import (
     temperature_quantity as _temperature,
 )
 from differ_pld4e_schemas.references import copy_section as _copy
@@ -53,6 +56,12 @@ __all__ = [
 
 POLAR_SCAN = 'Polar scan'
 CARTESIAN_SCAN = 'Cartesian scan'
+# The intended thickness of a film is given in nm or as a number of pulses.
+THICKNESS_IN_NM = 'nm'
+THICKNESS_IN_PULSES = 'pulses'
+THICKNESS_UNITS = (THICKNESS_IN_NM, THICKNESS_IN_PULSES)
+# Usual setting (%) of the laser output limitation knob of the SA-PLD.
+LASER_OUTPUT_LIMITATION = 50.0
 # Positions in the target carousel.
 TARGET_NUMBERS = range(1, 6)
 CARRIERS = {
@@ -179,12 +188,27 @@ class PLDDepositionStep(TargetedStep):
     """Grows one film, from the step's target, on each of its samples."""
 
     m_def = Section(label='Pulsed laser deposition step')
+    film_thickness_unit = Quantity(
+        type=MEnum(*THICKNESS_UNITS),
+        default=THICKNESS_IN_NM,
+        description='Whether the intended thickness is given in nm or as a number '
+        'of laser pulses.',
+        a_eln=ELNAnnotation(component=ELNComponentEnum.RadioEnumEditQuantity),
+    )
     film_thickness = Quantity(
         type=float,
         unit='m',
         description='Intended thickness of the film grown in this step.',
         a_eln=ELNAnnotation(
             component=ELNComponentEnum.NumberEditQuantity, defaultDisplayUnit='nm'
+        ),
+    )
+    film_thickness_pulses = Quantity(
+        type=int,
+        description='Intended thickness of the film as a number of laser pulses.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.NumberEditQuantity,
+            label='Film thickness (pulses)',
         ),
     )
     samples = Quantity(
@@ -224,6 +248,69 @@ class PLDDepositionStep(TargetedStep):
                 )
 
 
+def _switch(description):
+    return Quantity(
+        type=bool,
+        default=False,
+        description=description,
+        a_eln=ELNAnnotation(component=ELNComponentEnum.BoolEditQuantity),
+    )
+
+
+def _number(unit, label, description, **kwargs):
+    return Quantity(
+        type=float,
+        unit=unit,
+        description=description,
+        a_eln=ELNAnnotation(component=ELNComponentEnum.NumberEditQuantity, label=label),
+        **kwargs,
+    )
+
+
+def _ramp_on():
+    return _switch('Whether the ramp was on (Ramp On/Off).')
+
+
+# The heater settings follow the "Temperature control" panel of the system
+# software.
+
+
+class HeaterControl(ArchiveSection):
+    """Switches of the temperature control, shared by SA-PLD and LA-PLD."""
+
+    m_def = Section()
+    fix_output = _switch('Whether the heater output was fixed (Fix output).')
+    drift_compensation = _switch('Whether drift compensation was on.')
+
+
+class SAPLDHeaterControl(HeaterControl):
+    """Laser heating of the SA-PLD."""
+
+    m_def = Section()
+    heating_mode = _heating_mode()
+    power_setpoint = _number(
+        None,
+        'Power setpoint (%)',
+        'Setpoint in laser heating (power) mode.',
+    )
+    laser_output_limitation = _number(
+        None,
+        'Laser output limitation (%)',
+        'Limit set with the knob on the laser output limitation unit.',
+        default=LASER_OUTPUT_LIMITATION,
+    )
+
+
+class LAPLDHeaterControl(HeaterControl):
+    """Main heater power supply of the LA-PLD."""
+
+    m_def = Section()
+    supply_voltage = _number('V', None, 'Voltage set on the power supply.')
+    supply_current = _number('A', None, 'Current set on the power supply.')
+    actual_voltage = _number('V', None, 'Voltage read out on the power supply.')
+    actual_current = _number('A', None, 'Current read out on the power supply.')
+
+
 # SA-PLD and LA-PLD each get their own step classes so that the GUI only offers
 # the steps of that system (and never a sputter step) when a step is added.
 
@@ -238,22 +325,30 @@ class SAPLDPreAblationStep(PreAblationStep, SAPLDStep):
     m_def = Section(label='Pre-ablation step')
 
 
-class SAPLDHeatingStep(HeatingStep, SAPLDStep):
+class SAPLDHeatingStep(HeatingStep, SAPLDHeaterControl, SAPLDStep):
     m_def = Section(label='Heating step')
+    ramp_on = _ramp_on()
+    power_ramp_rate = _number(
+        None, 'Ramp rate (%/min)', 'Ramp rate in laser heating (power) mode.'
+    )
 
 
-class SAPLDAnnealingStep(AnnealingStep, SAPLDStep):
+class SAPLDAnnealingStep(AnnealingStep, SAPLDHeaterControl, SAPLDStep):
     m_def = Section(label='Annealing step')
 
 
-class SAPLDDepositionStep(PLDDepositionStep, SAPLDStep):
+class SAPLDDepositionStep(PLDDepositionStep, SAPLDHeaterControl, SAPLDStep):
     """Deposits on all samples loaded in the chamber."""
 
     m_def = Section(label='Pulsed laser deposition step')
 
 
-class SAPLDCoolDownStep(CoolDownStep, SAPLDStep):
+class SAPLDCoolDownStep(CoolDownStep, SAPLDHeaterControl, SAPLDStep):
     m_def = Section(label='Cool-down step')
+    ramp_on = _ramp_on()
+    power_ramp_rate = _number(
+        None, 'Ramp rate (%/min)', 'Ramp rate in laser heating (power) mode.'
+    )
 
 
 class LAPLDStep(PLDProcessStep):
@@ -266,20 +361,22 @@ class LAPLDPreAblationStep(PreAblationStep, LAPLDStep):
     m_def = Section(label='Pre-ablation step')
 
 
-class LAPLDHeatingStep(HeatingStep, LAPLDStep):
+class LAPLDHeatingStep(HeatingStep, LAPLDHeaterControl, LAPLDStep):
     m_def = Section(label='Heating step')
+    ramp_on = _ramp_on()
 
 
-class LAPLDAnnealingStep(AnnealingStep, LAPLDStep):
+class LAPLDAnnealingStep(AnnealingStep, LAPLDHeaterControl, LAPLDStep):
     m_def = Section(label='Annealing step')
 
 
-class LAPLDDepositionStep(PLDDepositionStep, LAPLDStep):
+class LAPLDDepositionStep(PLDDepositionStep, LAPLDHeaterControl, LAPLDStep):
     m_def = Section(label='Pulsed laser deposition step')
 
 
-class LAPLDCoolDownStep(CoolDownStep, LAPLDStep):
+class LAPLDCoolDownStep(CoolDownStep, LAPLDHeaterControl, LAPLDStep):
     m_def = Section(label='Cool-down step')
+    ramp_on = _ramp_on()
 
 
 class PLDLogbook(Process, SampleRun, EntryData):
@@ -304,7 +401,21 @@ class PLDLogbook(Process, SampleRun, EntryData):
     laser_details = SubSection(section_def=LaserCalibration)
     targets = SubSection(section_def=SelectedTarget, repeats=True)
     load_recipe = SubSection(section_def=RecipeLoader)
+    in_situ_measurements = SubSection(
+        section_def=InSituTechniques,
+        repeats=True,
+        description='In-situ measurements of the run, each on one sample during '
+        'one or more process steps.',
+    )
+    # Logbooks saved before the measurements had their own sample and steps.
     in_situ_techniques = SubSection(section_def=InSituTechniques)
+    system_logfiles = Quantity(
+        type=str,
+        shape=['*'],
+        description='Logfiles of the run exported from the TSST software (.txt).',
+        a_browser={'adaptor': 'RawFileAdaptor'},
+        a_eln=ELNAnnotation(component=ELNComponentEnum.FileEditQuantity),
+    )
 
     def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
         if self.datetime is None:

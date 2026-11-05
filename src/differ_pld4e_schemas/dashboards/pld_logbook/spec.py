@@ -37,6 +37,7 @@ from differ_pld4e_schemas.pld_deposition import (
     CARRIERS,
     CARTESIAN_SCAN,
     LASER_OUTPUT_LIMITATION,
+    NO_SCAN,
     POLAR_SCAN,
     TARGET_NUMBERS,
     THICKNESS_IN_NM,
@@ -250,12 +251,29 @@ def heater_stage_fields():
 
 
 def heater_scan_fields():
+    """The SA-PLD may deposit without a heater scan (scan type None)."""
     group = 'Heater stage scan'
+    scans = [POLAR_SCAN, CARTESIAN_SCAN]
     return [
-        select(
-            'heater_scan_type', 'Scan type', [POLAR_SCAN, CARTESIAN_SCAN], group=group
+        field(
+            'heater_scan_type',
+            'Scan type',
+            'select',
+            options_by={
+                'key': '/run/system',
+                'map': {'SA-PLD': [NO_SCAN, *scans], 'LA-PLD': scans},
+                'empty_text': 'Choose the PVD system first',
+            },
+            default=POLAR_SCAN,
+            group=group,
         ),
-        select('heater_scan_axis', 'Scan axis', SCAN_AXES, group=group),
+        select(
+            'heater_scan_axis',
+            'Scan axis',
+            SCAN_AXES,
+            visible_if={'key': 'heater_scan_type', 'in': scans},
+            group=group,
+        ),
         select('heater_size', 'Heater size', HEATER_SIZES, group=group),
     ]
 
@@ -362,18 +380,27 @@ def _sections(name):
     return {'SA-PLD': f'SAPLD{name}', 'LA-PLD': f'LAPLD{name}'}
 
 
+RAMP_SWITCH = 'switch'
+
+
 def temperature_control_fields(setpoint, setpoint_label, ramp=False, output=False):
     """
     The "Temperature control" panel of the system software. The SA-PLD heats
     with a laser, in PID mode (°C) or power mode (%); the LA-PLD has a main
-    heater power supply and always works in °C. `ramp` adds the ramp, `output`
-    the heater output once the setpoint is reached.
+    heater power supply and always works in °C. `ramp` adds the ramp rate,
+    behind a "Ramp on" switch if it is `RAMP_SWITCH`; `output` the heater
+    output once the setpoint is reached.
     """
     group = 'Temperature control'
     pid = {'all': [SA, {'key': 'heating_mode', 'equals': LASER_HEATING_PID}]}
     power = {'all': [SA, {'key': 'heating_mode', 'equals': LASER_HEATING_POWER}]}
     in_degc = {'any': [LA, pid]}
-    ramp_on = {'key': 'ramp_on', 'equals': True}
+    if ramp == RAMP_SWITCH:
+        ramp_on = {'key': 'ramp_on', 'equals': True}
+        in_degc_ramp = {'all': [ramp_on, in_degc]}
+        power_ramp = {'all': [ramp_on, power]}
+    else:
+        in_degc_ramp, power_ramp = in_degc, power
     percent = {'unit_label': '%', 'min': 0, 'max': 100, 'group': group}
     fields = [
         # No default: the operator chooses it.
@@ -393,22 +420,23 @@ def temperature_control_fields(setpoint, setpoint_label, ramp=False, output=Fals
             **percent,
         ),
     ]
+    if ramp == RAMP_SWITCH:
+        fields.append(field('ramp_on', 'Ramp on', 'bool', group=group))
     if ramp:
         fields += [
-            field('ramp_on', 'Ramp on', 'bool', group=group),
             number(
                 'ramp_rate',
                 'Ramp rate',
                 'K/minute',
                 unit_label='°C/min',
-                visible_if={'all': [ramp_on, in_degc]},
+                visible_if=in_degc_ramp,
                 group=group,
             ),
             number(
                 'power_ramp_rate',
                 'Ramp rate',
                 unit_label='%/min',
-                visible_if={'all': [ramp_on, power]},
+                visible_if=power_ramp,
                 group=group,
             ),
         ]
@@ -440,12 +468,12 @@ def temperature_control_fields(setpoint, setpoint_label, ramp=False, output=Fals
     return fields
 
 
-def ramp_step(pressure_label, output=False):
+def ramp_step(pressure_label, ramp=True, output=False):
     """A heating or cool-down step."""
     return [
         *gas_fields(),
         *temperature_control_fields(
-            'temperature_setpoint', 'Temperature setpoint', ramp=True, output=output
+            'temperature_setpoint', 'Temperature setpoint', ramp=ramp, output=output
         ),
         pressure(pressure_label),
         step_comments(),
@@ -533,7 +561,7 @@ def step_variants():
     annealing = [
         *gas_fields(),
         *temperature_control_fields(
-            'temperature_setpoint', 'Temperature setpoint', output=True
+            'temperature_setpoint', 'Temperature setpoint', ramp=True, output=True
         ),
         number('dwell_time', 'Dwell time', 'minute', unit_label='min'),
         pressure('Annealing pressure'),
@@ -550,7 +578,7 @@ def step_variants():
         'heating': variant(
             'Heating step',
             _sections('HeatingStep'),
-            ramp_step('Heating pressure', output=True),
+            ramp_step('Heating pressure', ramp=RAMP_SWITCH, output=True),
         ),
         'annealing': variant('Annealing step', _sections('AnnealingStep'), annealing),
         'deposition': variant(

@@ -32,6 +32,7 @@ from differ_pld4e_schemas.process_steps import (
     GasProcessStep,
     HeatingStep,
     SetpointStep,
+    ramp_rate_quantity,
     substrate_temperature_parameters,
 )
 from differ_pld4e_schemas.process_steps import (
@@ -74,6 +75,8 @@ __all__ = [
 
 POLAR_SCAN = 'Polar scan'
 CARTESIAN_SCAN = 'Cartesian scan'
+# The SA-PLD may deposit without scanning the heater stage.
+NO_SCAN = 'None'
 # The intended thickness of a film is given in nm or as a number of pulses.
 THICKNESS_IN_NM = 'nm'
 THICKNESS_IN_PULSES = 'pulses'
@@ -227,6 +230,7 @@ class AnnealingStep(SetpointStep, PLDProcessStep):
     """Keeping the samples at a temperature, e.g. in a run without deposition."""
 
     m_def = Section(label='Annealing step')
+    ramp_rate = ramp_rate_quantity()
     heater_output = _heater_output()
     dwell_time = Quantity(
         type=float,
@@ -273,9 +277,10 @@ class PLDDepositionStep(TargetedStep):
     )
     heater_stage_position = SubSection(section_def=HeaterStagePosition)
     heater_scan_type = Quantity(
-        type=MEnum(POLAR_SCAN, CARTESIAN_SCAN),
+        type=MEnum(NO_SCAN, POLAR_SCAN, CARTESIAN_SCAN),
         default=POLAR_SCAN,
-        description='Fill in the scan sub-section that matches the scan type.',
+        description='Fill in the scan sub-section that matches the scan type; '
+        'None if the heater stage was not scanned (SA-PLD).',
         a_eln=ELNAnnotation(component=ELNComponentEnum.RadioEnumEditQuantity),
     )
     heater_scan_axis = choice(SCAN_AXES)
@@ -287,7 +292,10 @@ class PLDDepositionStep(TargetedStep):
         self.creates_new_thin_film = True
         super().normalize(archive, logger)
         scan_type = self.heater_scan_type or POLAR_SCAN
-        if scan_type == POLAR_SCAN:
+        if scan_type == NO_SCAN:
+            if self.polar_scan is not None or self.cartesian_scan is not None:
+                logger.warning('Scan parameters are ignored without a heater scan.')
+        elif scan_type == POLAR_SCAN:
             if self.polar_scan is None:
                 self.polar_scan = PolarHeaterScan()
             if self.cartesian_scan is not None:
@@ -390,6 +398,9 @@ class SAPLDHeatingStep(HeatingStep, SAPLDHeaterControl, SAPLDStep):
 
 class SAPLDAnnealingStep(AnnealingStep, SAPLDHeaterControl, SAPLDStep):
     m_def = Section(label='Annealing step')
+    power_ramp_rate = _number(
+        None, 'Ramp rate (%/min)', 'Ramp rate in laser heating (power) mode.'
+    )
 
 
 class SAPLDDepositionStep(PLDDepositionStep, SAPLDHeaterControl, SAPLDStep):

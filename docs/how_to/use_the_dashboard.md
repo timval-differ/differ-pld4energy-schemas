@@ -117,8 +117,10 @@ leave a section with **Next**, or straight away for fields you have edited.
       speed in x and y.
     - **Temperature control** (heating, annealing, deposition and cool-down):
       the fields follow the *Temperature control* panel of the system
-      software. Tick *Ramp on*, *Fix output* and *Drift compensation* as set
-      there; the ramp rate is only asked for when the ramp is on.
+      software. Tick *Fix output* and *Drift compensation* as set there. A
+      heating step also has *Ramp on*: its ramp rate is only asked for when
+      the ramp is on. Annealing and cool-down steps always ask for the ramp
+      rate. Deposition steps have no ramp.
       - SA-PLD: choose the **heating mode**. *Laser heating (PID)* takes the
         setpoint in °C and the ramp rate in °C/min, and asks for the heater
         output (%) once the setpoint is reached. *Laser heating (power)* takes

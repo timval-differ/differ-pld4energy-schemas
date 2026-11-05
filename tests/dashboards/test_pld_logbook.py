@@ -208,6 +208,7 @@ ANNEALING = {
     **HEATER_CONTROL,
     'heating_mode': 'Laser heating (power)',
     'power_setpoint': 40,
+    'power_ramp_rate': 5,
     'temperature_setpoint': 600,
     'heater_output': 40,
     'dwell_time': 30,
@@ -382,6 +383,25 @@ def test_sa_has_the_same_heater_scan():
     cartesian = sa_form(steps__1__heater_scan_type='Cartesian scan')
     errors = messages(validate(cartesian, SPEC))
     assert errors['steps.1.cartesian_width_x'] == 'Required.'
+
+
+def test_sa_deposition_without_heater_scan():
+    data = sa_form(steps__1__heater_scan_type='None')
+    for key in ('radius_start', 'radius_stop', 'pulse_spacing', 'number_of_scans'):
+        data['steps'][1].pop(key, None)
+    assert validate(data, SPEC) == []
+    step = _logbook(data)['steps'][1]
+    assert step['heater_scan_type'] == 'None'
+    assert 'heater_scan_axis' not in step
+    assert 'polar_scan' not in step
+    assert 'cartesian_scan' not in step
+    archive = EntryArchive.m_from_dict({'data': _logbook(data)})
+    assert archive.data.steps[1].heater_scan_type == 'None'
+
+
+def test_la_deposition_has_no_none_heater_scan():
+    errors = messages(validate(form(steps__1__heater_scan_type='None'), SPEC))
+    assert errors['steps.1.heater_scan_type'] == 'Choose one of the options.'
 
 
 def test_target_stage_has_z_widths_and_speeds():
@@ -611,6 +631,22 @@ def test_ramp_rate_only_when_the_ramp_is_on():
     assert errors['steps.0.ramp_rate'] == 'Required.'
     off = form(steps__0__ramp_rate=None, steps__0__ramp_on=False)
     assert 'steps.0.ramp_rate' not in messages(validate(off, SPEC))
+
+
+def test_annealing_and_cool_down_have_a_ramp_rate_without_switch():
+    variants = _sections()['steps']['variants']
+    for key in ('annealing', 'cool_down'):
+        keys = [f['key'] for f in variants[key]['fields']]
+        assert 'ramp_rate' in keys
+        assert 'power_ramp_rate' in keys
+        assert 'ramp_on' not in keys
+    assert 'ramp_on' in [f['key'] for f in variants['heating']['fields']]
+    data = annealing_form()
+    data['steps'] = [{**ANNEALING, 'power_ramp_rate': None}]
+    errors = messages(validate(data, SPEC))
+    assert errors['steps.0.power_ramp_rate'] == 'Required.'
+    annealing = _logbook(annealing_form())['steps'][0]
+    assert annealing['power_ramp_rate'] == pytest.approx(5)
 
 
 def test_switches_are_recorded():
@@ -911,6 +947,18 @@ def test_sample_archive():
     ]
     logbook = files[-1]['archive']['data']
     assert logbook['samples'][0]['sample_uuid'] == sample['sample_uuid']
+
+
+def test_substrate_batch_number_is_optional():
+    assert validate(FORM, SPEC) == []
+    assert 'substrate_batch_number' not in _files()['files'][0]['archive']['data']
+    data = form(samples__0__substrate_batch_number='B-2026-17')
+    files = _files(data)['files']
+    assert files[0]['archive']['data']['substrate_batch_number'] == 'B-2026-17'
+    logbook = files[-1]['archive']['data']
+    assert logbook['samples'][0]['substrate_batch_number'] == 'B-2026-17'
+    loaded = archive_to_form(logbook, SPEC)
+    assert loaded['samples'][0]['substrate_batch_number'] == 'B-2026-17'
 
 
 def test_saved_samples_are_updated_but_existing_never():

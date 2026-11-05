@@ -134,6 +134,12 @@ def sample_section() -> dict:
                 ],
             ),
             field(
+                'substrate_batch_number',
+                'Substrate batch number',
+                required=False,
+                visible_if=origin_is(*MADE_HERE),
+            ),
+            field(
                 'sample_id',
                 'Sample ID',
                 'computed',
@@ -243,6 +249,7 @@ def _sample_file(entry: dict, item: dict, system: str, start_text: str) -> dict:
         'substrate',
         'substrate_details',
         'substrate_material',
+        'substrate_batch_number',
     ):
         if entry.get(key) is not None:
             data[key] = entry[key]

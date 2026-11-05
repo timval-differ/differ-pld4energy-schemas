@@ -254,6 +254,11 @@ class _SampleDetails(ArchiveSection):
         type=str,
         description='Read-only: taken from the substrate.',
     )
+    substrate_batch_number = Quantity(
+        type=str,
+        description='Batch number of the substrate, as given by the supplier.',
+        a_eln=ELNAnnotation(component=ELNComponentEnum.StringEditQuantity),
+    )
     layers = SubSection(section_def=Layer, repeats=True)
 
     def _copy_substrate_and_films(self) -> None:
@@ -357,6 +362,7 @@ class SampleInRun(_SampleDetails, CompositeSystemReference):
             substrate_details=self.substrate_details,
             substrate_material=self.substrate_material,
             substrate_size=self.substrate_size,
+            substrate_batch_number=self.substrate_batch_number,
         )
         # The Sample entry has the whole stack: the films it came with first.
         for layer in [*(self.prior_layers or []), *(self.layers or [])]:

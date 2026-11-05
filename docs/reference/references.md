@@ -72,6 +72,7 @@ in `reference`.
 | `substrate_details` | text | | Substrate of an external sample that is not in the database. |
 | `substrate_material` | text | | **Generated**: copied from the substrate (or the substrate details). |
 | `substrate_size` | text | | **Generated**: copied from the substrate. |
+| `substrate_batch_number` | text | | Optional: batch number of the substrate, as given by the supplier. Copied to the Sample entry. |
 | `layers` | sub-section, repeats | | [Layer](#layer): the films grown **in this run**. The dashboard fills them in from the deposition steps. |
 | `prior_layers` | sub-section, repeats | | [Layer](#layer): films an external sample already had, from the substrate up. They come first in the name and in the Sample entry. |
 | `name` | text | | Generated from the substrate and layers if empty: `Substrate_Film-<t>nm_Film-<t>nm`. |
@@ -188,7 +189,8 @@ Shared by all systems (also the SPS).
 
 The PLD heating and cool-down steps add `ramp_on` (yes/no) and the
 [temperature control](#temperature-control) fields; the SA-PLD ones also
-`power_ramp_rate` (%/min), the ramp rate in power mode.
+`power_ramp_rate` (%/min), the ramp rate in power mode. The dashboard only
+asks for `ramp_on` in heating steps; a cool-down step always has a ramp rate.
 
 ### Temperature control
 
@@ -212,6 +214,8 @@ the *Temperature control* panel of the system software.
 | Field | Type | Unit | Notes |
 | --- | --- | --- | --- |
 | `temperature_setpoint` | number | °C | |
+| `ramp_rate` | number | K/min (= °C/min) | |
+| `power_ramp_rate` | number | %/min | SA-PLD only: the ramp rate in power mode. |
 | `heater_output` | number | % | Heater output once the setpoint is reached. |
 | `dwell_time` | number | min | Time at the setpoint. |
 
@@ -226,8 +230,8 @@ All fields of the pre-ablation step, plus:
 | `film_thickness_pulses` | integer | | The thickness as a number of laser pulses; the sample name shows it as `<n>p`. |
 | `samples` | references to Sample | | The samples deposited on: all samples of the run (SA-PLD) or the chosen one (LA-PLD). |
 | `heater_stage_position` | sub-section | | [HeaterStagePosition](#heaterstageposition) |
-| `heater_scan_type` | choice | | `Polar scan` (default), `Cartesian scan`. The matching sub-section is added on save. |
-| `heater_scan_axis` | choice | | `X`. |
+| `heater_scan_type` | choice | | `Polar scan` (default), `Cartesian scan`, or `None` (SA-PLD only: no heater scan). The matching sub-section is added on save; none for `None`. |
+| `heater_scan_axis` | choice | | `X`. Not asked for without a heater scan. |
 | `heater_size` | choice | | `25mm / 1"` (default), `50mm / 2"`, `75mm / 3"`, `100mm / 4"`, `125mm`, `150mm`, `30x30mm`, `75x25mm / 3x1"`. |
 | `polar_scan` | sub-section | | [PolarHeaterScan](#polarheaterscan) |
 | `cartesian_scan` | sub-section | | [CartesianHeaterScan](#cartesianheaterscan) |
@@ -449,6 +453,7 @@ substrate and the films.
 | `substrate_details` | text | | |
 | `substrate_material` | text | | **Generated** from the substrate. |
 | `substrate_size` | text | | **Generated** from the substrate. |
+| `substrate_batch_number` | text | | Optional: batch number of the substrate. |
 | `layers` | sub-section, repeats | | [Layer](#layer): the whole stack, films it came with first. |
 | `sample_uuid` | text | | **Generated** once. |
 

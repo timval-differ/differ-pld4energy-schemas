@@ -88,6 +88,27 @@ def gas_fields():
     return fields
 
 
+def time_fields():
+    """
+    Start and end of a step, to find it in the system logs. Saved as date and
+    time by the converter, see `values.step_times`.
+    """
+    help_text = 'As in the system log; after midnight the next day is taken.'
+    return [
+        field(
+            key,
+            label,
+            'time',
+            archive=None,
+            prefill=False,
+            help=help_text,
+            group='Time',
+            row_start=key == 'start_time',
+        )
+        for key, label in (('start_time', 'Start time'), ('end_time', 'End time'))
+    ]
+
+
 def temperature(key, label, **kwargs):
     return number(key, label, 'degC', unit_label='°C', **kwargs)
 

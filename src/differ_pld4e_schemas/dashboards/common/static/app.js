@@ -460,7 +460,8 @@ function prefill(listSection, variantKey, list) {
   const keys = new Set(listSection.variants[variant.prefill_from].fields.map((f) => f.key));
   const values = {};
   for (const field of variant.fields) {
-    if (field.key === 'comments' || !keys.has(field.key) || isEmpty(source[field.key])) continue;
+    if (field.key === 'comments' || field.prefill === false || !keys.has(field.key)
+        || isEmpty(source[field.key])) continue;
     values[field.key] = source[field.key];
   }
   return values;

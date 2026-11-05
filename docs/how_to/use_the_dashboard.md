@@ -94,6 +94,10 @@ leave a section with **Next**, or straight away for fields you have edited.
    step can be moved up or down, removed, and folded away with a click on its
    title. A run without deposition (e.g. only annealing or only
    characterisation) is fine.
+    - **Time:** the start and end time (hh:mm) of each step, as in the system
+      log, so the pressure, temperature, ... of the step can be found in the
+      logs later. The date is that of the run; a time after midnight is taken
+      as the next day. A prefilled step or a recipe does not copy the times.
     - **Background gases:** choose *UHV* to record only the chamber pressure, or
       *Background gas* and tick each gas to fill in its set and read-out flow.
       All gases share one valve, so its position (0 closed to 1000 open) is

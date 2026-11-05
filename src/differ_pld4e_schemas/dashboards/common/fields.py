@@ -25,6 +25,7 @@ Field keys:
     reference    for a `reference`: the kind of entry (target, sample, substrate)
     ref_copy     for a `reference`: {form key: entry field} copied from the chosen
                  entry by the browser, e.g. the material of a target
+    prefill      False: not taken over by a prefilled step (e.g. its times)
     group        heading the field is shown under
     help         short explanation shown under the field
     min, max     limits of a number

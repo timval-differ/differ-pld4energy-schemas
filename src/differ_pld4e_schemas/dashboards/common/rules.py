@@ -31,6 +31,7 @@ from .values import (
     options,
     parse_date,
     parse_time,
+    step_times,
     to_number,
     visible_fields,
 )
@@ -138,6 +139,18 @@ def _field_error(field: dict, value, local: dict, root: dict) -> str | None:
         is_valid, message = checks[kind]
         return None if is_valid() else message
     return None
+
+
+def _validate_step_times(root: dict) -> list[dict]:
+    steps = root.get('steps') or []
+    return [
+        {
+            'path': f'steps.{index}.end_time',
+            'message': 'The end time is before the start time.',
+        }
+        for index, (start, end) in enumerate(step_times(root.get('run') or {}, steps))
+        if start and end and end < start
+    ]
 
 
 def _validate_fields(fields, local, path, root, required=True) -> list[dict]:
@@ -293,6 +306,7 @@ class LogbookRules:
                 )
             if section['kind'] == 'list':
                 self._validate_unique(section, items, data, errors)
+        errors += _validate_step_times(data)
         return errors
 
     @staticmethod

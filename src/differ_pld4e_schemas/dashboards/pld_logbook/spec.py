@@ -65,6 +65,7 @@ from ..common.steps import (
     heater_output,
     pressure,
     temperature,
+    time_fields,
 )
 from .rules import ALL_SAMPLES, FILM_STEPS
 
@@ -350,7 +351,7 @@ def variant(label, sections, fields, laser='none', laser_keys=(), **kwargs):
     return {
         'label': label,
         'sections': sections,
-        'fields': fields,
+        'fields': [*time_fields(), *fields],
         'laser': laser,
         **kwargs,
     }

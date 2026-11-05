@@ -58,6 +58,8 @@ DC_PLASMA = {
 PRE_SPUTTERING = {
     'uid': 'step1',
     'type': 'pre_sputtering',
+    'start_time': '09:20',
+    'end_time': '09:30',
     'target': TA,
     **ARGON,
     'pressure': 5e-3,
@@ -68,6 +70,8 @@ PRE_SPUTTERING = {
 SPUTTERING = {
     'uid': 'step2',
     'type': 'sputtering',
+    'start_time': '10:00',
+    'end_time': '10:30',
     'x': 0,
     'y': 0,
     'z': 100,
@@ -124,6 +128,8 @@ FORM = {
         {
             'uid': 'heat',
             'type': 'heating',
+            'start_time': '09:30',
+            'end_time': '10:00',
             **ARGON,
             'ramp_rate': 10,
             'temperature_setpoint': 300,

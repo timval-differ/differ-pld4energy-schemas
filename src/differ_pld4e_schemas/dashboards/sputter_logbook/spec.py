@@ -31,7 +31,13 @@ from differ_pld4e_schemas.target import SputterTarget
 
 from ..common.fields import comments, field, number
 from ..common.samples import sample_section
-from ..common.steps import gas_fields, heater_output, pressure, ramp_fields
+from ..common.steps import (
+    gas_fields,
+    heater_output,
+    pressure,
+    ramp_fields,
+    time_fields,
+)
 from .rules import ALL_SAMPLES, FILM_STEPS
 
 DRAFT_DIR = 'sps_drafts'
@@ -125,7 +131,7 @@ def variant(label, sections, fields, target='none', **kwargs):
     return {
         'label': label,
         'sections': sections,
-        'fields': fields,
+        'fields': [*time_fields(), *fields],
         'target': target,
         **kwargs,
     }

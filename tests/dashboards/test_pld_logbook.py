@@ -102,6 +102,8 @@ HEATER_CONTROL = {
 DEPOSITION = {
     'uid': 'step2',
     'type': 'deposition',
+    'start_time': '10:10',
+    'end_time': '10:40',
     'sample': 'new:sub1',
     'target': TARGET,
     'film_thickness_unit': 'nm',
@@ -165,6 +167,8 @@ FORM = {
         {
             'uid': 'step1',
             'type': 'heating',
+            'start_time': '09:20',
+            'end_time': '10:05',
             **HEATER_CONTROL,
             'ramp_on': True,
             'ramp_rate': 10,
@@ -197,6 +201,8 @@ FORM = {
 ANNEALING = {
     'uid': 'anneal',
     'type': 'annealing',
+    'start_time': '09:30',
+    'end_time': '10:00',
     'atmosphere': 'UHV',
     **HEATER_CONTROL,
     'heating_mode': 'Laser heating (power)',
@@ -507,7 +513,15 @@ def test_optional_laser_step():
     )
     sections = {s['key']: s for s in spec['sections']}
     data = annealing_form()
-    data['steps'] = [{'uid': 'l1', 'type': 'laser_anneal', 'pressure': 1}]
+    data['steps'] = [
+        {
+            'uid': 'l1',
+            'type': 'laser_anneal',
+            'start_time': '09:30',
+            'end_time': '09:40',
+            'pressure': 1,
+        }
+    ]
     assert section_requirement(sections['laser'], spec, data) == 'optional'
     assert validate(data, spec) == []
     data['steps'][0]['laser_used'] = True
@@ -959,11 +973,70 @@ def test_round_trip():
     assert validate(loaded, SPEC) == []
 
 
-def test_recipe_drops_samples():
+def test_recipe_drops_samples_and_times():
     recipe = recipe_to_form(_logbook(), SPEC)
     assert recipe['system'] == 'LA-PLD'
     assert [s['type'] for s in recipe['steps']] == ['heating', 'deposition']
     assert 'sample' not in recipe['steps'][1]
+    for step in recipe['steps']:
+        assert 'start_time' not in step
+        assert 'end_time' not in step
+
+
+def test_step_times_are_required():
+    errors = messages(validate(form(steps__1__start_time=None), SPEC))
+    assert errors['steps.1.start_time'] == 'Required.'
+    errors = messages(validate(form(steps__1__end_time='25:00'), SPEC))
+    assert errors['steps.1.end_time'] == 'Enter a time (hh:mm).'
+
+
+def test_step_times_are_saved_with_the_run_date_and_offset():
+    heating, deposition = _logbook()['steps']
+    assert heating['start_time'] == '2026-10-22T09:20:00+02:00'
+    assert heating['end_time'] == '2026-10-22T10:05:00+02:00'
+    assert heating['duration'] == pytest.approx(45 * 60)
+    assert deposition['start_time'] == '2026-10-22T10:10:00+02:00'
+
+
+def test_step_times_move_on_to_the_next_day_after_midnight():
+    data = form(
+        steps__0__start_time='23:30',
+        steps__0__end_time='23:55',
+        steps__1__start_time='00:05',
+        steps__1__end_time='00:35',
+    )
+    assert validate(data, SPEC) == []
+    heating, deposition = _logbook(data)['steps']
+    assert heating['end_time'] == '2026-10-22T23:55:00+02:00'
+    assert deposition['start_time'] == '2026-10-23T00:05:00+02:00'
+    assert deposition['duration'] == pytest.approx(30 * 60)
+
+
+def test_step_starting_just_before_the_run_start_stays_on_the_run_date():
+    data = form(steps__0__start_time='09:10')
+    assert validate(data, SPEC) == []
+    assert _logbook(data)['steps'][0]['start_time'] == '2026-10-22T09:10:00+02:00'
+
+
+def test_end_before_start_is_reported():
+    errors = messages(validate(form(steps__1__end_time='10:00'), SPEC))
+    assert errors['steps.1.end_time'] == 'The end time is before the start time.'
+
+
+def test_step_times_read_back_in_the_run_time_zone():
+    logbook = _logbook()
+    # NOMAD may give the times back in UTC.
+    logbook['steps'][0]['start_time'] = '2026-10-22T07:20:00+00:00'
+    step = archive_to_form(logbook, SPEC)['steps'][0]
+    assert step['start_time'] == '09:20'
+    assert step['end_time'] == '10:05'
+
+
+def test_step_times_are_not_prefilled():
+    variants = _sections()['steps']['variants']
+    for key in ('start_time', 'end_time'):
+        field = next(f for f in variants['deposition']['fields'] if f['key'] == key)
+        assert field['prefill'] is False
 
 
 def test_non_logbook_archive_is_rejected():

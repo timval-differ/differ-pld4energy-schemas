@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import math
 import re
-from datetime import date, time
+from datetime import date, datetime, time, timedelta, timezone
 
 
 def lookup(key: str, local: dict, root: dict):
@@ -101,6 +101,48 @@ def parse_time(value):
         return time.fromisoformat(value)
     except ValueError:
         return None
+
+
+def run_timezone(run: dict) -> timezone:
+    offset = run.get('utc_offset')
+    match = isinstance(offset, str) and re.fullmatch(r'([+-])(\d{2}):(\d{2})', offset)
+    if not match:
+        return timezone.utc
+    sign = -1 if match[1] == '-' else 1
+    return timezone(sign * timedelta(hours=int(match[2]), minutes=int(match[3])))
+
+
+# A step time this much before the previous time is on the next day.
+NEXT_DAY_AFTER = timedelta(hours=12)
+
+
+def step_times(run: dict, steps: list) -> list[tuple]:
+    """
+    (start, end) datetimes of each step, None where not given. A step only has
+    hh:mm times: the day is that of the run start, and moves on to the next day
+    when a time is far (12 h) before the time before it, e.g. 00:10 after 23:30.
+    A time a bit earlier stays on the same day, so an end before its start can
+    be reported.
+    """
+    day, clock = parse_date(run.get('date')), parse_time(run.get('time'))
+    if day is None or clock is None:
+        return [(None, None) for _ in steps]
+    previous = datetime.combine(day, clock, run_timezone(run))
+    times = []
+    for step in steps:
+        pair = []
+        for key in ('start_time', 'end_time'):
+            clock = parse_time(step.get(key))
+            if clock is None:
+                pair.append(None)
+                continue
+            moment = datetime.combine(previous.date(), clock, previous.tzinfo)
+            if previous - moment > NEXT_DAY_AFTER:
+                moment += timedelta(days=1)
+            pair.append(moment)
+            previous = moment
+        times.append(tuple(pair))
+    return times
 
 
 def is_empty(value) -> bool:

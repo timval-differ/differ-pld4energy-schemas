@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import re
 import uuid
+from datetime import datetime
 
 from differ_pld4e_schemas.gas import BACKGROUND_GAS, GASES, BackgroundGas
 
@@ -26,7 +27,7 @@ from .archive import (
 )
 from .rules import section_requirement
 from .samples import samples_to_archive, samples_to_form
-from .values import is_empty, to_number, visible_fields
+from .values import is_empty, step_times, to_number, visible_fields
 
 DRAFT_SUFFIX = '.draft.json'
 
@@ -49,6 +50,26 @@ def run_datetime(run: dict) -> str:
     if not isinstance(offset, str) or not re.fullmatch(r'[+-]\d{2}:\d{2}', offset):
         offset = '+00:00'
     return f'{run["date"]}T{run["time"]}:00{offset}'
+
+
+def parse_datetime(value) -> datetime | None:
+    try:
+        return datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+    except ValueError:
+        return None
+
+
+def step_clock_times(step: dict, zone) -> dict:
+    """The hh:mm start and end of an archived step, in the run's time zone."""
+    form = {}
+    for key in ('start_time', 'end_time'):
+        moment = parse_datetime(step.get(key)) if step.get(key) else None
+        if moment is None:
+            continue
+        if zone is not None and moment.tzinfo is not None:
+            moment = moment.astimezone(zone)
+        form[key] = moment.strftime('%H:%M')
+    return form
 
 
 def new_uid() -> str:
@@ -179,11 +200,19 @@ class LogbookConverter:
     def steps_to_archive(self, data: dict, spec: dict, system: str, references):
         steps = []
         variants = sections_of(spec)['steps']['variants']
-        for item in data.get('steps') or []:
+        items = data.get('steps') or []
+        times = step_times(data.get('run') or {}, items)
+        for item, (start, end) in zip(items, times):
             variant = variants[item['type']]
             step_cls = self.step_class(variant, system)
             step = {'m_def': step_cls.m_def.qualified_name()}
             fill(step, step_cls, variant['fields'], item, data)
+            if start:
+                step['start_time'] = start.isoformat()
+            if end:
+                step['end_time'] = end.isoformat()
+            if start and end:
+                step['duration'] = (end - start).total_seconds()
             if 'samples' in step_cls.m_def.all_quantities:
                 samples = self.step_samples(item, system, references)
                 if samples:
@@ -274,6 +303,8 @@ class LogbookConverter:
         """
         steps = []
         variants = sections_of(spec)['steps']['variants']
+        zone = parse_datetime(data.get('datetime'))
+        zone = zone.tzinfo if zone else None
         for index, item in enumerate(data.get('steps') or []):
             variant_key = self.variant_of(variants, item.get('m_def'), system)
             if variant_key is None:
@@ -283,6 +314,7 @@ class LogbookConverter:
             form_item.update(
                 gases_to_form(variant['fields'], item.get('background_gases'))
             )
+            form_item.update(step_clock_times(item, zone))
             form_item.update(uid=new_uid(), type=variant_key, archive_index=index)
             step_samples = item.get('samples') or []
             if system not in self.rules.all_samples and step_samples:
@@ -348,6 +380,9 @@ class LogbookConverter:
         form = self.archive_to_form(data, spec)
         for step in form['steps']:
             step.pop('sample', None)
+            # A recipe is run again at another time.
+            step.pop('start_time', None)
+            step.pop('end_time', None)
         return {
             'system': form['run']['system'],
             'targets': form['targets'],

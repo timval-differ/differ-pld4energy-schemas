@@ -41,6 +41,11 @@ class ProcessStep(ArchiveSection):
         type=Datetime,
         a_eln=ELNAnnotation(component=ELNComponentEnum.DateTimeEditQuantity),
     )
+    end_time = Quantity(
+        type=Datetime,
+        description='Together with `start_time`, finds the step in the system logs.',
+        a_eln=ELNAnnotation(component=ELNComponentEnum.DateTimeEditQuantity),
+    )
     description = Quantity(
         type=str,
         a_eln=ELNAnnotation(component=ELNComponentEnum.RichTextEditQuantity),

@@ -42,7 +42,7 @@ again and **applied recipe** shows the name of the recipe that was used.
 
 | Part of the recipe | Copied? | Notes |
 | --- | --- | --- |
-| Process steps | yes | All steps, in order, with all their sub-sections (gases, laser, target stage, heater stage position, scans). |
+| Process steps | yes | All steps, in order, with all their sub-sections (gases, laser, target stage, heater stage position, scans). Not their start and end times. |
 | Samples of the deposition steps | **no** | Replaced by the sample chosen in **load recipe**, or all samples of this logbook. The recipe's own samples are never copied, so the new run cannot accidentally be recorded on the old samples. |
 | Target of each step | yes | Steps keep pointing to the same PLD Target entries as in the recipe. |
 | Target details | only if empty | If this logbook has no targets yet, the recipe's targets (including their target numbers) are copied. If you already selected targets, they are kept as they are. |

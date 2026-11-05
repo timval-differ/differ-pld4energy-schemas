@@ -676,7 +676,7 @@ async function loadReferences() {
         name: data.name || data.material || metadata.entry_name || `${file} (no material entered)`,
         material: data.material || null,
         retired: data.in_stock === false,
-        info: [data.target_id && `ID ${data.target_id}`, data.material,
+        info: [data.lab_id && `ID ${data.lab_id}`, data.material,
           data.diameter && `${Number((data.diameter / INCH).toPrecision(3))}"`,
           data.shape === 'Rectangular' && data.length && data.width && `${formatNumber(data.length * 1000)} x ${formatNumber(data.width * 1000)} mm`,
           data.manufacturer, data.purchase_date && String(data.purchase_date).slice(0, 10),
@@ -1647,9 +1647,12 @@ function newSubstrateDialog() {
     kind: 'substrate',
     noun: 'substrate',
     intro: 'Creates a Substrate type entry: a kind of substrate that samples are made on, '
-      + 'e.g. SrTiO3 10x10 mm. Its material is used in the sample names.',
+      + 'e.g. SrTiO3 10x10 mm. Its material is used in the sample names; NOMAD finds '
+      + 'the samples by the elements of its chemical formula.',
     fields: [
       {key: 'material', label: 'Material', required: true, placeholder: 'e.g. SrTiO3'},
+      {key: 'chemical_formula', label: 'Chemical formula', required: true,
+        placeholder: 'e.g. SrTiO3 or Si, not a lab name'},
       {key: 'size', label: 'Size', placeholder: 'e.g. 10x10 mm or 1" with flat'},
       {key: 'name', label: 'Name (optional, defaults to material and size)'},
       {key: 'supplier', label: 'Supplier'},

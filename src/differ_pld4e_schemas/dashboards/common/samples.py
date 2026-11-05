@@ -333,7 +333,11 @@ def samples_to_archive(
         else:
             reference = choice = item.get('sample')
         if reference:
-            entry['sample'] = reference
+            # The native link of a run to its samples; its lab ID is the
+            # sample ID, as on the Sample entry.
+            entry['reference'] = reference
+            if entry.get('sample_id'):
+                entry['lab_id'] = entry['sample_id']
             references[choice] = reference
         samples.append(entry)
     return samples, files, references
@@ -354,9 +358,9 @@ def samples_to_form(data: dict, fields: list, new_uid):
             item['substrate'] = normalize_reference(entry['substrate'])
             item['substrate_material'] = entry.get('substrate_material')
         item.setdefault('origin', NEW_SAMPLE)
-        reference = normalize_reference(entry.get('sample'))
+        reference = normalize_reference(entry.get('reference'))
         if item['origin'] in MADE_HERE:
-            item['ref'] = entry.get('sample')
+            item['ref'] = entry.get('reference')
             choice = f'new:{item["uid"]}'
         else:
             item['sample'] = reference

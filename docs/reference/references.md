@@ -10,18 +10,23 @@ The `m_def` to use in archive files is
 `differ_pld4e_schemas.schema_packages.schema_package.<Section>`, e.g.
 `differ_pld4e_schemas.schema_packages.schema_package.SAPLDLogbook`.
 
+Every entry type extends a native NOMAD section (core `basesections` or
+`nomad-material-processing`, abbreviated *nmp*), so it has the native fields as
+well, e.g. `name`, `datetime`, `lab_id` and `description`, and NOMAD's search
+finds it (see [Explanation › Search](../explanation/explanation.md#search)).
+
 ## Entry types
 
-| Entry type | Section | Module |
-| --- | --- | --- |
-| SA-PLD Logbook | `SAPLDLogbook` | `pld_deposition.py` |
-| LA-PLD Logbook | `LAPLDLogbook` | `pld_deposition.py` |
-| SPS Logbook | `SPSLogbook` | `sps_deposition.py` |
-| PLD Target | `PLDTarget` | `target.py` |
-| Sputter Target | `SputterTarget` | `target.py` |
-| Sample | `Sample` | `sample.py` |
-| Substrate type | `SubstrateType` | `sample.py` |
-| PLD In-situ Techniques | `InSituTechniquesEntry` | `in_situ.py` |
+| Entry type | Section | Native parent | Module |
+| --- | --- | --- | --- |
+| SA-PLD Logbook | `SAPLDLogbook` | nmp `PulsedLaserDeposition` | `pld_deposition.py` |
+| LA-PLD Logbook | `LAPLDLogbook` | nmp `PulsedLaserDeposition` | `pld_deposition.py` |
+| SPS Logbook | `SPSLogbook` | nmp `SputterDeposition` | `sps_deposition.py` |
+| PLD Target | `PLDTarget` | nmp `PLDTarget` (a `CompositeSystem`) | `target.py` |
+| Sputter Target | `SputterTarget` | `CompositeSystem` | `target.py` |
+| Sample | `Sample` | `CompositeSystem` | `sample.py` |
+| Substrate type | `SubstrateType` | nmp `CrystallineSubstrate` | `sample.py` |
+| PLD In-situ Techniques | `InSituTechniquesEntry` | `Measurement` | `in_situ.py` |
 
 ## Logbooks
 
@@ -29,8 +34,9 @@ The `m_def` to use in archive files is
 
 | Field | Type | Unit | Notes |
 | --- | --- | --- | --- |
-| `name` | text | | Optional name of the run. |
+| `name` | text | | Optional name of the run. Set to `<system> <yyyy-mm-dd hh:mm>` if empty. |
 | `datetime` | date/time | | Start of the run; its date and time make up the sample IDs. Set to the first save if empty. |
+| `method` | text | | Native: `Pulsed Laser Deposition`, searchable as the method. |
 | `operator_name` | text | | Who carried out the run. |
 | `operator_email` | text | | |
 | `lab_id` | text | | Optional lab ID. |
@@ -49,15 +55,15 @@ The `m_def` to use in archive files is
 | `load_recipe` | [RecipeLoader](#recipeloader-load-recipe) | no |
 | `steps` | SA-PLD: `SAPLDStep` types; LA-PLD: `LAPLDStep` types, see [Process steps](#process-steps) | yes |
 | `in_situ_measurements` | [InSituTechniques](#insitutechniques) | yes |
-| `in_situ_techniques` | [InSituTechniques](#insitutechniques) | no; logbooks saved before measurements had a sample and steps |
 
 The laser details and targets are only needed when a step uses the laser
 (pre-ablation, deposition); the dashboard leaves them out otherwise.
 
 ### SampleInRun
 
-A sample made or processed in the run. On save, a new or external sample gets
-its own [Sample](#sample) entry, linked in `sample`.
+A sample made or processed in the run; a native `CompositeSystemReference`.
+On save, a new or external sample gets its own [Sample](#sample) entry, linked
+in `reference`.
 
 | Field | Type | Unit | Notes |
 | --- | --- | --- | --- |
@@ -72,15 +78,20 @@ its own [Sample](#sample) entry, linked in `sample`.
 | `comments` | rich text | | |
 | `sample_id` | text | | **Generated** for new and external samples: `<system>_<yyyy-mm-dd>_<hh:mm>_S<nn>`; kept once set. Copied from the Sample entry for an existing sample. |
 | `sample_uuid` | text | | **Generated** once (UUID4). |
-| `sample` | reference to Sample | | The existing sample, or set on save to the created entry. |
+| `reference` | reference to Sample | | The existing sample, or set on save to the created entry. |
+| `lab_id` | text | | The sample ID, set once the Sample entry is linked. |
 
 ### Layer
+
+A film; a native `ThinFilm`.
 
 | Field | Type | Unit | Notes |
 | --- | --- | --- | --- |
 | `target` | reference to a target | | The target the film is grown from. |
-| `material` | text | | Taken from the target if empty. |
+| `material` | text | | Taken from the target if empty. Also the `name` of the film. |
 | `thickness` | number | nm | Intended thickness. |
+| `number_of_pulses` | integer | | The intended thickness as a number of laser pulses, when not given in nm. |
+| `elemental_composition` | sub-sections | | **Generated**: the elements of the target, without fractions. |
 
 ### LaserCalibration
 
@@ -137,12 +148,23 @@ See [Reproduce a run with a recipe](../how_to/reuse_a_recipe.md).
 | `start_time` | date/time | | Start of the step, to find it in the system logs. The dashboard asks for hh:mm and takes the date of the run (the next day after midnight). |
 | `end_time` | date/time | | End of the step, entered like `start_time`. |
 | `duration` | number | s | Filled in by the dashboard from the start and end time. |
-| `description` | rich text | | Comments. |
+| `comment` | rich text | | Comments. |
 | `pressure` | number | mbar | Chamber pressure during the step. |
 | `atmosphere` | choice | | `Background gas` (default) or `UHV`: no gases, only the pressure. |
 | `background_gases` | sub-section, repeats | | [BackgroundGas](#backgroundgas), one per gas. |
 | `valve_position` | number | | Gas valve, shared by all gases: 0 (closed) to 1000 (open). |
 | `valve_position_fixed` | yes/no | | Valve kept at a fixed position. |
+
+The steps are native vapour deposition steps (nmp `PLDStep`, for the SPS
+`PVDStep`). On save their native sub-sections are **generated** from the fields
+above, read-only:
+
+| Native field | Filled from |
+| --- | --- |
+| `environment` | `pressure` and `background_gases` (set flow; read-out flow as value). |
+| `sources` | Steps with a target: the target and, for PLD, the laser (`pulses`, `repetition_rate`, `spot_size`); for the SPS the plasma power. |
+| `sample_parameters` | The substrate temperature of a step with a target, or the temperature setpoint. |
+| `creates_new_thin_film` | Yes for deposition and sputtering steps. |
 
 ### Pre-ablation step
 
@@ -297,6 +319,7 @@ The valve position is recorded on the step, see
 | Field | Type | Unit | Notes |
 | --- | --- | --- | --- |
 | `name`, `datetime`, `operator_name`, `operator_email`, `lab_id` | | | As in the PLD logbooks. |
+| `method` | text | | Native: `Sputter Deposition`. |
 | `description` | rich text | | General comments. |
 | `pvd_system` | text | | **Generated**: `SPS`. |
 | `samples` | sub-section, repeats | | [SampleInRun](#sampleinrun), as in the PLD logbooks. Sample IDs start with `SPS_`. |
@@ -358,14 +381,17 @@ The pre-sputtering and sputtering steps have:
 
 ### PLD Target
 
-Extends the `Target` section. PLD targets are added by super-users in the NOMAD
-entry editor; the PLD logbook dashboard only lets you choose them.
+Extends the `Target` section (a native `CompositeSystem`) and nmp `PLDTarget`.
+PLD targets are added by super-users in the NOMAD entry editor; the PLD logbook
+dashboard only lets you choose them.
 
 | Field | Type | Unit | Notes |
 | --- | --- | --- | --- |
 | `name` | text | | Entry name. Defaults to the material. Do not include the target number. |
-| `material` | text | | |
-| `target_id` | text | | ID engraved on the back of the target. |
+| `material` | text | | As named in the lab, e.g. `8YSZ`; used in sample names. |
+| `chemical_formula` | text | | Required for search, e.g. `SrTiO3` or `(Y2O3)0.08(ZrO2)0.92` for 8YSZ. Not a lab name: an error on save if it names unknown elements. |
+| `lab_id` | text | | Shown as *Target ID*: the ID engraved on the back of the target. |
+| `elemental_composition` | sub-sections | | **Generated** from the chemical formula, with atomic and mass fractions. Hidden in the editor. |
 | `shape` | choice | | `Circular` (default) or `Rectangular`. |
 | `radius` | number | mm | Circular targets. Warning on save if missing. |
 | `length` | number | mm | Rectangular targets. Warning on save if missing. |
@@ -382,27 +408,32 @@ entry editor; the PLD logbook dashboard only lets you choose them.
 ### Sputter Target
 
 The sputter target database, separate from the PLD targets. Same fields as the
-`Target` section (`name`, `material`, `manufacturer`, `purchase_date`, `diameter`,
-`thickness`, `purity`, `in_stock`); enter the `diameter` (shown in inch), which
-decides the positions the target fits.
+`Target` section (`name`, `material`, `chemical_formula`, `manufacturer`,
+`purchase_date`, `diameter`, `thickness`, `purity`, `in_stock`); enter the
+`diameter` (shown in inch), which decides the positions the target fits.
 
 ### Substrate type
 
-A kind of substrate in the substrate database. Not specific to PLD.
+A kind of substrate in the substrate database. Not specific to PLD. Extends
+nmp `CrystallineSubstrate`, so the native crystal and electronic properties can
+be added too.
 
 | Field | Type | Unit | Notes |
 | --- | --- | --- | --- |
 | `name` | text | | Entry name. Defaults to the material and size. |
 | `material` | text | | e.g. `SrTiO3`; used in sample names. |
+| `chemical_formula` | text | | Required for search, e.g. `SrTiO3` or `Si`; as for the PLD Target. |
 | `size` | text | | e.g. `10x10 mm` or `1" with flat`. |
-| `supplier` | text | | |
+| `supplier`, `supplier_id`, `lab_id` | text | | Native. |
 | `in_stock` | yes/no | | Default yes. When no, the dashboard no longer offers it; logbooks that used it keep it. |
 | `description` | rich text | | |
 
 ### Sample
 
 A sample: a substrate with the films grown on it. Not specific to PLD: `system`
-records where it was made. Extends NOMAD's `CompositeSystem`.
+records where it was made. Extends NOMAD's `CompositeSystem`: its **generated**
+`components` hold the substrate type, and its elements are those of the
+substrate and the films.
 
 | Field | Type | Unit | Notes |
 | --- | --- | --- | --- |
@@ -427,9 +458,12 @@ One measurement: used as `in_situ_measurements` in a logbook (one per
 measurement), and as the stand-alone entry **PLD In-situ Techniques**
 (`InSituTechniquesEntry`).
 
+A native `Measurement`; its `method` is `In-situ diagnostics`, and the
+techniques used (e.g. `RHEED`) are added to the entry's searchable methods.
+
 | Field | Type | Notes |
 | --- | --- | --- |
-| `sample` | reference to Sample | The measured sample. Required in the dashboard. |
+| `samples` | sub-section, repeats | The measured sample, as `reference` (to a Sample). One, required in the dashboard. |
 | `process_steps` | references to process steps | The steps of the logbook the measurement was taken during, e.g. `#/data/steps/2`. Required in the dashboard. |
 | `process` | reference to a logbook | Optional. |
 

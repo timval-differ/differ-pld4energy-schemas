@@ -19,7 +19,7 @@ parts of the form became reusable sections:
 | Laser details in the system details | `LaserCalibration` (`laser_details`) |
 | Fields shown only for a choice (scan yes/no, polar/cartesian) | Optional sub-sections, added on save for the chosen option |
 | "Number of targets/samples" counters | Repeating sub-sections: add as many as you need |
-| In-situ techniques inside the deposition step | A separate `in_situ_techniques` section and a stand-alone entry type |
+| In-situ techniques inside the deposition step | Separate `in_situ_measurements` and a stand-alone entry type |
 
 NOMAD forms cannot show or hide a field depending on another field. Conditional
 fields are therefore optional sub-sections. The section for the chosen option is
@@ -32,7 +32,7 @@ SA-PLD / LA-PLD Logbook (entry)
 ├── samples[]
 │   ├── substrate ──────────► Substrate type (entry)
 │   ├── layers[] ── target ─► PLD Target (entry)
-│   └── sample ─────────────► Sample (entry; new and external samples: created on save)
+│   └── reference ──────────► Sample (entry; new and external samples: created on save)
 │                               ├── substrate ──► Substrate type
 │                               └── layers[] ── target ──► PLD Target
 ├── laser_details
@@ -161,6 +161,9 @@ and typing them by hand would let them disagree with their source.
 | Material, manufacturer, purchase date | targets in the logbook | Copied from the PLD Target entry, for checking your selection. | Correct the PLD Target entry. |
 | Target number | pre-ablation and deposition steps | Copied from the target details, so the steps always show the number the target has in this run. | Change it in the target details. |
 | Data status | in-situ techniques | Whether a data file has been added. | Add a data file. |
+| Elemental composition | targets, substrate types | Follows from the chemical formula. | Correct the chemical formula. |
+| Elements of a film or sample | samples, films | Those of the targets and the substrate type. | Correct the formula on the target or substrate type. |
+| `sources`, `environment`, `sample_parameters` | process steps | The native NOMAD view of what was entered (see [Search](#search)). | Change the step's own fields. |
 | Applied recipe | load recipe | A record of what was applied. | Apply a recipe. |
 | Energy, intensity | LA-EDS | Calculated from / read from the spectrum. | Change E0 or the energy per channel. |
 
@@ -170,6 +173,45 @@ the sample.
 !!! note
     The 1st window transmission is calculated but **not** read-only: you can
     override it, see [below](#laser-calibration).
+
+## Search
+
+NOMAD's search (*Explore*) only knows what is stored in its own, native
+sections. A material typed as text, e.g. `material: SrTiO3`, is a string to
+NOMAD: it cannot be searched by element or formula. Every entry type of the
+plugin therefore extends a native NOMAD section, and the plugin fills the
+native parts from what is entered:
+
+| Entry | Native section | Searchable as |
+| --- | --- | --- |
+| PLD / Sputter Target | `CompositeSystem` (PLD: nomad-material-processing `PLDTarget`) | elements and formula, from `chemical_formula`; the engraved ID as lab ID |
+| Substrate type | nomad-material-processing `CrystallineSubstrate` | elements and formula, from `chemical_formula` |
+| Sample | `CompositeSystem` | elements of the substrate and of the films (from their targets); the sample ID as lab ID |
+| SA-PLD / LA-PLD logbook | nomad-material-processing `PulsedLaserDeposition` | method *Pulsed Laser Deposition*; elements of the films grown |
+| SPS logbook | nomad-material-processing `SputterDeposition` | method *Sputter Deposition*; elements of the films grown |
+| In-situ measurement | `Measurement` | methods *In-situ diagnostics* and the techniques used (e.g. *RHEED*) |
+
+**Chemical formula.** Lab names are not formulas: NOMAD reads `8YSZ` as yttrium,
+sulfur and an unknown element, and `STO` as sulfur and oxygen. Targets and
+substrate types therefore have a `chemical_formula` next to the material name,
+e.g. `(Y2O3)0.08(ZrO2)0.92` for 8YSZ; the name stays what the lab calls it and
+is used in sample names. A formula with unknown element symbols is rejected
+with an error on save, and the entry then has no elements. A wrong formula made
+of real element symbols cannot be detected, so check the formula when adding a
+target.
+
+**Films and samples.** A film (`Layer`, a native `ThinFilm`) takes the elements
+of its target, without fractions: a sample combines several films and a
+substrate, whose fractions would not add up. A film is part of its Sample entry
+rather than an entry of its own, so the sample's elements never depend on other
+entries being processed first. A logbook contains the films grown in the run
+under its samples, so it is found by those elements too.
+
+**Steps.** The process steps are native vapour deposition steps. Besides their
+own fields, the plugin fills in their native `environment` (pressure, gas
+flows), `sources` (the target and the laser or plasma power) and
+`sample_parameters` (substrate temperature). These are read-only copies:
+change the step's own fields.
 
 ## Laser calibration
 

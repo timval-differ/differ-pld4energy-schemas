@@ -69,7 +69,9 @@ leave a section with **Next**, or straight away for fields you have edited.
       the list.
 
     A substrate that is not in the database yet can be added with *New
-    substrate in the database*, below the samples. New and external samples get
+    substrate in the database*, below the samples; it asks for the material
+    name and its chemical formula (e.g. `SrTiO3`), which makes the samples
+    searchable by element. New and external samples get
     a **sample ID** `system_yyyy-mm-dd_hh:mm_S##` (S01, S02, ... in the order of
     the list) and a **sample name** made from the substrate and the films grown
     on it, e.g. `SrTiO3_YSZ-20nm_SrRuO3-50nm`. The films come from the
@@ -84,7 +86,7 @@ leave a section with **Next**, or straight away for fields you have edited.
     - Targets: pick each target in the system and its target number (its
       position, 1 to 5) for this run. The dashboard cannot add targets: a
       super-user adds a new target as a *PLD Target* entry in NOMAD, with its
-      shape and size, density and the ID engraved on its back (see
+      chemical formula, shape and size, density and the ID engraved on its back (see
       [Reference › PLD Target](../reference/references.md#pld-target)).
     - Laser details: enter the energies before and after the chamber. The 1st
       window transmission is calculated as you type; switch on *Enter the 1st
@@ -218,7 +220,7 @@ differences:
    sputtering). Pick each target and its position: positions 1 and 2 take 2"
    targets, position 3 a 4" target. Targets come from the *sputter* target
    database, separate from the PLD targets; *New target in the database* asks
-   for the diameter in inch. NOMAD warns on save when a target does not fit its
+   for the chemical formula and the diameter in inch. NOMAD warns on save when a target does not fit its
    position.
 5. **Process steps.** Pre-sputtering, heating, sputtering and cool-down. For a
    multilayer, add a pre-sputtering and sputtering step per layer.

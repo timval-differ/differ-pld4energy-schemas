@@ -58,7 +58,7 @@ from differ_pld4e_schemas.stages import (
 )
 from differ_pld4e_schemas.target import PLDTarget
 
-from ..common.fields import comments, field, number
+from ..common.fields import comments, field, number, step_comments
 from ..common.samples import sample_section
 from ..common.steps import (
     gas_fields,
@@ -447,7 +447,7 @@ def ramp_step(pressure_label, output=False):
             'temperature_setpoint', 'Temperature setpoint', ramp=True, output=output
         ),
         pressure(pressure_label),
-        comments(),
+        step_comments(),
     ]
 
 
@@ -503,7 +503,7 @@ def step_variants():
         pressure('Pre-ablation pressure'),
         *gas_fields(),
         *[f for f in laser_fields() if f['key'] not in ('laser_mode', 'laser_voltage')],
-        comments(),
+        step_comments(),
     ]
     polar = {'key': 'heater_scan_type', 'equals': POLAR_SCAN}
     cartesian = {'key': 'heater_scan_type', 'equals': CARTESIAN_SCAN}
@@ -526,7 +526,7 @@ def step_variants():
         pressure('Deposition pressure'),
         *gas_fields(),
         *laser_fields(),
-        comments(),
+        step_comments(),
     ]
 
     annealing = [
@@ -536,7 +536,7 @@ def step_variants():
         ),
         number('dwell_time', 'Dwell time', 'minute', unit_label='min'),
         pressure('Annealing pressure'),
-        comments(),
+        step_comments(),
     ]
 
     return {

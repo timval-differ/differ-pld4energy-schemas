@@ -94,9 +94,6 @@ def to_form_value(value, field: dict, quantity):
         value = int(round(value)) if kind == 'integer' else float(f'{value:.12g}')
     if kind == 'target_choice':
         return normalize_reference(value)
-    if kind == 'files' and not isinstance(value, list):
-        # Saved before a field took several files.
-        return [value]
     return value
 
 

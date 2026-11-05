@@ -12,17 +12,26 @@ from typing import TYPE_CHECKING
 
 from nomad.datamodel.data import ArchiveSection, EntryData
 from nomad.datamodel.metainfo.annotations import ELNAnnotation, ELNComponentEnum
+from nomad.datamodel.metainfo.basesections import SystemComponent
 from nomad.metainfo import MEnum, Quantity, Reference, Section, SubSection
+from nomad_material_processing.vapor_deposition.pvd.general import (
+    PVDEvaporationSource,
+    PVDSource,
+    SourcePower,
+)
+from nomad_material_processing.vapor_deposition.pvd.sputtering import (
+    SputterDeposition,
+)
 
 from differ_pld4e_schemas import m_package
-from differ_pld4e_schemas.base_sections import Process
+from differ_pld4e_schemas.base_sections import RunDetails
 from differ_pld4e_schemas.process_steps import (
     CoolDownStep,
     GasProcessStep,
     HeatingStep,
 )
 from differ_pld4e_schemas.references import reference_key
-from differ_pld4e_schemas.sample import Sample, SampleRun
+from differ_pld4e_schemas.sample import Sample, SampleInRun, SampleRun, resolved
 from differ_pld4e_schemas.stages import HeaterStagePosition
 from differ_pld4e_schemas.target import SputterTarget
 
@@ -154,7 +163,10 @@ class SputterPlasma(ArchiveSection):
 
 
 class SputterTargetedStep(GasProcessStep):
-    """A step that sputters one of the targets loaded in the system."""
+    """
+    A step that sputters one of the targets loaded in the system. Its native
+    `sources` (the target and the plasma power) are filled on normalization.
+    """
 
     m_def = Section()
     target = Quantity(
@@ -167,6 +179,30 @@ class SputterTargetedStep(GasProcessStep):
         description='Read-only: taken from the target details on save.',
     )
     plasma = SubSection(section_def=SputterPlasma)
+
+    def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
+        super().normalize(archive, logger)
+        self.fill_sources()
+
+    def fill_sources(self) -> None:
+        """
+        The native sources. Called again by the logbook, which may set the
+        target after the step is normalized.
+        """
+        self.sources = [self._source()] if self.target is not None else []
+
+    def _source(self) -> PVDSource:
+        name, material = resolved(self.target, 'name', 'material')
+        power = self.plasma.power if self.plasma is not None else None
+        return PVDSource(
+            name=self.m_def.label,
+            material=[SystemComponent(name=name or material, system=self.target)],
+            vapor_source=PVDEvaporationSource(
+                power=SourcePower(set_value=[power.to('W').magnitude], set_time=[0])
+            )
+            if power is not None
+            else None,
+        )
 
 
 class PreSputteringStep(SputterTargetedStep):
@@ -209,6 +245,10 @@ class SputteringStep(SputterTargetedStep):
         a_eln=ELNAnnotation(component=ELNComponentEnum.ReferenceEditQuantity),
     )
 
+    def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
+        self.creates_new_thin_film = True
+        super().normalize(archive, logger)
+
 
 # The SPS gets its own step classes so that the GUI only offers sputter steps
 # (and never a PLD step) when a step is added.
@@ -236,7 +276,7 @@ class SPSCoolDownStep(CoolDownStep, SPSStep):
     m_def = Section(label='Cool-down step')
 
 
-class SPSLogbook(Process, SampleRun, EntryData):
+class SPSLogbook(SampleRun, RunDetails, SputterDeposition, EntryData):
     """
     Electronic lab notebook of one run in the SPS sputter system. A run starts
     with the samples it makes or processes (`samples`). Use `description` for
@@ -271,6 +311,9 @@ class SPSLogbook(Process, SampleRun, EntryData):
             component=ELNComponentEnum.NumberEditQuantity, defaultDisplayUnit='mbar'
         ),
     )
+    # Declared here: the native `samples` of the process would win over
+    # those of `SampleRun`.
+    samples = SubSection(section_def=SampleInRun, repeats=True)
     targets = SubSection(section_def=SelectedSputterTarget, repeats=True)
     steps = SubSection(section_def=SPSStep, repeats=True)
 
@@ -280,6 +323,7 @@ class SPSLogbook(Process, SampleRun, EntryData):
         # Store the system: NOMAD does not show a default as a value.
         if not self.m_is_set(self.m_def.all_quantities['pvd_system']):
             self.pvd_system = SPS
+        self.default_name(self.pvd_system)
         if self.mask_used and self.substrate_carrier != FIXED_STAGE:
             logger.warning('A mask is only used with the fixed stage.')
         self._normalize_targets(logger)
@@ -338,3 +382,4 @@ class SPSLogbook(Process, SampleRun, EntryData):
                     'not selected in the target details.'
                 )
             step.target_number = match.target_number if match else None
+            step.fill_sources()

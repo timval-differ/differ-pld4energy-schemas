@@ -64,7 +64,9 @@ STEP_REFERENCE = re.compile(r'/data/steps/(\d+)$')
 def _measurement_to_archive(item: dict, data: dict, fields: list, references):
     measurement = {}
     if item.get('sample'):
-        measurement['sample'] = references.get(item['sample'], item['sample'])
+        # The native measured samples; a measurement has one.
+        sample = references.get(item['sample'], item['sample'])
+        measurement['samples'] = [{'reference': sample}]
     positions = {step.get('uid'): i for i, step in enumerate(data.get('steps') or [])}
     steps = [
         f'#/data/steps/{positions[uid]}'
@@ -100,9 +102,6 @@ def _techniques_to_form(entry: dict, fields: list) -> dict:
         values = entry[technique][0]
         for field in _technique_fields(fields, technique):
             value = values.get(field['archive'])
-            if value is None and field['kind'] == 'files':
-                # One file, saved before a technique took several (`..._file`).
-                value = values.get(field['archive'][:-1])
             if value is not None:
                 item[field['form_key']] = to_form_value(
                     value, field, quantity_of(technique_cls, field['archive'])
@@ -112,7 +111,8 @@ def _techniques_to_form(entry: dict, fields: list) -> dict:
 
 def _measurement_to_form(entry: dict, fields: list, form: dict, by_reference):
     item = {'uid': new_uid(), **_techniques_to_form(entry, fields)}
-    sample = normalize_reference(entry.get('sample'))
+    samples = entry.get('samples') or [{}]
+    sample = normalize_reference(samples[0].get('reference'))
     if sample:
         item['sample'] = by_reference.get(sample, sample)
     uids = {step['archive_index']: step['uid'] for step in form['steps']}
@@ -135,16 +135,10 @@ def _in_situ_to_archive(data: dict, sections: dict, references: dict) -> list:
 
 def _in_situ_to_form(data: dict, sections: dict, form: dict, by_reference) -> list:
     fields = sections['in_situ']['fields']
-    measurements = [
+    return [
         _measurement_to_form(entry, fields, form, by_reference)
         for entry in data.get('in_situ_measurements') or []
     ]
-    # A logbook saved before measurements had a sample and steps: its techniques
-    # become one measurement, whose sample and steps still have to be chosen.
-    old = _techniques_to_form(data.get('in_situ_techniques') or {}, fields)
-    if old:
-        measurements.append({'uid': new_uid(), 'steps': [], **old})
-    return measurements
 
 
 class PLDConverter(LogbookConverter):

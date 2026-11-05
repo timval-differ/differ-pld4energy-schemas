@@ -140,8 +140,13 @@ def test_target_entry_is_named_after_material_without_number():
     assert archive.metadata.entry_name == 'Fe2O3'
 
 
+YSZ_FORMULA = '(Y2O3)0.08(ZrO2)0.92'
+
+
 def test_circular_target_diameter_follows_from_radius():
-    target = PLDTarget(material='YSZ', radius=0.0125, target_id='T-042')
+    target = PLDTarget(
+        material='YSZ', chemical_formula=YSZ_FORMULA, radius=0.0125, lab_id='T-042'
+    )
     _, records = _normalize(target)
     assert target.shape == CIRCULAR
     assert target.diameter.to('m').magnitude == pytest.approx(0.025)
@@ -149,11 +154,19 @@ def test_circular_target_diameter_follows_from_radius():
 
 
 def test_rectangular_target_needs_length_and_width():
-    target = PLDTarget(material='YSZ', shape=RECTANGULAR, diameter=0.025)
+    target = PLDTarget(
+        material='YSZ', chemical_formula=YSZ_FORMULA, shape=RECTANGULAR, diameter=0.025
+    )
     _, records = _normalize(target)
     assert target.diameter is None
     assert ('warning', 'Enter the length and width of a rectangular target.') in records
-    target = PLDTarget(material='YSZ', shape=RECTANGULAR, length=0.03, width=0.02)
+    target = PLDTarget(
+        material='YSZ',
+        chemical_formula=YSZ_FORMULA,
+        shape=RECTANGULAR,
+        length=0.03,
+        width=0.02,
+    )
     assert not _normalize(target)[1]
 
 
@@ -348,7 +361,7 @@ def test_recipe_without_sample_uses_all_samples_of_the_run():
     first, second = Sample(sample_id='a'), Sample(sample_id='b')
     recipe = SAPLDLogbook(steps=[SAPLDDepositionStep()])
     logbook = SAPLDLogbook(
-        samples=[SampleInRun(sample=first), SampleInRun(sample=second)],
+        samples=[SampleInRun(reference=first), SampleInRun(reference=second)],
         load_recipe=RecipeLoader(recipe=recipe, apply_recipe=True),
     )
     _normalize(logbook)
@@ -371,7 +384,7 @@ def test_new_samples_get_id_name_and_uuid():
                 substrate=STO,
                 layers=[Layer(target=YSZ, thickness=2e-8)],
             ),
-            SampleInRun(origin='Existing sample', sample=Sample(sample_id='old')),
+            SampleInRun(origin='Existing sample', reference=Sample(sample_id='old')),
             SampleInRun(origin='External sample', substrate_details='FTO'),
         ],
     )
@@ -577,31 +590,9 @@ def test_in_situ_technique_awaits_data_until_a_file_is_added():
     assert rheed.data_status == 'complete'
 
 
-def test_single_in_situ_file_of_older_logbooks_moves_into_the_list():
-    archive = EntryArchive.m_from_dict(
-        {
-            'data': {
-                'm_def': SAPLDLogbook.m_def.qualified_name(),
-                'in_situ_techniques': {
-                    'rheed': [{'pattern_export_file': 'pld_files/run/a.png'}],
-                    'se': [{'file': 'pld_files/run/se.dat'}],
-                },
-            }
-        }
-    )
-    in_situ = archive.data.in_situ_techniques
-    rheed, se = in_situ.rheed[0], in_situ.se[0]
-    _normalize_section(rheed)
-    _normalize_section(se)
-    assert rheed.pattern_export_files == ['pld_files/run/a.png']
-    assert rheed.pattern_export_file is None
-    assert rheed.data_status == 'complete'
-    assert se.files == ['pld_files/run/se.dat']
-
-
 def test_in_situ_techniques_are_top_level():
-    assert 'in_situ_techniques' in SAPLDLogbook.m_def.all_sub_sections
-    assert 'in_situ_techniques' not in SAPLDDepositionStep.m_def.all_sub_sections
+    assert 'in_situ_measurements' in SAPLDLogbook.m_def.all_sub_sections
+    assert 'in_situ_measurements' not in SAPLDDepositionStep.m_def.all_sub_sections
     for name in ('rheed', 'mic', 'se', 'la_eds', 'oes', 'shg'):
         assert name in InSituTechniques.m_def.all_sub_sections
 

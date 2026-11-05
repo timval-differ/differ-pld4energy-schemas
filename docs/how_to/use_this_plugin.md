@@ -13,8 +13,15 @@ the [tutorial](../tutorial/tutorial.md). For every field and unit, see the
 
 Every physical target is one **PLD Target** entry.
 
-- **Add a target:** create a PLD Target entry with material, manufacturer and
-  purchase date (optionally diameter, thickness, purity).
+- **Add a target:** create a PLD Target entry with material, **chemical
+  formula**, manufacturer and purchase date (optionally the engraved **Target
+  ID**, shape and size, density, purity and a picture of the engraving).
+- **Chemical formula:** enter the composition with element symbols, e.g.
+  `SrTiO3`, `Fe2O3` or `(Y2O3)0.08(ZrO2)0.92` for 8YSZ, not a lab name such as
+  `YSZ` or `STO`. NOMAD's search finds the target, and the samples and runs made
+  with it, by the elements of this formula. A formula with unknown elements
+  gives an error on save; see
+  [Explanation › Search](../explanation/explanation.md#search).
 - **Naming:** the entry is named after the **name** field, or after the material
   if the name is empty. Do not put the target number in the name: target
   positions change, and the number is entered per run in the logbook.
@@ -32,9 +39,11 @@ Every kind of substrate in use is one **Substrate type** entry, e.g.
 `SrTiO3 10x10 mm`, `Si 1" with flat`, `Si 1" without flat`, `glass` or `FTO`.
 Samples refer to it.
 
-- **Add a substrate:** create a Substrate type entry with the **material** and
-  **size** (optionally supplier and description). The material is used in the
-  sample names, so write it as it should appear there, e.g. `SrTiO3`.
+- **Add a substrate:** create a Substrate type entry with the **material**,
+  **chemical formula** and **size** (optionally supplier and description). The
+  material is used in the sample names, so write it as it should appear there,
+  e.g. `SrTiO3`; the chemical formula (e.g. `SrTiO3`, `Si`, `SnO2` for FTO)
+  makes the samples searchable by element, as for targets.
 - **Naming:** the entry is named after the **name** field, or after the
   material and size if the name is empty.
 - **Out of stock:** untick **in stock** when a kind of substrate is used up or no longer

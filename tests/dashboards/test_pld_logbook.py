@@ -784,7 +784,9 @@ def test_run_without_in_situ_measurements_is_valid():
 
 def test_in_situ_measurement_archive():
     measurement = _logbook()['in_situ_measurements'][0]
-    assert measurement['sample'] == (f'../upload/archive/mainfile/{SAMPLE_FILE}#data')
+    assert measurement['samples'] == [
+        {'reference': f'../upload/archive/mainfile/{SAMPLE_FILE}#data'}
+    ]
     assert measurement['process_steps'] == ['#/data/steps/1']
     assert measurement['rheed'][0]['pattern_export_files'] == [
         'pld_files/run1/in_situ_1/pattern1.png',
@@ -798,18 +800,6 @@ def test_in_situ_steps_follow_reordered_steps():
     assert _logbook(data)['in_situ_measurements'][0]['process_steps'] == [
         '#/data/steps/0'
     ]
-
-
-def test_old_in_situ_techniques_load_as_one_measurement():
-    logbook = _logbook()
-    logbook['in_situ_techniques'] = {'rheed': [{'pattern_export_file': 'a.png'}]}
-    del logbook['in_situ_measurements']
-    loaded = archive_to_form(logbook, SPEC)
-    assert len(loaded['in_situ']) == 1
-    old = loaded['in_situ'][0]
-    assert old['rheed'] is True
-    assert old['rheed_pattern_export_files'] == ['a.png']
-    assert old['steps'] == []
 
 
 def test_system_logfiles():
@@ -938,7 +928,7 @@ def test_saved_samples_are_updated_but_existing_never():
     assert files[0]['overwrite'] is True
     # Once its entry exists, a sample keeps its ID when the run time changes.
     assert files[0]['archive']['data']['sample_id'] == 'LA-PLD_2026-10-22_09:15_S01'
-    assert files[-1]['archive']['data']['samples'][1]['sample'] == EXISTING
+    assert files[-1]['archive']['data']['samples'][1]['reference'] == EXISTING
 
 
 def test_round_trip():

@@ -9,7 +9,7 @@ from __future__ import annotations
 from differ_pld4e_schemas.gas import ATMOSPHERES, BACKGROUND_GAS, GASES
 from differ_pld4e_schemas.process_steps import VALVE_POSITION_MAX
 
-from .fields import comments, field, number
+from .fields import field, number, step_comments
 
 
 def gas_fields():
@@ -133,5 +133,5 @@ def ramp_fields(label, *extra):
         temperature('temperature_setpoint', 'Temperature setpoint'),
         *extra,
         pressure(label),
-        comments(),
+        step_comments(),
     ]

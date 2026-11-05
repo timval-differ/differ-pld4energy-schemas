@@ -49,3 +49,8 @@ def number(key, label, unit=None, **kwargs):
 def comments(**kwargs):
     kwargs.setdefault('archive', 'description')
     return field('comments', 'Comments', 'textarea', **kwargs)
+
+
+def step_comments():
+    """Comments of a process step: `comment` of the native step."""
+    return comments(archive='comment')

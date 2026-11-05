@@ -1,3 +1,10 @@
+"""
+Logbooks of the SA-PLD and LA-PLD. A logbook is a native NOMAD
+`PulsedLaserDeposition` process, so NOMAD's search knows its method; its steps
+are native PLD steps, whose `sources` (target and laser) and `sample_parameters`
+are filled from what is entered.
+"""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -5,16 +12,26 @@ from typing import TYPE_CHECKING
 
 from nomad.datamodel.data import ArchiveSection, EntryData
 from nomad.datamodel.metainfo.annotations import ELNAnnotation, ELNComponentEnum
+from nomad.datamodel.metainfo.basesections import Process
 from nomad.metainfo import Datetime, MEnum, Quantity, Reference, Section, SubSection
+from nomad_material_processing.vapor_deposition.pvd.pld import (
+    PLDLaser,
+    PLDSource,
+    PLDStep,
+    PLDTargetComponent,
+    PulsedLaserDeposition,
+)
 
 from differ_pld4e_schemas import m_package
-from differ_pld4e_schemas.base_sections import Process
+from differ_pld4e_schemas.base_sections import RunDetails
 from differ_pld4e_schemas.in_situ import InSituTechniques
 from differ_pld4e_schemas.laser import LaserCalibration, LaserParameters
 from differ_pld4e_schemas.process_steps import (
     CoolDownStep,
     GasProcessStep,
     HeatingStep,
+    SetpointStep,
+    substrate_temperature_parameters,
 )
 from differ_pld4e_schemas.process_steps import (
     heater_output_quantity as _heater_output,
@@ -27,7 +44,7 @@ from differ_pld4e_schemas.process_steps import (
 )
 from differ_pld4e_schemas.references import copy_section as _copy
 from differ_pld4e_schemas.references import reference_key as _reference_key
-from differ_pld4e_schemas.sample import Sample, SampleRun
+from differ_pld4e_schemas.sample import Sample, SampleInRun, SampleRun, resolved
 from differ_pld4e_schemas.stages import (
     HEATER_SIZES,
     SCAN_AXES,
@@ -140,14 +157,18 @@ class RecipeLoader(ArchiveSection):
     )
 
 
-class PLDProcessStep(GasProcessStep):
-    """Common part of all PLD process steps. Use `description` for comments."""
+class PLDProcessStep(GasProcessStep, PLDStep):
+    """Common part of all PLD process steps. Use `comment` for comments."""
 
     m_def = Section()
 
 
 class TargetedStep(PLDProcessStep):
-    """A step that ablates one of the targets loaded in the system."""
+    """
+    A step that ablates one of the targets loaded in the system. Its native
+    `sources` (the target and the laser) and `sample_parameters` (the substrate
+    temperature) are filled on normalization.
+    """
 
     m_def = Section()
     target = Quantity(
@@ -163,16 +184,48 @@ class TargetedStep(PLDProcessStep):
     target_stage = SubSection(section_def=TargetStage)
     laser = SubSection(section_def=LaserParameters)
 
+    def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
+        super().normalize(archive, logger)
+        self.fill_sources()
+
+    def fill_sources(self) -> None:
+        """
+        The native sources and sample parameters. Called again by the logbook,
+        which may set the target after the step is normalized.
+        """
+        self.sources = [self._source()] if self.target is not None else []
+        self.sample_parameters = substrate_temperature_parameters(
+            self.substrate_temperature
+        )
+
+    def _source(self) -> PLDSource:
+        laser = self.laser
+        name, material, lab_id = resolved(self.target, 'name', 'material', 'lab_id')
+        return PLDSource(
+            name=self.m_def.label,
+            material=[
+                PLDTargetComponent(
+                    name=name or material, system=self.target, lab_id=lab_id
+                )
+            ],
+            vapor_source=PLDLaser(
+                pulses=laser.number_of_laser_pulses,
+                repetition_rate=laser.laser_frequency,
+                spot_size=laser.spot_size,
+            )
+            if laser is not None
+            else None,
+        )
+
 
 class PreAblationStep(TargetedStep):
     m_def = Section(label='Pre-ablation step')
 
 
-class AnnealingStep(PLDProcessStep):
+class AnnealingStep(SetpointStep, PLDProcessStep):
     """Keeping the samples at a temperature, e.g. in a run without deposition."""
 
     m_def = Section(label='Annealing step')
-    temperature_setpoint = _temperature()
     heater_output = _heater_output()
     dwell_time = Quantity(
         type=float,
@@ -230,6 +283,7 @@ class PLDDepositionStep(TargetedStep):
     cartesian_scan = SubSection(section_def=CartesianHeaterScan)
 
     def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
+        self.creates_new_thin_film = True
         super().normalize(archive, logger)
         scan_type = self.heater_scan_type or POLAR_SCAN
         if scan_type == POLAR_SCAN:
@@ -379,7 +433,7 @@ class LAPLDCoolDownStep(CoolDownStep, LAPLDHeaterControl, LAPLDStep):
     ramp_on = _ramp_on()
 
 
-class PLDLogbook(Process, SampleRun, EntryData):
+class PLDLogbook(SampleRun, RunDetails, PulsedLaserDeposition, EntryData):
     """
     Electronic lab notebook of one PLD run. Use SA-PLD or LA-PLD logbook. A run
     starts with the samples it makes or processes (`samples`).
@@ -398,6 +452,9 @@ class PLDLogbook(Process, SampleRun, EntryData):
             component=ELNComponentEnum.NumberEditQuantity, defaultDisplayUnit='mbar'
         ),
     )
+    # Declared here: the native `samples` of the process would win over
+    # those of `SampleRun`.
+    samples = SubSection(section_def=SampleInRun, repeats=True)
     laser_details = SubSection(section_def=LaserCalibration)
     targets = SubSection(section_def=SelectedTarget, repeats=True)
     load_recipe = SubSection(section_def=RecipeLoader)
@@ -407,8 +464,6 @@ class PLDLogbook(Process, SampleRun, EntryData):
         description='In-situ measurements of the run, each on one sample during '
         'one or more process steps.',
     )
-    # Logbooks saved before the measurements had their own sample and steps.
-    in_situ_techniques = SubSection(section_def=InSituTechniques)
     system_logfiles = Quantity(
         type=str,
         shape=['*'],
@@ -426,6 +481,7 @@ class PLDLogbook(Process, SampleRun, EntryData):
             self.pvd_system = pvd_system.default
         if self.laser_details is None:
             self.laser_details = LaserCalibration()
+        self.default_name(self.pvd_system)
         self._normalize_targets(logger)
         self._normalize_samples(archive, logger, self.pvd_system, self.datetime)
         self._apply_recipe(logger)
@@ -475,7 +531,7 @@ class PLDLogbook(Process, SampleRun, EntryData):
         if loader.sample is not None:
             samples = [loader.sample]
         else:
-            samples = [item.sample for item in self.samples or [] if item.sample]
+            samples = [item.reference for item in self.samples or [] if item.reference]
         sub_sections = self.m_def.all_sub_sections
         if not self.targets:
             for selected in recipe.targets or []:
@@ -505,6 +561,7 @@ class PLDLogbook(Process, SampleRun, EntryData):
                     'not selected in the target details.'
                 )
             step.target_number = match.target_number if match else None
+            step.fill_sources()
 
 
 class SAPLDLogbook(PLDLogbook):

@@ -1,12 +1,23 @@
+"""
+The target databases. A target is a native NOMAD composite system: its
+`chemical_formula` gives its elements, so NOMAD's search finds the target, and
+the films, samples and runs made from it, by element.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from nomad.datamodel.data import ArchiveSection, EntryData
+from nomad.datamodel.data import EntryData
 from nomad.datamodel.metainfo.annotations import ELNAnnotation, ELNComponentEnum
+from nomad.datamodel.metainfo.basesections import CompositeSystem
 from nomad.metainfo import Datetime, MEnum, Quantity, Section
+from nomad_material_processing.vapor_deposition.pvd.pld import (
+    PLDTarget as NativePLDTarget,
+)
 
 from differ_pld4e_schemas import m_package
+from differ_pld4e_schemas.composition import apply_formula, chemical_formula_quantity
 
 if TYPE_CHECKING:
     from nomad.datamodel.datamodel import EntryArchive
@@ -35,14 +46,25 @@ def in_stock_quantity():
     )
 
 
-class Target(ArchiveSection):
-    """Target material and geometry."""
+class Target(CompositeSystem):
+    """
+    A target in a target database. The entry is named after the target material
+    only: the position of a target in the system changes, so the target number
+    is entered per run in the logbook.
+    """
 
     m_def = Section()
-    material = Quantity(
+    name = Quantity(
         type=str,
+        description='Display name, e.g. Fe2O3. Defaults to the target material.',
         a_eln=ELNAnnotation(component=ELNComponentEnum.StringEditQuantity),
     )
+    material = Quantity(
+        type=str,
+        description='Material as named in the lab, e.g. 8YSZ. Used in sample names.',
+        a_eln=ELNAnnotation(component=ELNComponentEnum.StringEditQuantity),
+    )
+    chemical_formula = chemical_formula_quantity()
     diameter = Quantity(
         type=float,
         unit='m',
@@ -62,21 +84,6 @@ class Target(ArchiveSection):
         description='Target purity, for example 99.999%.',
         a_eln=ELNAnnotation(component=ELNComponentEnum.StringEditQuantity),
     )
-
-
-class TargetEntry(Target):
-    """
-    A target in a target database. The entry is named after the target material
-    only: the position of a target in the system changes, so the target number
-    is entered per run in the logbook.
-    """
-
-    m_def = Section()
-    name = Quantity(
-        type=str,
-        description='Display name, e.g. Fe2O3. Defaults to the target material.',
-        a_eln=ELNAnnotation(component=ELNComponentEnum.StringEditQuantity),
-    )
     purchase_date = Quantity(
         type=Datetime,
         a_eln=ELNAnnotation(component=ELNComponentEnum.DateTimeEditQuantity),
@@ -84,14 +91,17 @@ class TargetEntry(Target):
     in_stock = in_stock_quantity()
 
     def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
-        super().normalize(archive, logger)
         if not self.name and self.material:
             self.name = self.material
-        if self.name and archive is not None and archive.metadata is not None:
-            archive.metadata.entry_name = self.name
+        apply_formula(self, archive, logger)
+        super().normalize(archive, logger)
 
 
-class PLDTarget(TargetEntry, EntryData):
+# Hidden in the entry editor: the composition follows from the formula.
+GENERATED = ['components', 'elemental_composition', 'datetime']
+
+
+class PLDTarget(Target, NativePLDTarget, EntryData):
     """
     A target in the PLD target database. Targets are added by super-users, in
     the NOMAD entry editor: the PLD logbook dashboard only lets you choose them.
@@ -102,11 +112,12 @@ class PLDTarget(TargetEntry, EntryData):
     m_def = Section(
         label='PLD Target',
         a_display={
-            'visible': {'exclude': ['diameter']},
+            'visible': {'exclude': ['diameter', 'target_id', *GENERATED]},
             'order': [
                 'name',
                 'material',
-                'target_id',
+                'chemical_formula',
+                'lab_id',
                 'shape',
                 'radius',
                 'length',
@@ -118,10 +129,12 @@ class PLDTarget(TargetEntry, EntryData):
                 'purchase_date',
                 'engraving_picture',
                 'in_stock',
+                'description',
             ],
         },
     )
-    target_id = Quantity(
+    # The native `target_id` is a generated identifier; the lab engraves its own.
+    lab_id = Quantity(
         type=str,
         description='ID engraved on the back of the target.',
         a_eln=ELNAnnotation(
@@ -186,13 +199,15 @@ class PLDTarget(TargetEntry, EntryData):
             self.diameter = 2 * self.radius
 
 
-class SputterTarget(TargetEntry, EntryData):
+class SputterTarget(Target, EntryData):
     """
     A target in the sputter target database. Enter its diameter: the target
     positions of the SPS take targets of a given size.
     """
 
-    m_def = Section(label='Sputter Target')
+    m_def = Section(
+        label='Sputter Target', a_display={'visible': {'exclude': GENERATED}}
+    )
     diameter = Quantity(
         type=float,
         unit='m',

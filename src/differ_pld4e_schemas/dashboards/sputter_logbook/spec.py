@@ -29,7 +29,7 @@ from differ_pld4e_schemas.sps_deposition import (
 )
 from differ_pld4e_schemas.target import SputterTarget
 
-from ..common.fields import comments, field, number
+from ..common.fields import field, number, step_comments
 from ..common.samples import sample_section
 from ..common.steps import (
     gas_fields,
@@ -146,7 +146,7 @@ def step_variants():
         *plasma_fields(),
         power_ramp('ramp_up_rate', 'Ramp up'),
         number('pre_sputter_time', 'Pre-sputter time', 'minute', unit_label='min'),
-        comments(),
+        step_comments(),
     ]
     sputtering = [
         *heater_fields(),
@@ -164,7 +164,7 @@ def step_variants():
             help='The film grown in this step; together with the target it makes '
             'up the sample name.',
         ),
-        comments(),
+        step_comments(),
     ]
     return {
         'pre_sputtering': variant(
@@ -223,6 +223,12 @@ def client_settings() -> dict:
             ),
             'fields': [
                 {'key': 'material', 'label': 'Material', 'required': True},
+                {
+                    'key': 'chemical_formula',
+                    'label': 'Chemical formula',
+                    'required': True,
+                    'placeholder': 'e.g. Ta or TiO2, not a lab name',
+                },
                 {'key': 'name', 'label': 'Name (optional, defaults to material)'},
                 {
                     'key': 'diameter',

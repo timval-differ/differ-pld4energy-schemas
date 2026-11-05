@@ -39,6 +39,10 @@ from differ_pld4e_schemas.composition import (
     chemical_formula_quantity,
     elements_of,
 )
+from differ_pld4e_schemas.database import (
+    check_database_entry,
+    check_database_reference,
+)
 from differ_pld4e_schemas.target import GENERATED, Target, in_stock_quantity
 
 if TYPE_CHECKING:
@@ -127,7 +131,8 @@ def _layer_pairs(layers):
 class SubstrateType(CrystallineSubstrate, EntryData):
     """
     A kind of substrate in the substrate database, e.g. SrTiO3 10x10 mm. Samples
-    refer to it; add an entry for every kind of substrate in use.
+    refer to it. Maintainers add an entry for every kind of substrate in use, in
+    the target and substrate database upload.
     """
 
     m_def = Section(
@@ -169,6 +174,7 @@ class SubstrateType(CrystallineSubstrate, EntryData):
     def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
         if not self.name and self.material:
             self.name = ' '.join(part for part in (self.material, self.size) if part)
+        check_database_entry(archive, logger, 'substrate type')
         apply_formula(self, archive, logger)
         super().normalize(archive, logger)
 
@@ -286,6 +292,7 @@ class Sample(CompositeSystem, _SampleDetails, EntryData):
     def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
         if not self.sample_uuid:
             self.sample_uuid = str(uuid.uuid4())
+        check_database_reference(self.substrate, archive, logger, 'substrate')
         self._copy_substrate_and_films()
         if not self.name:
             self.name = self._generated_name()
@@ -384,6 +391,7 @@ class SampleRun(ArchiveSection):
                 self._copy_existing(item)
             else:
                 number += 1
+                check_database_reference(item.substrate, archive, logger, 'substrate')
                 item.sample_id = item.sample_id or sample_id(system, start, number)
                 item._copy_substrate_and_films()
                 if not item.name:

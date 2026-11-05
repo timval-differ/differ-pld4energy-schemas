@@ -31,9 +31,9 @@ from differ_pld4e_schemas.sps_deposition import (
 )
 
 SPEC = form_spec()
-TA = '../uploads/u1/archive/ta#/data'
-TI = '../uploads/u1/archive/ti#/data'
-SI_WAFER = '../uploads/u0/archive/substrate_si#/data'
+TA = '../uploads/target_db/archive/ta#/data'
+TI = '../uploads/target_db/archive/ti#/data'
+SI_WAFER = '../uploads/target_db/archive/substrate_si#/data'
 EXISTING = '../uploads/u0/archive/sample0#/data'
 HTTP_OK = 200
 HTTP_BAD_REQUEST = 400

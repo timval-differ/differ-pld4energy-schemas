@@ -18,6 +18,7 @@ from nomad_material_processing.vapor_deposition.pvd.pld import (
 
 from differ_pld4e_schemas import m_package
 from differ_pld4e_schemas.composition import apply_formula, chemical_formula_quantity
+from differ_pld4e_schemas.database import check_database_entry
 
 if TYPE_CHECKING:
     from nomad.datamodel.datamodel import EntryArchive
@@ -93,6 +94,7 @@ class Target(CompositeSystem):
     def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
         if not self.name and self.material:
             self.name = self.material
+        check_database_entry(archive, logger, 'target')
         apply_formula(self, archive, logger)
         super().normalize(archive, logger)
 
@@ -103,8 +105,8 @@ GENERATED = ['components', 'elemental_composition', 'datetime']
 
 class PLDTarget(Target, NativePLDTarget, EntryData):
     """
-    A target in the PLD target database. Targets are added by super-users, in
-    the NOMAD entry editor: the PLD logbook dashboard only lets you choose them.
+    A target in the PLD target database. Targets are added by maintainers, in
+    the target and substrate database upload: logbooks only choose them.
     Enter the radius of a circular target, or the length and width of a
     rectangular one; the diameter follows from the radius.
     """

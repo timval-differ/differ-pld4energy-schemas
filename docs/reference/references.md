@@ -382,8 +382,10 @@ The pre-sputtering and sputtering steps have:
 ### PLD Target
 
 Extends the `Target` section (a native `CompositeSystem`) and nmp `PLDTarget`.
-PLD targets are added by super-users in the NOMAD entry editor; the PLD logbook
-dashboard only lets you choose them.
+PLD targets are added by maintainers in the NOMAD entry editor, in the target
+and substrate database upload (`database_upload_id`); the PLD logbook dashboard
+only lets you choose them. A target entry in any other upload gives an error on
+save.
 
 | Field | Type | Unit | Notes |
 | --- | --- | --- | --- |

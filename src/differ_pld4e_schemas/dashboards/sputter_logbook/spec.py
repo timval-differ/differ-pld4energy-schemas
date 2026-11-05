@@ -13,6 +13,7 @@ from __future__ import annotations
 # Importing the schema package fixes the package name that qualified section
 # names (the m_def written into archive files) are built from.
 import differ_pld4e_schemas.schema_packages.schema_package  # noqa: F401
+from differ_pld4e_schemas.database import database_upload_id
 from differ_pld4e_schemas.sample import Sample, SubstrateType
 from differ_pld4e_schemas.sps_deposition import (
     CARRIERS,
@@ -254,6 +255,8 @@ def form_spec() -> dict:
             system: section.m_def.qualified_name()
             for system, section in LOGBOOK_SECTIONS.items()
         },
+        # Targets and substrates are chosen from this upload only.
+        'database_upload_id': database_upload_id(),
         'reference_sections': {
             'target': SputterTarget.m_def.qualified_name(),
             'sample': Sample.m_def.qualified_name(),
@@ -337,6 +340,7 @@ def form_spec() -> dict:
                         reference='target',
                         # The material names the films of the samples.
                         ref_copy={'material': 'material'},
+                        database=True,
                         archive=None,
                     ),
                     field(

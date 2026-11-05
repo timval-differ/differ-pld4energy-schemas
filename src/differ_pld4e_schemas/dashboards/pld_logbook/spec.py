@@ -25,6 +25,7 @@ from __future__ import annotations
 # Importing the schema package fixes the package name that qualified section
 # names (the m_def written into archive files) are built from.
 import differ_pld4e_schemas.schema_packages.schema_package  # noqa: F401
+from differ_pld4e_schemas.database import database_upload_id
 from differ_pld4e_schemas.in_situ import InSituTechniquesEntry
 from differ_pld4e_schemas.laser import (
     LASER_CALIBRATION_INSTRUCTIONS,
@@ -691,7 +692,8 @@ def client_settings() -> dict:
             'needs it (e.g. a pre-ablation or deposition step). What you enter here '
             'is not saved.'
         ),
-        # No `target_entry`: new PLD targets are added by super-users in NOMAD.
+        # No `target_entry`: maintainers add PLD targets in the database
+        # upload in NOMAD, with all their details (shape, engraving, ...).
     }
 
 
@@ -704,6 +706,8 @@ def form_spec() -> dict:
             system: section.m_def.qualified_name()
             for system, section in LOGBOOK_SECTIONS.items()
         },
+        # Targets and substrates are chosen from this upload only.
+        'database_upload_id': database_upload_id(),
         'reference_sections': {
             'target': PLDTarget.m_def.qualified_name(),
             'sample': Sample.m_def.qualified_name(),
@@ -775,8 +779,8 @@ def form_spec() -> dict:
                 'requirement': LASER_STEPS,
                 'intro': (
                     'Select the targets that are in the system and enter their '
-                    'target number for this run. Is a target missing? New targets '
-                    'are added to the database by a super-user.'
+                    'target number for this run. Is a target missing? Targets '
+                    'are added to the target database by a maintainer.'
                 ),
                 'unique': ['target', 'target_number'],
                 'fields': [
@@ -787,6 +791,7 @@ def form_spec() -> dict:
                         reference='target',
                         # The material names the films of the samples.
                         ref_copy={'material': 'material'},
+                        database=True,
                         archive=None,
                     ),
                     field(

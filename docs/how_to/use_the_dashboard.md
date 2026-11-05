@@ -68,10 +68,13 @@ leave a section with **Next**, or straight away for fields you have edited.
       for an extra deposition, annealing or only characterisation. Pick it from
       the list.
 
-    A substrate that is not in the database yet can be added with *New
-    substrate in the database*, below the samples; it asks for the material
-    name and its chemical formula (e.g. `SrTiO3`), which makes the samples
-    searchable by element. New and external samples get
+    Substrates are only chosen from the target and substrate database, which
+    only maintainers can change (see
+    [Set up the target and substrate database](use_this_plugin.md#set-up-the-target-and-substrate-database)).
+    Is a substrate missing? Ask a maintainer. Maintainers see *New substrate
+    in the database* below the samples; it asks for the material name and its
+    chemical formula (e.g. `SrTiO3`), which makes the samples searchable by
+    element, and saves it in the database upload. New and external samples get
     a **sample ID** `system_yyyy-mm-dd_hh:mm_S##` (S01, S02, ... in the order of
     the list) and a **sample name** made from the substrate and the films grown
     on it, e.g. `SrTiO3_YSZ-20nm_SrRuO3-50nm`. The films come from the
@@ -84,8 +87,9 @@ leave a section with **Next**, or straight away for fields you have edited.
    the laser (pre-ablation and deposition). Without such a step they show as
    *not needed* in the list on the left, and nothing entered there is saved.
     - Targets: pick each target in the system and its target number (its
-      position, 1 to 5) for this run. The dashboard cannot add targets: a
-      super-user adds a new target as a *PLD Target* entry in NOMAD, with its
+      position, 1 to 5) for this run. The dashboard cannot add PLD targets: a
+      maintainer adds a new target as a *PLD Target* entry in the target and
+      substrate database upload in NOMAD, with its
       chemical formula, shape and size, density and the ID engraved on its back (see
       [Reference › PLD Target](../reference/references.md#pld-target)).
     - Laser details: enter the energies before and after the chamber. The 1st
@@ -224,8 +228,8 @@ differences:
 4. **Targets.** Only needed when a step sputters (pre-sputtering or
    sputtering). Pick each target and its position: positions 1 and 2 take 2"
    targets, position 3 a 4" target. Targets come from the *sputter* target
-   database, separate from the PLD targets; *New target in the database* asks
-   for the chemical formula and the diameter in inch. NOMAD warns on save when a target does not fit its
+   database, separate from the PLD targets. Maintainers see *New target in the
+   database*, which asks for the chemical formula and the diameter in inch. NOMAD warns on save when a target does not fit its
    position.
 5. **Process steps.** Pre-sputtering, heating, sputtering and cool-down. For a
    multilayer, add a pre-sputtering and sputtering step per layer.
@@ -246,7 +250,9 @@ There is no laser and no in-situ section.
 
 - Required fields are marked with `*`. Comments are optional.
 - The dashboard checks the form again on the server before anything is saved.
-- New targets and substrates added elsewhere in NOMAD appear when you start a
+- Targets and substrates come only from the target and substrate database
+  upload; *View the database in NOMAD* (*Edit* for maintainers) opens it.
+- New targets and substrates added to the database in NOMAD appear when you start a
   new logbook or open *Samples* or *Targets*; *Refresh lists* reloads them at
   any time.
 - Targets and substrates that are switched off as *out of stock* in NOMAD are

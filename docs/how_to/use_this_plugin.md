@@ -9,9 +9,50 @@ the [tutorial](../tutorial/tutorial.md). For every field and unit, see the
     numbers, copied recipe steps, ...) are updated when the entry is **saved**,
     and the checks run at the same time. Messages appear after saving.
 
+## Set up the target and substrate database
+
+All targets (PLD and sputter) and substrate types are kept in **one upload**,
+the target and substrate database. Only **maintainers** create, edit and delete
+them; everyone else can only view them and choose them in a logbook. NOMAD
+grants edit rights per upload, so this is arranged with the upload's members:
+
+1. A maintainer creates an upload, e.g. *PLD4Energy targets and substrates*, and
+   adds the targets and substrate types to it (see below).
+2. In the upload's members, add the other maintainers as **coauthors** (or
+   a maintainers group as coauthor group): they can edit the upload. Add
+   everyone else who writes logbooks as **reviewers** (or a group of all lab
+   members as reviewer group): they can see the entries but not change them.
+3. Do **not publish** the upload: a published upload can no longer be edited,
+   also not by maintainers.
+4. Put the upload ID in `nomad.yaml` and restart NOMAD:
+
+    ```yaml
+    plugins:
+      entry_points:
+        options:
+          differ_pld4e_schemas.schema_packages:schema_package_entry_point:
+            database_upload_id: <upload id>
+    ```
+
+From then on:
+
+- the logbook dashboards only offer targets and substrates from this upload,
+  and refuse others on save. *New target / substrate in the database* is only
+  shown to maintainers and saves the new entry in this upload;
+- a PLD Target, Sputter Target or Substrate type entry created in any other
+  upload gives an **error** on save, and logbooks and samples that refer to a
+  target or substrate outside the database get a **warning**;
+- an external sample on a substrate that is not in the database is not a
+  reason to add one: leave its substrate empty and describe it under
+  **substrate details**.
+
+Without `database_upload_id` no targets or substrates can be chosen in the
+dashboards: they tell the user that the database is not set up.
+
 ## Manage the target database
 
-Every physical target is one **PLD Target** entry.
+Every physical target is one **PLD Target** entry, in the target and substrate
+database upload. Only maintainers add or change them.
 
 - **Add a target:** create a PLD Target entry with material, **chemical
   formula**, manufacturer and purchase date (optionally the engraved **Target
@@ -37,7 +78,8 @@ Every physical target is one **PLD Target** entry.
 
 Every kind of substrate in use is one **Substrate type** entry, e.g.
 `SrTiO3 10x10 mm`, `Si 1" with flat`, `Si 1" without flat`, `glass` or `FTO`.
-Samples refer to it.
+Samples refer to it. Like the targets, substrate types are kept in the target
+and substrate database upload, and only maintainers add or change them.
 
 - **Add a substrate:** create a Substrate type entry with the **material**,
   **chemical formula** and **size** (optionally supplier and description). The

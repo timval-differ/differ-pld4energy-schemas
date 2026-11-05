@@ -24,6 +24,7 @@ from nomad_material_processing.vapor_deposition.pvd.pld import (
 
 from differ_pld4e_schemas import m_package
 from differ_pld4e_schemas.base_sections import RunDetails
+from differ_pld4e_schemas.database import check_database_reference
 from differ_pld4e_schemas.in_situ import InSituTechniques
 from differ_pld4e_schemas.laser import LaserCalibration, LaserParameters
 from differ_pld4e_schemas.process_steps import (
@@ -482,17 +483,18 @@ class PLDLogbook(SampleRun, RunDetails, PulsedLaserDeposition, EntryData):
         if self.laser_details is None:
             self.laser_details = LaserCalibration()
         self.default_name(self.pvd_system)
-        self._normalize_targets(logger)
+        self._normalize_targets(archive, logger)
         self._normalize_samples(archive, logger, self.pvd_system, self.datetime)
         self._apply_recipe(logger)
         self._normalize_step_targets(logger)
         super().normalize(archive, logger)
 
-    def _normalize_targets(self, logger: BoundLogger) -> None:
+    def _normalize_targets(self, archive: EntryArchive, logger: BoundLogger) -> None:
         seen_targets, seen_numbers = set(), set()
         for selected in self.targets or []:
             target = selected.target
             if target is not None:
+                check_database_reference(target, archive, logger, 'target')
                 key = _reference_key(target)
                 if key in seen_targets:
                     logger.error(f'Target {target.name} is selected more than once.')

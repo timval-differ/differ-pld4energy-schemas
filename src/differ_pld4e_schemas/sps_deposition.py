@@ -25,6 +25,7 @@ from nomad_material_processing.vapor_deposition.pvd.sputtering import (
 
 from differ_pld4e_schemas import m_package
 from differ_pld4e_schemas.base_sections import RunDetails
+from differ_pld4e_schemas.database import check_database_reference
 from differ_pld4e_schemas.process_steps import (
     CoolDownStep,
     GasProcessStep,
@@ -326,16 +327,17 @@ class SPSLogbook(SampleRun, RunDetails, SputterDeposition, EntryData):
         self.default_name(self.pvd_system)
         if self.mask_used and self.substrate_carrier != FIXED_STAGE:
             logger.warning('A mask is only used with the fixed stage.')
-        self._normalize_targets(logger)
+        self._normalize_targets(archive, logger)
         self._normalize_samples(archive, logger, self.pvd_system, self.datetime)
         self._normalize_step_targets(logger)
         super().normalize(archive, logger)
 
-    def _normalize_targets(self, logger: BoundLogger) -> None:
+    def _normalize_targets(self, archive: EntryArchive, logger: BoundLogger) -> None:
         seen_targets, seen_numbers = set(), set()
         for selected in self.targets or []:
             target = selected.target
             if target is not None:
+                check_database_reference(target, archive, logger, 'target')
                 key = reference_key(target)
                 if key in seen_targets:
                     logger.error(f'Target {target.name} is selected more than once.')

@@ -101,6 +101,7 @@ def sample_section() -> dict:
                 'reference',
                 reference='substrate',
                 ref_copy=SUBSTRATE_COPY,
+                database=True,
                 # Written by the converter, with what is copied from the entry.
                 archive=None,
                 visible_if=origin_is(*MADE_HERE),

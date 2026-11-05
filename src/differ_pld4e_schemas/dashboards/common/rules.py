@@ -18,6 +18,8 @@ Conditions are described in `dashboards.common.values`.
 
 from __future__ import annotations
 
+from differ_pld4e_schemas.database import database_reference_error
+
 from .samples import (
     MADE_HERE,
     NEW_SAMPLE,
@@ -111,10 +113,14 @@ def step_choices(root: dict) -> list:
     return [step.get('uid') for step in root.get('steps') or [] if step.get('uid')]
 
 
-def _field_error(field: dict, value, local: dict, root: dict) -> str | None:
+def _field_error(
+    field: dict, value, local: dict, root: dict, database: str | None = None
+) -> str | None:
     kind = field['kind']
     if kind in ('number', 'integer'):
         return _number_error(field, value)
+    if kind == 'reference' and field.get('database'):
+        return database_reference_error(value, database)
     checks = {
         'select': (
             lambda: value in options(field, local, root),
@@ -170,10 +176,13 @@ def step_time_warnings(root: dict) -> list[dict]:
     ]
 
 
-def _validate_fields(fields, local, path, root, required=True) -> list[dict]:
+def _validate_fields(  # noqa: PLR0913
+    fields, local, path, root, required=True, *, database=None
+) -> list[dict]:
     """
     Problems of the visible fields; with `required` False only badly entered
-    values count, not missing ones.
+    values count, not missing ones. `database` is the upload of the target and
+    substrate database.
     """
     errors = []
     for field in visible_fields(fields, local, root):
@@ -184,7 +193,12 @@ def _validate_fields(fields, local, path, root, required=True) -> list[dict]:
         if field['kind'] == 'rows':
             for index, row in enumerate(value or []):
                 errors += _validate_fields(
-                    field['columns'], row, f'{field_path}.{index}', root, required
+                    field['columns'],
+                    row,
+                    f'{field_path}.{index}',
+                    root,
+                    required,
+                    database=database,
                 )
             continue
         if is_empty(value):
@@ -195,7 +209,7 @@ def _validate_fields(fields, local, path, root, required=True) -> list[dict]:
             ):
                 errors.append({'path': field_path, 'message': 'Required.'})
             continue
-        message = _field_error(field, value, local, root)
+        message = _field_error(field, value, local, root, database)
         if message:
             errors.append({'path': field_path, 'message': message})
     return errors
@@ -285,6 +299,7 @@ class LogbookRules:
     def validate(self, data: dict, spec: dict) -> list[dict]:
         """All problems in the form as {'path', 'message'}; empty if complete."""
         errors: list[dict] = []
+        database = spec.get('database_upload_id')
         for section in spec['sections']:
             key = section['key']
             level = section_requirement(section, spec, data)
@@ -294,7 +309,7 @@ class LogbookRules:
             if section['kind'] == 'object':
                 local = data.get(key) or {}
                 errors += _validate_fields(
-                    section['fields'], local, key, data, required
+                    section['fields'], local, key, data, required, database=database
                 )
                 continue
             items = data.get(key) or []
@@ -319,7 +334,7 @@ class LogbookRules:
                         continue
                     fields = variant['fields']
                 errors += _validate_fields(
-                    fields, item, f'{key}.{index}', data, required
+                    fields, item, f'{key}.{index}', data, required, database=database
                 )
             if section['kind'] == 'list':
                 self._validate_unique(section, items, data, errors)

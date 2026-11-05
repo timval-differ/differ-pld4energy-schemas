@@ -35,10 +35,10 @@ from differ_pld4e_schemas.sample import SampleInRun
 from differ_pld4e_schemas.stages import PolarHeaterScan
 
 SPEC = form_spec()
-TARGET = '../uploads/u1/archive/target1#/data'
-OTHER_TARGET = '../uploads/u1/archive/target2#/data'
+TARGET = '../uploads/target_db/archive/target1#/data'
+OTHER_TARGET = '../uploads/target_db/archive/target2#/data'
 EXISTING = '../uploads/u0/archive/sample0#/data'
-SI_WAFER = '../uploads/u0/archive/substrate_si#/data'
+SI_WAFER = '../uploads/target_db/archive/substrate_si#/data'
 EXPECTED_T1 = 0.42 / 0.5 / 0.92 * 100
 EXPECTED_PULSES = 3000
 PULSES = 1500

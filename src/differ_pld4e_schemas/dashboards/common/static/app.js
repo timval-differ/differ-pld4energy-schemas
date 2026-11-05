@@ -33,6 +33,7 @@ const app = {
   user: null,
   uploads: [],
   refs: {target: [], sample: [], substrate: []},
+  maintainer: false, // whether the user can edit the target and substrate database
   pendingFiles: {}, // form path -> File, uploaded on save
   touched: new Set(),
   shown: new Set(), // sections whose problems are all shown
@@ -105,6 +106,11 @@ function fileNameFor(text) {
 
 function entryRef(uploadId, entryId) {
   return `../uploads/${uploadId}/archive/${entryId}#/data`;
+}
+
+function uploadOfRef(ref) {
+  const match = /^(?:\.\.\/)?uploads\/([^/]+)\//.exec(ref || '');
+  return match ? match[1] : null;
 }
 
 async function api(path, options = {}) {
@@ -344,6 +350,10 @@ function fieldError(field, value, local, root) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return 'Enter a date.';
   } else if (kind === 'time') {
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) return 'Enter a time (hh:mm).';
+  } else if (kind === 'reference' && field.database) {
+    const database = app.spec.database_upload_id;
+    if (!database) return 'The target and substrate database is not set up in NOMAD yet. Ask a maintainer.';
+    if (uploadOfRef(value) !== database) return 'Choose one from the target and substrate database.';
   } else if (kind === 'target_choice') {
     if (!targetChoices(root).includes(value)) return 'Choose one of the targets selected under Targets.';
   } else if (kind === 'sample_choice') {
@@ -698,10 +708,12 @@ async function loadUser() {
   }
 }
 
-async function searchEntries(qualifiedNames, required, {owner = 'visible', pageSize = 1000} = {}) {
+async function searchEntries(qualifiedNames, required, {owner = 'visible', pageSize = 1000, uploadId = null} = {}) {
+  const query = {'section_defs.definition_qualified_name:any': qualifiedNames};
+  if (uploadId) query.upload_id = uploadId;
   const body = {
     owner,
-    query: {'section_defs.definition_qualified_name:any': qualifiedNames},
+    query,
     pagination: {page_size: pageSize, order_by: 'entry_create_time', order: 'desc'},
   };
   if (required) {
@@ -730,13 +742,48 @@ function checkServerVersion() {
   return false;
 }
 
+/*
+ * Targets and substrates are only chosen from the target and substrate
+ * database: one upload that maintainers edit (as its coauthors) and everyone
+ * else can only view (as reviewers).
+ */
+function databaseUpload() {
+  return app.spec.database_upload_id || null;
+}
+
+async function loadDatabaseAccess() {
+  app.maintainer = false;
+  const database = databaseUpload();
+  if (!app.user || !database) return;
+  try {
+    const upload = (await api(`/uploads/${database}`)).data || {};
+    const userId = app.user.user_id;
+    if ((upload.writers || []).includes(userId)) {
+      app.maintainer = true;
+      return;
+    }
+    const groups = upload.writer_groups || [];
+    if (!groups.length) return;
+    const mine = (await api(`/groups?user_id=${encodeURIComponent(userId)}&page_size=1000`)).data || [];
+    app.maintainer = mine.some((g) => groups.includes(g.group_id));
+  } catch (e) {
+    showBanner('Could not open the target and substrate database (upload '
+      + `${database}): ${e.message}. Ask a maintainer to add you to it as a reviewer.`, 'error');
+  }
+}
+
 async function loadReferences() {
   if (!app.user) return;
   const names = app.spec.reference_sections;
+  const database = databaseUpload();
+  if (!database) {
+    showBanner('The target and substrate database is not set up in NOMAD yet, so no '
+      + 'targets or substrates can be chosen. Ask a maintainer.', 'error');
+  }
   try {
-    const targets = !names.target ? [] : await searchEntries([names.target], {
+    const targets = !names.target || !database ? [] : await searchEntries([names.target], {
       data: '*', metadata: {entry_name: '*', mainfile: '*'},
-    });
+    }, {uploadId: database});
     app.refs.target = targets.filter(Boolean).map((t) => {
       const data = (t.archive && t.archive.data) || {};
       const metadata = (t.archive && t.archive.metadata) || {};
@@ -776,10 +823,10 @@ async function loadReferences() {
     showBanner('Could not load the samples: ' + e.message, 'error');
   }
   try {
-    const substrates = !names.substrate ? [] : await searchEntries([names.substrate], {
+    const substrates = !names.substrate || !database ? [] : await searchEntries([names.substrate], {
       data: {name: '*', material: '*', size: '*', supplier: '*', in_stock: '*'},
       metadata: {entry_name: '*', mainfile: '*'},
-    });
+    }, {uploadId: database});
     app.refs.substrate = substrates.filter(Boolean).map((s) => {
       const data = (s.archive && s.archive.data) || {};
       const metadata = (s.archive && s.archive.metadata) || {};
@@ -1432,15 +1479,30 @@ function renderList(container, s) {
     type: 'button', class: 'btn btn-outlined',
     onclick: () => { list.push(newItem(s)); changed(); render(); },
   }, `+ Add ${s.item_label.toLowerCase()}`));
-  // Without a `target_entry` targets are only added in NOMAD, by super-users.
-  const newTarget = client().target_entry
-    ? el('button', {type: 'button', class: 'btn btn-text', onclick: newTargetDialog}, 'New target in the database') : null;
-  if (s.key === 'samples') {
-    actions.append(el('button', {type: 'button', class: 'btn btn-text', onclick: newSubstrateDialog}, 'New substrate in the database'));
+  // Only maintainers add targets and substrates, in the database upload.
+  // Without a `target_entry` targets are only added in NOMAD itself.
+  const database = databaseUpload();
+  const usesDatabase = s.key === 'targets' || s.key === 'samples';
+  if (app.maintainer && database) {
+    if (s.key === 'samples') {
+      actions.append(el('button', {type: 'button', class: 'btn btn-text', onclick: newSubstrateDialog}, 'New substrate in the database'));
+    }
+    if (client().target_entry && usesDatabase) {
+      actions.append(el('button', {type: 'button', class: 'btn btn-text', onclick: newTargetDialog}, 'New target in the database'));
+    }
   }
-  if (newTarget && (s.key === 'targets' || s.key === 'samples')) actions.append(newTarget);
+  if (database && usesDatabase) {
+    actions.append(el('a', {class: 'btn btn-text', href: `${GUI}/projects/${database}`, target: '_blank', rel: 'noopener'},
+      app.maintainer ? 'Edit the database in NOMAD' : 'View the database in NOMAD'));
+  }
   actions.append(el('button', {type: 'button', class: 'btn btn-text', onclick: loadReferences}, 'Refresh lists'));
   card.append(actions);
+  if (usesDatabase && !app.maintainer) {
+    card.append(el('p', {class: 'muted small'}, 'Targets and substrates are chosen from the target and '
+      + 'substrate database. Is one missing? Ask a maintainer to add it.'
+      + (s.key === 'samples' ? ' An external sample on a substrate that is not in the database: '
+        + 'leave the substrate empty and describe it under Substrate details.' : '')));
+  }
   container.append(card);
 }
 
@@ -1655,6 +1717,10 @@ async function putArchive(uploadId, fileName, archive, overwrite) {
  */
 function newEntryDialog({kind, noun, intro, fields, build, place}) {
   if (!app.user) return showBanner(`Log in to NOMAD to add ${noun}s.`, 'error');
+  const database = databaseUpload();
+  if (!app.maintainer || !database) {
+    return showBanner(`Only maintainers add ${noun}s to the target and substrate database.`, 'error');
+  }
   const values = Object.fromEntries(fields.map((f) => [f.key, '']));
   const message = el('p', {class: 'error'});
   const input = (f) => el('div', {class: 'field'},
@@ -1669,7 +1735,7 @@ function newEntryDialog({kind, noun, intro, fields, build, place}) {
     }
     create.disabled = true;
     try {
-      const uploadId = await ensureUpload();
+      const uploadId = database;
       const data = {m_def: app.spec.reference_sections[kind], ...build(values)};
       const fileName = fileNameFor(`${kind}_${data.name || data.material}_${uid().slice(0, 6)}`) + '.archive.json';
       const response = await putArchive(uploadId, fileName, {data}, false);
@@ -1685,12 +1751,10 @@ function newEntryDialog({kind, noun, intro, fields, build, place}) {
       create.disabled = false;
     }
   }}, `Create ${noun}`);
-  const uploadNeeded = !app.edit && !app.draft && !app.upload;
   openDialog(`New ${noun} in the database`, [
     el('p', {class: 'muted'}, intro),
-    el('div', {class: 'grid'}, ...fields.map(input),
-      uploadNeeded ? el('div', {class: 'field'}, el('label', {class: 'required'}, 'Upload to store it in'),
-        el('div', {class: 'input-wrap'}, uploadSelect())) : null),
+    el('p', {class: 'muted small'}, `Saved in the target and substrate database (upload ${database}).`),
+    el('div', {class: 'grid'}, ...fields.map(input)),
     message,
     el('div', {class: 'btn-row'}, create),
   ]);
@@ -2263,7 +2327,7 @@ async function init() {
   render();
   await loadUser();
   referencesLoaded = Date.now();
-  await Promise.all([loadReferences(), loadUploads()]);
+  await Promise.all([loadDatabaseAccess(), loadReferences(), loadUploads()]);
   // Render again: the operator is filled in from the login.
   render();
 }

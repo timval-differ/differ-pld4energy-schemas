@@ -144,6 +144,8 @@ def sample_section() -> dict:
                 'computed',
                 compute='sample_name',
                 archive=None,
+                help='Changes once the (desired) film thickness is entered in the '
+                'Process steps section.',
             ),
             comments(archive='comments'),
         ],

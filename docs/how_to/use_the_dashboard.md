@@ -68,13 +68,13 @@ leave a section with **Next**, or straight away for fields you have edited.
       for an extra deposition, annealing or only characterisation. Pick it from
       the list.
 
-    A substrate or target that is not in the database yet can be added with
-    *New substrate in the database* or *New target in the database*, below the
-    samples. New and external samples get a **sample ID**
-    `system_yyyy-mm-dd_hh:mm_S##` (S01, S02, ... in the order of the list) and a
-    **sample name** made from the substrate and the films grown on it, e.g.
-    `SrTiO3_YSZ-20nm_SrRuO3-50nm`. The films come from the deposition steps
-    (see below), so the name is complete once the steps are filled in. Existing
+    A substrate that is not in the database yet can be added with *New
+    substrate in the database*, below the samples. New and external samples get
+    a **sample ID** `system_yyyy-mm-dd_hh:mm_S##` (S01, S02, ... in the order of
+    the list) and a **sample name** made from the substrate and the films grown
+    on it, e.g. `SrTiO3_YSZ-20nm_SrRuO3-50nm`. The films come from the
+    deposition steps (see below), so the sample name changes once the (desired)
+    film thickness is entered under *Process steps*. Existing
     samples keep their own ID.
 3. **System details.** The substrate carrier and the base pressure of the main
    chamber. LA-PLD also asks for the particle reduction plate.
@@ -82,8 +82,10 @@ leave a section with **Next**, or straight away for fields you have edited.
    the laser (pre-ablation and deposition). Without such a step they show as
    *not needed* in the list on the left, and nothing entered there is saved.
     - Targets: pick each target in the system and its target number (its
-      position, 1 to 5) for this run. A target that is not in the database yet
-      can be added with *New target in the database*.
+      position, 1 to 5) for this run. The dashboard cannot add targets: a
+      super-user adds a new target as a *PLD Target* entry in NOMAD, with its
+      shape and size, density and the ID engraved on its back (see
+      [Reference › PLD Target](../reference/references.md#pld-target)).
     - Laser details: enter the energies before and after the chamber. The 1st
       window transmission is calculated as you type; switch on *Enter the 1st
       window transmission manually* to type your own value instead.

@@ -42,7 +42,7 @@ from differ_pld4e_schemas.sample import (
     sample_name,
 )
 from differ_pld4e_schemas.sps_deposition import SPSSputteringStep, SPSStep
-from differ_pld4e_schemas.target import PLDTarget
+from differ_pld4e_schemas.target import CIRCULAR, RECTANGULAR, PLDTarget
 
 TARGET_NUMBER = 3
 UUID_LENGTH = 36
@@ -138,6 +138,28 @@ def test_target_entry_is_named_after_material_without_number():
     archive, _ = _normalize(target)
     assert target.name == 'Fe2O3'
     assert archive.metadata.entry_name == 'Fe2O3'
+
+
+def test_circular_target_diameter_follows_from_radius():
+    target = PLDTarget(material='YSZ', radius=0.0125, target_id='T-042')
+    _, records = _normalize(target)
+    assert target.shape == CIRCULAR
+    assert target.diameter.to('m').magnitude == pytest.approx(0.025)
+    assert not records
+
+
+def test_rectangular_target_needs_length_and_width():
+    target = PLDTarget(material='YSZ', shape=RECTANGULAR, diameter=0.025)
+    _, records = _normalize(target)
+    assert target.diameter is None
+    assert ('warning', 'Enter the length and width of a rectangular target.') in records
+    target = PLDTarget(material='YSZ', shape=RECTANGULAR, length=0.03, width=0.02)
+    assert not _normalize(target)[1]
+
+
+def test_circular_target_needs_radius():
+    _, records = _normalize(PLDTarget(material='YSZ'))
+    assert ('warning', 'Enter the radius of a circular target.') in records
 
 
 def test_selected_target_has_user_number_and_database_info():

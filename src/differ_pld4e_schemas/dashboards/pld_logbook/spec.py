@@ -540,18 +540,7 @@ def client_settings() -> dict:
             'needs it (e.g. a pre-ablation or deposition step). What you enter here '
             'is not saved.'
         ),
-        'target_entry': {
-            'intro': (
-                'Creates a PLD Target entry. Do not put the target number in the '
-                'name: it is entered per run.'
-            ),
-            'fields': [
-                {'key': 'material', 'label': 'Material', 'required': True},
-                {'key': 'name', 'label': 'Name (optional, defaults to material)'},
-                {'key': 'manufacturer', 'label': 'Manufacturer'},
-                {'key': 'purchase_date', 'label': 'Purchase date', 'type': 'date'},
-            ],
-        },
+        # No `target_entry`: new PLD targets are added by super-users in NOMAD.
     }
 
 
@@ -633,6 +622,11 @@ def form_spec() -> dict:
                 'item_label': 'Target',
                 'min_items': 1,
                 'requirement': LASER_STEPS,
+                'intro': (
+                    'Select the targets that are in the system and enter their '
+                    'target number for this run. Is a target missing? New targets '
+                    'are added to the database by a super-user.'
+                ),
                 'unique': ['target', 'target_number'],
                 'fields': [
                     field(

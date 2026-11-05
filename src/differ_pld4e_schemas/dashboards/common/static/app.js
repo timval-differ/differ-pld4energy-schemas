@@ -606,7 +606,9 @@ async function loadReferences() {
         name: data.name || data.material || metadata.entry_name || `${file} (no material entered)`,
         material: data.material || null,
         retired: data.in_stock === false,
-        info: [data.material, data.diameter && `${Number((data.diameter / INCH).toPrecision(3))}"`,
+        info: [data.target_id && `ID ${data.target_id}`, data.material,
+          data.diameter && `${Number((data.diameter / INCH).toPrecision(3))}"`,
+          data.shape === 'Rectangular' && data.length && data.width && `${formatNumber(data.length * 1000)} x ${formatNumber(data.width * 1000)} mm`,
           data.manufacturer, data.purchase_date && String(data.purchase_date).slice(0, 10),
           data.in_stock === false ? 'out of stock' : null]
           .filter(Boolean).join(' · ') || 'This target has no material, size, manufacturer or purchase date yet.',
@@ -1221,13 +1223,13 @@ function renderList(container, s) {
     type: 'button', class: 'btn btn-outlined',
     onclick: () => { list.push(newItem(s)); changed(); render(); },
   }, `+ Add ${s.item_label.toLowerCase()}`));
-  if (s.key === 'targets') {
-    actions.append(el('button', {type: 'button', class: 'btn btn-text', onclick: newTargetDialog}, 'New target in the database'));
-  }
+  // Without a `target_entry` targets are only added in NOMAD, by super-users.
+  const newTarget = client().target_entry
+    ? el('button', {type: 'button', class: 'btn btn-text', onclick: newTargetDialog}, 'New target in the database') : null;
   if (s.key === 'samples') {
     actions.append(el('button', {type: 'button', class: 'btn btn-text', onclick: newSubstrateDialog}, 'New substrate in the database'));
-    actions.append(el('button', {type: 'button', class: 'btn btn-text', onclick: newTargetDialog}, 'New target in the database'));
   }
+  if (newTarget && (s.key === 'targets' || s.key === 'samples')) actions.append(newTarget);
   actions.append(el('button', {type: 'button', class: 'btn btn-text', onclick: loadReferences}, 'Refresh lists'));
   card.append(actions);
   container.append(card);

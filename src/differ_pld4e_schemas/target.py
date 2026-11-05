@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from nomad.datamodel.data import ArchiveSection, EntryData
 from nomad.datamodel.metainfo.annotations import ELNAnnotation, ELNComponentEnum
-from nomad.metainfo import Datetime, Quantity, Section
+from nomad.metainfo import Datetime, MEnum, Quantity, Section
 
 from differ_pld4e_schemas import m_package
 
@@ -13,6 +13,9 @@ if TYPE_CHECKING:
     from structlog.stdlib import BoundLogger
 
 __all__ = ['PLDTarget', 'SputterTarget', 'Target', 'in_stock_quantity', 'm_package']
+
+CIRCULAR = 'Circular'
+RECTANGULAR = 'Rectangular'
 
 
 def in_stock_quantity():
@@ -89,9 +92,98 @@ class TargetEntry(Target):
 
 
 class PLDTarget(TargetEntry, EntryData):
-    """A target in the PLD target database."""
+    """
+    A target in the PLD target database. Targets are added by super-users, in
+    the NOMAD entry editor: the PLD logbook dashboard only lets you choose them.
+    Enter the radius of a circular target, or the length and width of a
+    rectangular one; the diameter follows from the radius.
+    """
 
-    m_def = Section(label='PLD Target')
+    m_def = Section(
+        label='PLD Target',
+        a_display={
+            'visible': {'exclude': ['diameter']},
+            'order': [
+                'name',
+                'material',
+                'target_id',
+                'shape',
+                'radius',
+                'length',
+                'width',
+                'thickness',
+                'density',
+                'purity',
+                'manufacturer',
+                'purchase_date',
+                'engraving_picture',
+                'in_stock',
+            ],
+        },
+    )
+    target_id = Quantity(
+        type=str,
+        description='ID engraved on the back of the target.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.StringEditQuantity, label='Target ID'
+        ),
+    )
+    shape = Quantity(
+        type=MEnum(CIRCULAR, RECTANGULAR),
+        default=CIRCULAR,
+        a_eln=ELNAnnotation(component=ELNComponentEnum.RadioEnumEditQuantity),
+    )
+    radius = Quantity(
+        type=float,
+        unit='m',
+        description='Radius of a circular target.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.NumberEditQuantity, defaultDisplayUnit='mm'
+        ),
+    )
+    length = Quantity(
+        type=float,
+        unit='m',
+        description='Length of a rectangular target.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.NumberEditQuantity, defaultDisplayUnit='mm'
+        ),
+    )
+    width = Quantity(
+        type=float,
+        unit='m',
+        description='Width of a rectangular target.',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.NumberEditQuantity, defaultDisplayUnit='mm'
+        ),
+    )
+    density = Quantity(
+        type=float,
+        unit='kg/m**3',
+        a_eln=ELNAnnotation(
+            component=ELNComponentEnum.NumberEditQuantity,
+            defaultDisplayUnit='g/cm**3',
+        ),
+    )
+    engraving_picture = Quantity(
+        type=str,
+        description='Optional picture of the ID engraved on the back of the target.',
+        a_browser={'adaptor': 'RawFileAdaptor'},
+        a_eln=ELNAnnotation(component=ELNComponentEnum.FileEditQuantity),
+    )
+
+    def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
+        super().normalize(archive, logger)
+        if self.shape == RECTANGULAR:
+            # A rectangular target has no diameter, also not one left from a
+            # radius entered before the shape was changed.
+            self.diameter = None
+            if self.length is None or self.width is None:
+                logger.warning('Enter the length and width of a rectangular target.')
+        elif self.radius is None:
+            logger.warning('Enter the radius of a circular target.')
+        else:
+            self.diameter = 2 * self.radius
 
 
 class SputterTarget(TargetEntry, EntryData):

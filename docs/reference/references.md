@@ -332,24 +332,33 @@ The pre-sputtering and sputtering steps have:
 
 ### PLD Target
 
-Extends the `Target` section.
+Extends the `Target` section. PLD targets are added by super-users in the NOMAD
+entry editor; the PLD logbook dashboard only lets you choose them.
 
 | Field | Type | Unit | Notes |
 | --- | --- | --- | --- |
 | `name` | text | | Entry name. Defaults to the material. Do not include the target number. |
 | `material` | text | | |
+| `target_id` | text | | ID engraved on the back of the target. |
+| `shape` | choice | | `Circular` (default) or `Rectangular`. |
+| `radius` | number | mm | Circular targets. Warning on save if missing. |
+| `length` | number | mm | Rectangular targets. Warning on save if missing. |
+| `width` | number | mm | Rectangular targets. Warning on save if missing. |
+| `diameter` | number | m | **Generated**: twice the radius; empty for a rectangular target. Hidden in the editor. |
+| `thickness` | number | m | |
+| `density` | number | g/cm³ | |
+| `purity` | text | | e.g. `99.999%`. |
 | `manufacturer` | text | | |
 | `purchase_date` | date/time | | |
-| `diameter` | number | m | |
-| `thickness` | number | m | |
-| `purity` | text | | e.g. `99.999%`. |
+| `engraving_picture` | file | | Optional picture of the engraved ID. |
 | `in_stock` | yes/no | | Default yes. When no, the dashboard no longer offers it; logbooks that used it keep it. |
 
 ### Sputter Target
 
 The sputter target database, separate from the PLD targets. Same fields as the
-PLD Target; enter the `diameter` (shown in inch), which decides the positions the
-target fits.
+`Target` section (`name`, `material`, `manufacturer`, `purchase_date`, `diameter`,
+`thickness`, `purity`, `in_stock`); enter the `diameter` (shown in inch), which
+decides the positions the target fits.
 
 ### Substrate type
 

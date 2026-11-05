@@ -287,6 +287,11 @@ def test_spec_qualified_names_are_stable():
     )
 
 
+def test_dashboard_cannot_create_targets():
+    # New PLD targets are added by super-users in NOMAD, not in the dashboard.
+    assert 'target_entry' not in SPEC['client']
+
+
 def test_run_comes_first_then_samples_then_system():
     keys = [s['key'] for s in SPEC['sections']]
     assert keys[:3] == ['run', 'samples', 'chamber']

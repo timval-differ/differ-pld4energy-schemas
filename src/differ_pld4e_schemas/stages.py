@@ -5,9 +5,10 @@ from nomad.metainfo import MEnum, Quantity, Section
 from differ_pld4e_schemas import m_package
 
 __all__ = [
+    'HEATER_SIZES',
     'SCAN_AREAS',
     'SCAN_AXES',
-    'SCAN_SIZES',
+    'TARGET_SIZES',
     'CartesianHeaterScan',
     'HeaterStagePosition',
     'PolarHeaterScan',
@@ -15,12 +16,21 @@ __all__ = [
     'm_package',
 ]
 
-# Options of the "Define scan pattern" dialog of the system software. Only the
-# values seen so far; the first one is the default.
+# Options of the "Define scan pattern" dialog of the system software; the first
+# one is the default. Only the values seen so far, except for the heater size.
 SCAN_AXES = ('X',)
 SCAN_AREAS = ('None', 'Square filled')
-# Heater size and target size.
-SCAN_SIZES = ('25mm / 1"',)
+HEATER_SIZES = (
+    '25mm / 1"',
+    '50mm / 2"',
+    '75mm / 3"',
+    '100mm / 4"',
+    '125mm',
+    '150mm',
+    '30x30mm',
+    '75x25mm / 3x1"',
+)
+TARGET_SIZES = ('25mm / 1"',)
 
 
 def choice(options, default=None, **kwargs):
@@ -92,7 +102,7 @@ class TargetStage(ArchiveSection):
     y_offset = _length()
     scan_speed_x = _speed()
     scan_speed_y = _speed()
-    target_size = choice(SCAN_SIZES)
+    target_size = choice(TARGET_SIZES)
 
 
 class CartesianHeaterScan(ArchiveSection):

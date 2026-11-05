@@ -205,7 +205,7 @@ All fields of the pre-ablation step, plus:
 | `heater_stage_position` | sub-section | | [HeaterStagePosition](#heaterstageposition) |
 | `heater_scan_type` | choice | | `Polar scan` (default), `Cartesian scan`. The matching sub-section is added on save. |
 | `heater_scan_axis` | choice | | `X`. |
-| `heater_size` | choice | | `25mm / 1"`. |
+| `heater_size` | choice | | `25mm / 1"` (default), `50mm / 2"`, `75mm / 3"`, `100mm / 4"`, `125mm`, `150mm`, `30x30mm`, `75x25mm / 3x1"`. |
 | `polar_scan` | sub-section | | [PolarHeaterScan](#polarheaterscan) |
 | `cartesian_scan` | sub-section | | [CartesianHeaterScan](#cartesianheaterscan) |
 

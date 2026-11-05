@@ -50,7 +50,12 @@ from differ_pld4e_schemas.process_steps import (
     LASER_HEATING_POWER,
 )
 from differ_pld4e_schemas.sample import Sample, SubstrateType
-from differ_pld4e_schemas.stages import SCAN_AREAS, SCAN_AXES, SCAN_SIZES
+from differ_pld4e_schemas.stages import (
+    HEATER_SIZES,
+    SCAN_AREAS,
+    SCAN_AXES,
+    TARGET_SIZES,
+)
 from differ_pld4e_schemas.target import PLDTarget
 
 from ..common.fields import comments, field, number
@@ -214,7 +219,7 @@ def target_stage_fields():
         select(
             'target_size',
             'Target size',
-            SCAN_SIZES,
+            TARGET_SIZES,
             archive='target_stage.target_size',
             group=group,
         ),
@@ -249,7 +254,7 @@ def heater_scan_fields():
             'heater_scan_type', 'Scan type', [POLAR_SCAN, CARTESIAN_SCAN], group=group
         ),
         select('heater_scan_axis', 'Scan axis', SCAN_AXES, group=group),
-        select('heater_size', 'Heater size', SCAN_SIZES, group=group),
+        select('heater_size', 'Heater size', HEATER_SIZES, group=group),
     ]
 
 

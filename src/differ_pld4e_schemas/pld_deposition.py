@@ -29,8 +29,8 @@ from differ_pld4e_schemas.references import copy_section as _copy
 from differ_pld4e_schemas.references import reference_key as _reference_key
 from differ_pld4e_schemas.sample import Sample, SampleRun
 from differ_pld4e_schemas.stages import (
+    HEATER_SIZES,
     SCAN_AXES,
-    SCAN_SIZES,
     CartesianHeaterScan,
     HeaterStagePosition,
     PolarHeaterScan,
@@ -225,7 +225,7 @@ class PLDDepositionStep(TargetedStep):
         a_eln=ELNAnnotation(component=ELNComponentEnum.RadioEnumEditQuantity),
     )
     heater_scan_axis = choice(SCAN_AXES)
-    heater_size = choice(SCAN_SIZES)
+    heater_size = choice(HEATER_SIZES)
     polar_scan = SubSection(section_def=PolarHeaterScan)
     cartesian_scan = SubSection(section_def=CartesianHeaterScan)
 

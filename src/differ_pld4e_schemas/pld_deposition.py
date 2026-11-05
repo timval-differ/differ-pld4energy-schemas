@@ -26,11 +26,13 @@ from differ_pld4e_schemas.references import copy_section as _copy
 from differ_pld4e_schemas.references import reference_key as _reference_key
 from differ_pld4e_schemas.sample import Sample, SampleRun
 from differ_pld4e_schemas.stages import (
+    SCAN_AXES,
+    SCAN_SIZES,
     CartesianHeaterScan,
     HeaterStagePosition,
     PolarHeaterScan,
-    SubstrateStageScan,
     TargetStage,
+    choice,
 )
 from differ_pld4e_schemas.target import PLDTarget
 
@@ -192,6 +194,34 @@ class PLDDepositionStep(TargetedStep):
         a_eln=ELNAnnotation(component=ELNComponentEnum.ReferenceEditQuantity),
     )
     heater_stage_position = SubSection(section_def=HeaterStagePosition)
+    heater_scan_type = Quantity(
+        type=MEnum(POLAR_SCAN, CARTESIAN_SCAN),
+        default=POLAR_SCAN,
+        description='Fill in the scan sub-section that matches the scan type.',
+        a_eln=ELNAnnotation(component=ELNComponentEnum.RadioEnumEditQuantity),
+    )
+    heater_scan_axis = choice(SCAN_AXES)
+    heater_size = choice(SCAN_SIZES)
+    polar_scan = SubSection(section_def=PolarHeaterScan)
+    cartesian_scan = SubSection(section_def=CartesianHeaterScan)
+
+    def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
+        super().normalize(archive, logger)
+        scan_type = self.heater_scan_type or POLAR_SCAN
+        if scan_type == POLAR_SCAN:
+            if self.polar_scan is None:
+                self.polar_scan = PolarHeaterScan()
+            if self.cartesian_scan is not None:
+                logger.warning(
+                    'Cartesian scan parameters are ignored for a polar scan.'
+                )
+        else:
+            if self.cartesian_scan is None:
+                self.cartesian_scan = CartesianHeaterScan()
+            if self.polar_scan is not None:
+                logger.warning(
+                    'Polar scan parameters are ignored for a cartesian scan.'
+                )
 
 
 # SA-PLD and LA-PLD each get their own step classes so that the GUI only offers
@@ -220,19 +250,6 @@ class SAPLDDepositionStep(PLDDepositionStep, SAPLDStep):
     """Deposits on all samples loaded in the chamber."""
 
     m_def = Section(label='Pulsed laser deposition step')
-    substrate_stage_scan = Quantity(
-        type=bool,
-        default=False,
-        a_eln=ELNAnnotation(component=ELNComponentEnum.BoolEditQuantity),
-    )
-    substrate_scan = SubSection(section_def=SubstrateStageScan)
-
-    def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
-        super().normalize(archive, logger)
-        if self.substrate_stage_scan and self.substrate_scan is None:
-            self.substrate_scan = SubstrateStageScan()
-        elif not self.substrate_stage_scan and self.substrate_scan is not None:
-            logger.warning('Scan parameters are given but substrate stage scan is off.')
 
 
 class SAPLDCoolDownStep(CoolDownStep, SAPLDStep):
@@ -258,34 +275,7 @@ class LAPLDAnnealingStep(AnnealingStep, LAPLDStep):
 
 
 class LAPLDDepositionStep(PLDDepositionStep, LAPLDStep):
-    """Fill in the scan sub-section that matches the heater scan type."""
-
     m_def = Section(label='Pulsed laser deposition step')
-    heater_scan_type = Quantity(
-        type=MEnum(POLAR_SCAN, CARTESIAN_SCAN),
-        default=POLAR_SCAN,
-        a_eln=ELNAnnotation(component=ELNComponentEnum.RadioEnumEditQuantity),
-    )
-    polar_scan = SubSection(section_def=PolarHeaterScan)
-    cartesian_scan = SubSection(section_def=CartesianHeaterScan)
-
-    def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
-        super().normalize(archive, logger)
-        scan_type = self.heater_scan_type or POLAR_SCAN
-        if scan_type == POLAR_SCAN:
-            if self.polar_scan is None:
-                self.polar_scan = PolarHeaterScan()
-            if self.cartesian_scan is not None:
-                logger.warning(
-                    'Cartesian scan parameters are ignored for a polar scan.'
-                )
-        else:
-            if self.cartesian_scan is None:
-                self.cartesian_scan = CartesianHeaterScan()
-            if self.polar_scan is not None:
-                logger.warning(
-                    'Polar scan parameters are ignored for a cartesian scan.'
-                )
 
 
 class LAPLDCoolDownStep(CoolDownStep, LAPLDStep):

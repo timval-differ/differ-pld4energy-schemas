@@ -10,7 +10,7 @@
 | `references.py` | Comparing and copying references between entries |
 | `laser.py` | `LaserCalibration` (with the T1 calculation) and `LaserParameters` |
 | `gas.py` | `BackgroundGas`, the gases and atmospheres |
-| `stages.py` | `HeaterStagePosition`, `TargetStage`, `SubstrateStageScan`, `CartesianHeaterScan`, `PolarHeaterScan` |
+| `stages.py` | `HeaterStagePosition`, `TargetStage`, `CartesianHeaterScan`, `PolarHeaterScan` |
 | `sample.py` | System-agnostic samples: the `Sample` entry, `SampleInRun`, `Layer`, the `SampleRun` base of a run, `sample_id()` and `sample_name()` |
 | `target.py` | `Target`, and the `PLDTarget` and `SputterTarget` database entries |
 | `in_situ.py` | In-situ techniques, the LA-EDS energy axis and plot |

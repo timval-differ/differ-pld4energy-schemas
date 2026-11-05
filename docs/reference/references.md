@@ -178,19 +178,9 @@ All fields of the pre-ablation step, plus:
 | `film_thickness` | number | nm | Thickness of the film grown in this step. |
 | `samples` | references to Sample | | The samples deposited on: all samples of the run (SA-PLD) or the chosen one (LA-PLD). |
 | `heater_stage_position` | sub-section | | [HeaterStagePosition](#heaterstageposition) |
-
-SA-PLD (`SAPLDDepositionStep`) adds:
-
-| Field | Type | Unit | Notes |
-| --- | --- | --- | --- |
-| `substrate_stage_scan` | yes/no | | Default no. When yes, `substrate_scan` is added on save. |
-| `substrate_scan` | sub-section | | [SubstrateStageScan](#substratestagescan) |
-
-LA-PLD (`LAPLDDepositionStep`) adds:
-
-| Field | Type | Unit | Notes |
-| --- | --- | --- | --- |
 | `heater_scan_type` | choice | | `Polar scan` (default), `Cartesian scan`. The matching sub-section is added on save. |
+| `heater_scan_axis` | choice | | `X`. |
+| `heater_size` | choice | | `25mm / 1"`. |
 | `polar_scan` | sub-section | | [PolarHeaterScan](#polarheaterscan) |
 | `cartesian_scan` | sub-section | | [CartesianHeaterScan](#cartesianheaterscan) |
 
@@ -225,14 +215,20 @@ The valve position is recorded on the step, see
 | Field | Type | Unit |
 | --- | --- | --- |
 | `start_x_position` | number | mm |
-| `x_offset` | number | mm |
 | `start_y_position` | number | mm |
-| `y_offset` | number | mm |
 | `start_z_position` | number | mm |
+| `target_select` | number | degree |
+| `scan_axis` | choice: `X` | |
+| `area` | choice: `None`, `Square filled` (default) | |
 | `scan_width_x` | number | mm |
 | `scan_width_y` | number | mm |
+| `spot_width` | number | mm |
+| `spot_height` | number | mm |
+| `x_offset` | number | mm |
+| `y_offset` | number | mm |
 | `scan_speed_x` | number | mm/s |
 | `scan_speed_y` | number | mm/s |
+| `target_size` | choice: `25mm / 1"` | |
 
 ### HeaterStagePosition
 
@@ -244,27 +240,19 @@ The valve position is recorded on the step, see
 | `tilt` | number | degree |
 | `spin` | number | degree |
 
-### SubstrateStageScan
-
-SA-PLD substrate stage scan.
-
-| Field | Type | Unit |
-| --- | --- | --- |
-| `scan_width_x` | number | mm |
-| `scan_width_y` | number | mm |
-| `scan_speed_x` | number | mm/s |
-| `scan_speed_y` | number | mm/s |
-
 ### CartesianHeaterScan
 
-LA-PLD cartesian heater scan.
-
 | Field | Type | Unit |
 | --- | --- | --- |
+| `area` | choice: `None` (default), `Square filled` | |
+| `width_x` | number | mm |
+| `height_z` | number | mm |
+| `spot_width` | number | mm |
+| `spot_height` | number | mm |
 | `x_offset` | number | mm |
-| `y_offset` | number | mm |
-| `scan_rate` | number | mm/s |
-| `rotation_rate` | number | rpm |
+| `z_offset` | number | mm |
+| `scan_speed_x` | number | mm/s |
+| `scan_speed_z` | number | mm/s |
 
 ### PolarHeaterScan
 

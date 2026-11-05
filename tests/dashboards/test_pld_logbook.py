@@ -60,10 +60,16 @@ TARGET_STAGE = {
     'start_y_position': 0,
     'y_offset': 1,
     'start_z_position': 5,
+    'target_select': 0,
+    'target_scan_axis': 'X',
+    'target_area': 'Square filled',
     'scan_width_x': 10,
     'scan_width_y': 8,
+    'spot_width': 1,
+    'spot_height': 1,
     'scan_speed_x': 2,
     'scan_speed_y': 1.5,
+    'target_size': '25mm / 1"',
 }
 
 LASER = {
@@ -91,6 +97,8 @@ DEPOSITION = {
     'tilt': 0,
     'spin': 0,
     'heater_scan_type': 'Polar scan',
+    'heater_scan_axis': 'X',
+    'heater_size': '25mm / 1"',
     'radius_start': 0,
     'radius_stop': 40,
     'pulse_spacing': 0.5,
@@ -321,15 +329,16 @@ def test_polar_scan_fields_required_only_for_polar():
     cartesian = form(steps__1__heater_scan_type='Cartesian scan')
     errors = messages(validate(cartesian, SPEC))
     assert 'steps.1.radius_stop' not in errors
-    assert errors['steps.1.cartesian_scan_rate'] == 'Required.'
+    for key in ('width_x', 'height_z', 'spot_width', 'z_offset', 'scan_speed_z'):
+        assert errors[f'steps.1.cartesian_{key}'] == 'Required.'
 
 
-def test_sa_substrate_stage_scan_has_widths_and_speeds():
-    data = sa_form()
-    data['steps'][1]['substrate_stage_scan'] = True
-    errors = messages(validate(data, SPEC))
-    for key in ('scan_width_x', 'scan_width_y', 'scan_speed_x', 'scan_speed_y'):
-        assert errors[f'steps.1.substrate_{key}'] == 'Required.'
+def test_sa_has_the_same_heater_scan():
+    errors = messages(validate(sa_form(steps__1__radius_stop=None), SPEC))
+    assert errors['steps.1.radius_stop'] == 'Required.'
+    cartesian = sa_form(steps__1__heater_scan_type='Cartesian scan')
+    errors = messages(validate(cartesian, SPEC))
+    assert errors['steps.1.cartesian_width_x'] == 'Required.'
 
 
 def test_target_stage_has_z_widths_and_speeds():
@@ -337,7 +346,17 @@ def test_target_stage_has_z_widths_and_speeds():
     assert errors['steps.1.start_z_position'] == 'Required.'
     keys = {f['key'] for f in spec_module.target_stage_fields()}
     assert 'scan_area' not in keys
-    assert {'scan_speed_x', 'scan_speed_y', 'scan_width_x', 'scan_width_y'} <= keys
+    assert {
+        'target_select',
+        'target_area',
+        'spot_width',
+        'spot_height',
+        'scan_speed_x',
+        'scan_speed_y',
+        'scan_width_x',
+        'scan_width_y',
+        'target_size',
+    } <= keys
 
 
 def test_gas_fields_required_when_gas_is_ticked():

@@ -41,6 +41,7 @@ from differ_pld4e_schemas.pld_deposition import (
     SAPLDLogbook,
 )
 from differ_pld4e_schemas.sample import Sample, SubstrateType
+from differ_pld4e_schemas.stages import SCAN_AREAS, SCAN_AXES, SCAN_SIZES
 from differ_pld4e_schemas.target import PLDTarget
 
 from ..common.fields import comments, field, number
@@ -146,21 +147,69 @@ def laser_fields():
     ]
 
 
+def select(key, label, options, default=None, **kwargs):
+    return field(
+        key,
+        label,
+        'select',
+        options=list(options),
+        default=default or options[0],
+        **kwargs,
+    )
+
+
+# Position and scan fields follow the "Manual movement" and "Define scan
+# pattern" dialogs of the system software.
+
+
 def target_stage_fields():
     group = 'Target stage'
-    return [
-        number(key, label, unit, archive=f'target_stage.{key}', group=group)
-        for key, label, unit in (
-            ('start_x_position', 'Start x-position', 'mm'),
-            ('x_offset', 'x-offset', 'mm'),
-            ('start_y_position', 'Start y-position', 'mm'),
-            ('y_offset', 'y-offset', 'mm'),
-            ('start_z_position', 'Start z-position', 'mm'),
-            ('scan_width_x', 'Scan width x', 'mm'),
-            ('scan_width_y', 'Scan width y', 'mm'),
-            ('scan_speed_x', 'Scan speed x', 'mm/s'),
-            ('scan_speed_y', 'Scan speed y', 'mm/s'),
+
+    def stage(key, label, unit, **kwargs):
+        return number(
+            key, label, unit, archive=f'target_stage.{key}', group=group, **kwargs
         )
+
+    return [
+        stage('start_x_position', 'Target x', 'mm'),
+        stage('start_y_position', 'Target y', 'mm'),
+        stage('start_z_position', 'Target z', 'mm'),
+        stage('target_select', 'Target select', 'degree', unit_label='deg.'),
+        select(
+            'target_scan_axis',
+            'Scan axis',
+            SCAN_AXES,
+            archive='target_stage.scan_axis',
+            group=group,
+        ),
+        select(
+            'target_area',
+            'Area',
+            SCAN_AREAS,
+            default='Square filled',
+            archive='target_stage.area',
+            group=group,
+        ),
+        *[
+            stage(key, label, unit)
+            for key, label, unit in (
+                ('scan_width_x', 'Width X', 'mm'),
+                ('scan_width_y', 'Height Y', 'mm'),
+                ('spot_width', 'Spot width', 'mm'),
+                ('spot_height', 'Spot height', 'mm'),
+                ('x_offset', 'Offset X', 'mm'),
+                ('y_offset', 'Offset Y', 'mm'),
+                ('scan_speed_x', 'Scan speed X', 'mm/s'),
+                ('scan_speed_y', 'Scan speed Y', 'mm/s'),
+            )
+        ],
+        select(
+            'target_size',
+            'Target size',
+            SCAN_SIZES,
+            archive='target_stage.target_size',
+            group=group,
+        ),
     ]
 
 
@@ -169,7 +218,7 @@ def heater_stage_fields():
     return [
         number(
             key,
-            key,
+            f'Heater {key}',
             unit,
             unit_label=label,
             archive=f'heater_stage_position.{key}',
@@ -179,49 +228,54 @@ def heater_stage_fields():
             ('x', 'mm', None),
             ('y', 'mm', None),
             ('z', 'mm', None),
-            ('tilt', 'degree', '°'),
-            ('spin', 'degree', '°'),
+            ('tilt', 'degree', 'deg.'),
+            ('spin', 'degree', 'deg.'),
         )
     ]
 
 
-def substrate_scan_fields(visible_if):
-    """Substrate stage scan of the SA-PLD."""
+def heater_scan_fields():
+    group = 'Heater stage scan'
     return [
-        number(
-            f'substrate_{key}',
-            label,
-            unit,
-            archive=f'substrate_scan.{key}',
-            visible_if=visible_if,
-            group='Substrate stage scan',
-        )
-        for key, label, unit in (
-            ('scan_width_x', 'Scan width x', 'mm'),
-            ('scan_width_y', 'Scan width y', 'mm'),
-            ('scan_speed_x', 'Scan speed x', 'mm/s'),
-            ('scan_speed_y', 'Scan speed y', 'mm/s'),
-        )
+        select(
+            'heater_scan_type', 'Scan type', [POLAR_SCAN, CARTESIAN_SCAN], group=group
+        ),
+        select('heater_scan_axis', 'Scan axis', SCAN_AXES, group=group),
+        select('heater_size', 'Heater size', SCAN_SIZES, group=group),
     ]
 
 
 def cartesian_scan_fields(visible_if):
-    """Cartesian heater stage scan of the LA-PLD."""
+    group = 'Cartesian scan'
     return [
-        number(
-            f'cartesian_{key}',
-            label,
-            unit,
-            archive=f'cartesian_scan.{archive}',
+        select(
+            'cartesian_area',
+            'Area',
+            SCAN_AREAS,
+            archive='cartesian_scan.area',
             visible_if=visible_if,
-            group='Cartesian scan',
-        )
-        for key, archive, label, unit in (
-            ('x_offset', 'x_offset', 'x-offset', 'mm'),
-            ('y_offset', 'y_offset', 'y-offset', 'mm'),
-            ('scan_rate', 'scan_rate', 'Scan rate', 'mm/s'),
-            ('rotation_rate', 'rotation_rate', 'Rotation rate', 'rpm'),
-        )
+            group=group,
+        ),
+        *[
+            number(
+                f'cartesian_{key}',
+                label,
+                unit,
+                archive=f'cartesian_scan.{key}',
+                visible_if=visible_if,
+                group=group,
+            )
+            for key, label, unit in (
+                ('width_x', 'Width X', 'mm'),
+                ('height_z', 'Height Z', 'mm'),
+                ('spot_width', 'Spot width', 'mm'),
+                ('spot_height', 'Spot height', 'mm'),
+                ('x_offset', 'Offset X', 'mm'),
+                ('z_offset', 'Offset Z', 'mm'),
+                ('scan_speed_x', 'Scan speed X', 'mm/s'),
+                ('scan_speed_z', 'Scan speed Z', 'mm/s'),
+            )
+        ],
     ]
 
 
@@ -312,9 +366,8 @@ def step_variants():
         *[f for f in laser_fields() if f['key'] not in ('laser_mode', 'laser_voltage')],
         comments(),
     ]
-    scan_on = {'key': 'substrate_stage_scan', 'equals': True}
-    polar = {'all': [LA, {'key': 'heater_scan_type', 'equals': POLAR_SCAN}]}
-    cartesian = {'all': [LA, {'key': 'heater_scan_type', 'equals': CARTESIAN_SCAN}]}
+    polar = {'key': 'heater_scan_type', 'equals': POLAR_SCAN}
+    cartesian = {'key': 'heater_scan_type', 'equals': CARTESIAN_SCAN}
     deposition = [
         field(
             'sample',
@@ -332,23 +385,7 @@ def step_variants():
             'up the sample name.',
         ),
         *heater_stage_fields(),
-        field(
-            'substrate_stage_scan',
-            'Substrate stage scan',
-            'bool',
-            visible_if=SA,
-            group='Substrate stage scan',
-        ),
-        *substrate_scan_fields({'all': [SA, scan_on]}),
-        field(
-            'heater_scan_type',
-            'Heater scan type',
-            'select',
-            options=[POLAR_SCAN, CARTESIAN_SCAN],
-            default=POLAR_SCAN,
-            visible_if=LA,
-            group='Heater stage scan',
-        ),
+        *heater_scan_fields(),
         *polar_scan_fields(polar),
         *cartesian_scan_fields(cartesian),
         *target_stage_fields(),

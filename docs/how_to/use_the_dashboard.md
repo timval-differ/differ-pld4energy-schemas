@@ -104,9 +104,10 @@ leave a section with **Next**, or straight away for fields you have edited.
       change what differs. Enter the **film thickness**: each deposition step
       grows one film, of its target's material, on its samples, and these films
       make up the sample names. In the SA-PLD a deposition covers all samples
-      loaded in the chamber; switch on *Substrate stage scan* for its scan width
-      and speed. In the LA-PLD choose the sample, and the heater scan type
-      (*Polar scan* is the default).
+      loaded in the chamber; in the LA-PLD choose the sample. The target and
+      heater stage fields follow the *Manual movement* and *Define scan
+      pattern* dialogs of the system software; choose the heater scan type
+      (*Polar scan* is the default) to get its scan fields.
 7. **In-situ techniques.** Tick each technique you used. Add its data files now
    or later: a technique without files is saved as *awaiting data*.
 8. **Review and save.** Lists everything that is still missing; click an item

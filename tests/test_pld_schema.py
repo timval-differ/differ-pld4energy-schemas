@@ -202,10 +202,16 @@ def test_target_stage_has_z_scan_widths_and_speeds():
     assert 'scan_area' not in quantities
     assert {
         'start_z_position',
+        'target_select',
+        'scan_axis',
+        'area',
         'scan_width_x',
         'scan_width_y',
+        'spot_width',
+        'spot_height',
         'scan_speed_x',
         'scan_speed_y',
+        'target_size',
     } <= quantities
 
 
@@ -438,13 +444,11 @@ def test_target_number_outside_the_positions_is_reported():
     assert any('not a position' in message for _, message in records)
 
 
-def test_sa_deposition_records_samples_and_stage_scan():
-    step = SAPLDDepositionStep(substrate_stage_scan=True)
+def test_sa_deposition_records_samples_and_heater_scan():
+    step = SAPLDDepositionStep()
     _normalize_section(step)
-    assert step.substrate_scan is not None
-    assert {'scan_width_x', 'scan_speed_y'} <= set(
-        step.substrate_scan.m_def.all_quantities
-    )
+    assert step.polar_scan is not None
+    assert 'substrate_scan' not in step.m_def.all_sub_sections
     assert 'samples' in step.m_def.all_quantities
 
 
@@ -472,6 +476,19 @@ def test_la_cartesian_scan():
     _normalize_section(step)
     assert step.cartesian_scan is not None
     assert step.polar_scan is None
+    assert step.heater_scan_axis == 'X'
+    assert step.heater_size == '25mm / 1"'
+    assert step.cartesian_scan.area == 'None'
+    assert {
+        'width_x',
+        'height_z',
+        'spot_width',
+        'spot_height',
+        'x_offset',
+        'z_offset',
+        'scan_speed_x',
+        'scan_speed_z',
+    } <= set(step.cartesian_scan.m_def.all_quantities)
 
 
 def test_la_has_extra_carriers_and_particle_reduction_plate():

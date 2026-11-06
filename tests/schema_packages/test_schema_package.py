@@ -1,4 +1,4 @@
-import os.path
+from pathlib import Path
 
 import pytest
 import yaml
@@ -14,7 +14,7 @@ def test_schema_package():
 
 
 def test_example_entry_loads():
-    test_file = os.path.join('tests', 'data', 'example_sps.archive.yaml')
+    test_file = Path(__file__).resolve().parents[1] / 'data' / 'example_sps.archive.yaml'
     with open(test_file) as archive_file:
         entry_archive = EntryArchive.m_from_dict(yaml.safe_load(archive_file))
     assert entry_archive.data.name == 'Ta-Ti multilayer on Si'

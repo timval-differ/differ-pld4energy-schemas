@@ -7,7 +7,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -17,7 +16,7 @@ name = "differ_pld4e_schemas"
 description = "NOMAD schemas and the PLD and sputter logbook dashboards of the PLD4Energy lab at DIFFER"
 version = "0.3.4"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
     { name = "Tim van Alphen", email = "t.j.j.vanalphen@differ.nl" },
 ]
@@ -26,9 +25,9 @@ maintainers = [
 ]
 license = { file = "LICENSE" }
 dependencies = [
-    "nomad-lab>=1.3.0",
-    "nomad-material-processing",
-    "fastapi",
+    "nomad-lab>=2.0",
+    "nomad-material-processing>=1.0",
+    "fastapi>=0.100",
 ]
 
 [project.urls]
@@ -141,3 +140,6 @@ sputter_logbook_dashboard = "differ_pld4e_schemas.dashboards:sputter_logbook_das
 [tool.cruft]
 # Avoid updating workflow files, this leads to permissions issues
 skip = [".github/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

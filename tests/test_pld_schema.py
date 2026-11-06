@@ -1,4 +1,4 @@
-import os.path
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -617,7 +617,8 @@ def test_la_eds_energy_axis():
 
 # Exported RHEED and MIC data
 
-RAW_DATA = os.path.join('tests', 'data', 'raw_data')
+DATA_DIR = Path(__file__).resolve().parent / 'data'
+RAW_DATA = str(DATA_DIR / 'raw_data')
 RHEED_EXPORT = 'RHEED/step1.txt'
 MIC_EXPORT = 'MIC/EZ-CURVE_dated_09_October_2026_timestamped_11h_51m_13s.csv'
 MIC_ROWS = 300
@@ -637,13 +638,13 @@ def _normalize_with_files(data, local_dir=RAW_DATA):
 @pytest.fixture
 def mic_dir(tmp_path):
     """The header and first rows of the MIC example, which is large."""
-    with open(os.path.join(RAW_DATA, MIC_EXPORT)) as export:
+    with open(Path(RAW_DATA) / MIC_EXPORT) as export:
         lines = [export.readline() for _ in range(MIC_ROWS + 1)]
     (tmp_path / 'MIC').mkdir()
     (tmp_path / MIC_EXPORT).write_text(''.join(lines))
     (tmp_path / 'RHEED').mkdir()
     (tmp_path / RHEED_EXPORT).write_text(
-        open(os.path.join(RAW_DATA, RHEED_EXPORT)).read()
+        open(Path(RAW_DATA) / RHEED_EXPORT).read()
     )
     return str(tmp_path)
 
@@ -752,7 +753,7 @@ def test_export_figures_show_on_the_entry(mic_dir):
     ),
 )
 def test_example_logbooks(file_name, system):
-    with open(os.path.join('tests', 'data', file_name)) as archive_file:
+    with open(DATA_DIR / file_name) as archive_file:
         archive = EntryArchive.m_from_dict(yaml.safe_load(archive_file))
     archive.metadata = EntryMetadata()
     logbook = archive.data

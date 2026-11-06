@@ -1,6 +1,11 @@
 name: install-and-test-workflow
 
-on: [push]
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
 
 env:
   UV_VERSION: 0.9

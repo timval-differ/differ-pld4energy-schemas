@@ -1,4 +1,4 @@
-import os.path
+from pathlib import Path
 
 import pytest
 import yaml
@@ -195,7 +195,7 @@ def test_new_samples_get_sps_ids_and_names():
 
 
 def test_example_logbook():
-    with open(os.path.join('tests', 'data', 'example_sps.archive.yaml')) as file:
+    with open(Path(__file__).resolve().parent / 'data' / 'example_sps.archive.yaml') as file:
         archive = EntryArchive.m_from_dict(yaml.safe_load(file))
     archive.metadata = EntryMetadata()
     logbook = archive.data

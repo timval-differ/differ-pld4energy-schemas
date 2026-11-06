@@ -18,8 +18,9 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from .convert import UnsafeLogbookFile
 from .rules import step_time_warnings
 
 STATIC = Path(__file__).parent / 'static'
@@ -47,7 +48,7 @@ def index_page(title: str) -> str:
 
 class FormRequest(BaseModel):
     form: dict
-    logbook_file: str | None = None
+    logbook_file: str | None = Field(None, max_length=255)
 
 
 class ArchiveRequest(BaseModel):
@@ -90,7 +91,13 @@ def create_app(form_spec: dict, rules, converter) -> FastAPI:
         errors = rules.validate(request.form, spec)
         if errors:
             return {'errors': errors, 'files': []}
-        result = converter.form_to_files(request.form, spec, request.logbook_file)
+        try:
+            result = converter.form_to_files(request.form, spec, request.logbook_file)
+        except UnsafeLogbookFile as error:
+            return {
+                'errors': [{'path': 'logbook_file', 'message': str(error)}],
+                'files': [],
+            }
         return {'errors': [], **result}
 
     @app.post('/api/draft-name')

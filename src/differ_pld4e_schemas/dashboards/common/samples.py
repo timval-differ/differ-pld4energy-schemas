@@ -24,6 +24,7 @@ Form data of one sample::
 
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import datetime
 
@@ -235,7 +236,36 @@ def _file_name(reference: str) -> str:
     return reference.split('/mainfile/', 1)[1].split('#', 1)[0]
 
 
-def _sample_file(entry: dict, item: dict, system: str, start_text: str) -> dict:
+def is_sample_id(value, systems) -> bool:
+    """Whether `value` has the form of a sample ID made by one of `systems`."""
+    if not isinstance(value, str) or not systems:
+        return False
+    alternatives = '|'.join(re.escape(system) for system in systems)
+    return bool(
+        re.fullmatch(
+            rf'(?:{alternatives})_\d{{4}}-\d{{2}}-\d{{2}}_\d{{2}}:\d{{2}}_S\d{{2,}}',
+            value,
+        )
+    )
+
+
+def own_sample_file(reference, sample_id, systems) -> str | None:
+    """
+    The file of a sample saved before, if `reference` points to the file this
+    sample's ID gives. The reference comes from the browser, so a save may only
+    overwrite that file, never another file of the upload. The ID may be of any
+    of the dashboard's `systems`: it is kept when the run's system is changed
+    after the sample was saved.
+    """
+    if not is_mainfile_reference(reference) or not is_sample_id(sample_id, systems):
+        return None
+    file_name = _file_name(reference)
+    return file_name if file_name == file_name_for(sample_id) else None
+
+
+def _sample_file(
+    entry: dict, item: dict, system: str, start_text: str, file_name: str | None
+) -> dict:
     data = {
         'm_def': Sample.m_def.qualified_name(),
         'datetime': start_text,
@@ -260,13 +290,12 @@ def _sample_file(entry: dict, item: dict, system: str, start_text: str) -> dict:
     if entry.get('comments'):
         data['description'] = entry['comments']
     # The entry of a sample is made by its first save; later saves of the run
-    # update it, but never touch samples of other runs.
-    reference = item.get('ref')
-    if reference and is_mainfile_reference(reference):
-        file_name, overwrite = _file_name(reference), True
-    else:
-        file_name, overwrite = file_name_for(entry['sample_id']), False
-        reference = mainfile_reference(file_name)
+    # update its own file (`file_name`, checked by `own_sample_file`), but never
+    # touch samples of other runs.
+    overwrite = file_name is not None
+    if file_name is None:
+        file_name = file_name_for(entry['sample_id'])
+    reference = mainfile_reference(file_name)
     return {
         'file_name': file_name,
         'kind': 'sample',
@@ -307,15 +336,18 @@ def _substrate_to_archive(item: dict, entry: dict) -> None:
 
 
 def samples_to_archive(
-    data: dict, fields: list, system: str, start_text: str, films_of
+    data: dict, fields: list, start_text: str, films_of, systems=None
 ):
     """
-    The `samples` of the run's archive, the Sample files to write and a map
-    from the form's sample choices to references. `films_of(item)` gives the
-    films grown on a sample in this run.
+    The `samples` of the run's archive, the Sample files to write, a map from
+    the form's sample choices to references and warnings ({'path', 'message'}).
+    `films_of(item)` gives the films grown on a sample in this run; `systems`
+    are those of the dashboard (by default only the run's system).
     """
-    samples, files, references = [], [], {}
-    for item in data.get('samples') or []:
+    system = (data.get('run') or {}).get('system')
+    systems = systems or [system]
+    samples, files, references, warnings = [], [], {}, []
+    for index, item in enumerate(data.get('samples') or []):
         entry = {'sample_uuid': item.get('sample_uuid') or str(uuid.uuid4())}
         fill(entry, SampleInRun, fields, item, data)
         _substrate_to_archive(item, entry)
@@ -331,12 +363,20 @@ def samples_to_archive(
                 entry[key] = value
         if entry.get('origin', NEW_SAMPLE) in MADE_HERE:
             reference = item.get('ref')
-            if entry.get('sample_id') and (
-                not reference or is_mainfile_reference(reference)
-            ):
-                file = _sample_file(entry, item, system, start_text)
+            own_file = own_sample_file(reference, entry.get('sample_id'), systems)
+            if entry.get('sample_id') and (not reference or own_file):
+                file = _sample_file(entry, item, system, start_text, own_file)
                 files.append(file)
                 reference = file['reference']
+            elif reference and is_mainfile_reference(reference):
+                # Linked as before, but its entry is left as it is.
+                warnings.append(
+                    {
+                        'path': f'samples.{index}',
+                        'message': 'The Sample entry was not updated: its file '
+                        'does not match its sample ID.',
+                    }
+                )
             choice = f'new:{item.get("uid")}'
         else:
             reference = choice = item.get('sample')
@@ -348,7 +388,7 @@ def samples_to_archive(
                 entry['lab_id'] = entry['sample_id']
             references[choice] = reference
         samples.append(entry)
-    return samples, files, references
+    return samples, files, references, warnings
 
 
 def samples_to_form(data: dict, fields: list, new_uid):

@@ -1,0 +1,2 @@
+# Test exports are kept byte for byte (CRLF line ends, a Latin-1 header).
+tests/data/exports/** -text

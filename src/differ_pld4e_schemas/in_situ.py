@@ -251,14 +251,30 @@ class ROIIntensityMap(ExportedData):
         ]
 
 
+def text_lines(binary_lines):
+    """
+    The lines of an exported file as text, whatever its encoding. Instrument
+    software writes UTF-8 or a Windows code page (the MIC export has 'µm' in
+    Latin-1 in its header), and NOMAD runs on Linux, where text files are read
+    as UTF-8. A line that is not UTF-8 is read as Latin-1, which takes any byte.
+    """
+    for line in binary_lines:
+        try:
+            text = line.decode('utf-8')
+        except UnicodeDecodeError:
+            text = line.decode('latin-1')
+        # Like reading in text mode: any of \n, \r\n and \r ends a line.
+        yield from text.splitlines()
+
+
 def _technique_exports(technique, archive, logger, files, reader) -> list:
     """Each file of `files` read with `reader(path, lines)`; unreadable ones are
     reported and skipped."""
     exports = []
     for path in files or []:
         try:
-            with archive.m_context.raw_file(path, 'r') as lines:
-                exports.append(reader(path, lines))
+            with archive.m_context.raw_file(path, 'rb') as binary:
+                exports.append(reader(path, text_lines(binary)))
         except (NotImplementedError, OSError, ValueError) as error:
             logger.warning(f'{technique.m_def.label}: could not read {path}: {error}')
     return exports

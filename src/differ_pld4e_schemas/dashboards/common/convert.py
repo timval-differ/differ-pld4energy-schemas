@@ -32,6 +32,28 @@ from .values import is_empty, step_times, to_number, visible_fields
 DRAFT_SUFFIX = '.draft.json'
 
 
+class UnsafeLogbookFile(ValueError):
+    """The logbook file a save would overwrite is not one this dashboard makes."""
+
+
+def is_logbook_file(name, systems) -> bool:
+    """
+    Whether `name` is a logbook file name as made by `run_file_stem`:
+    `{system}_{yyyy-mm-dd}_{hhmm}[_{name}].archive.json`. Sample files
+    (`..._{hh}_{mm}_S{nn}`) and hand-made `.archive.yaml` logbooks do not match.
+    """
+    if not isinstance(name, str) or not systems:
+        return False
+    alternatives = '|'.join(re.escape(system) for system in systems)
+    return bool(
+        re.fullmatch(
+            rf'(?:{alternatives})_\d{{4}}-\d{{2}}-\d{{2}}_\d{{4}}(?:_[\w.-]+)?'
+            r'\.archive\.json',
+            name,
+        )
+    )
+
+
 def run_file_stem(data: dict) -> str:
     """`{system}_{date}_{hhmm}[_{name}]`, the start of the run's file names."""
     run = data.get('run') or {}
@@ -228,7 +250,18 @@ class LogbookConverter:
         The archive files for a complete (validated) form: one Sample file per
         new or external sample, then the logbook. References between them use
         file names, so everything can be written in one go.
+
+        `logbook_file` is the file of an opened logbook, which the save
+        overwrites. It comes from the browser, so it must be a logbook file name
+        this dashboard makes (`is_logbook_file`), else `UnsafeLogbookFile`.
         """
+        if logbook_file is not None and not is_logbook_file(
+            logbook_file, spec.get('systems')
+        ):
+            raise UnsafeLogbookFile(
+                f'{logbook_file} is not a logbook made by this dashboard, so it '
+                'cannot be overwritten. Save the logbook as a new file instead.'
+            )
         sections = sections_of(spec)
         run = data.get('run') or {}
         system = run['system']
@@ -247,12 +280,12 @@ class LogbookConverter:
         logbook['datetime'] = start
         # The schema only has it as a default, which NOMAD does not show as a value.
         logbook['pvd_system'] = system
-        logbook['samples'], files, references = samples_to_archive(
+        logbook['samples'], files, references, warnings = samples_to_archive(
             data,
             sections['samples']['fields'],
-            system,
             start,
             lambda item: self.rules.sample_films(item, data),
+            spec.get('systems'),
         )
         if section_requirement(sections['targets'], spec, data) != 'none':
             targets = targets_to_archive(data)
@@ -275,7 +308,7 @@ class LogbookConverter:
                 'archive': {'data': logbook},
             }
         )
-        return {'files': files, 'logbook_file': logbook_file}
+        return {'files': files, 'logbook_file': logbook_file, 'warnings': warnings}
 
     # Reading an archive back into the form.
 

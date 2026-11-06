@@ -26,6 +26,9 @@ const app = {
   form: null,
   edit: null, // {upload_id, entry_id, mainfile} of an opened logbook
   draft: null, // {upload_id, path, savedAt} of the draft kept in NOMAD
+  // Upload holding the files of an opened logbook or draft. Its file fields
+  // name files there, so the logbook is saved to it, overwritten or not.
+  source: null,
   upload: '', // selected upload id, or '__new__'
   newUploadName: '',
   current: 'home', // 'home' (start page), a section key, or 'save'
@@ -113,6 +116,66 @@ function uploadOfRef(ref) {
   return match ? match[1] : null;
 }
 
+/*
+ * The API path of a file or folder in an upload (`kind` 'raw' or 'rawdir'),
+ * with every part encoded. Upload ids and paths come from drafts and forms
+ * kept in uploads others can write to, so a part that would leave the folder
+ * ('..') or change the request (?, #) is refused or encoded.
+ */
+function uploadPath(uploadId, kind, path = '') {
+  if (typeof uploadId !== 'string' || !/^[\w-]+$/.test(uploadId)) {
+    throw new Error(`Not an upload id: ${uploadId}`);
+  }
+  const parts = path ? String(path).split('/') : [];
+  if (parts.some((part) => part === '' || part === '.' || part === '..')) {
+    throw new Error(`Not a path in the upload: ${path}`);
+  }
+  return `/uploads/${uploadId}/${kind}/` + parts.map(encodeURIComponent).join('/');
+}
+
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/*
+ * Whether `name` is a logbook file this dashboard makes, mirroring
+ * is_logbook_file in common/convert.py. Only such a file may be overwritten
+ * when an opened logbook is saved; the server checks it again.
+ */
+function isLogbookFile(name) {
+  const systems = (app.spec && app.spec.systems) || [];
+  if (typeof name !== 'string' || !systems.length) return false;
+  return new RegExp(`^(?:${systems.map(escapeRegExp).join('|')})`
+    + '_\\d{4}-\\d{2}-\\d{2}_\\d{4}(?:_[\\p{L}\\p{N}\\p{M}_.-]+)?\\.archive\\.json$', 'u').test(name);
+}
+
+/*
+ * The logbook a save may overwrite, or null. A draft is a file in an upload that
+ * others may write to, so the logbook it names must be in the draft's own upload
+ * (`uploadId`) and be one this dashboard makes; else the save would go into
+ * another upload or overwrite another file.
+ */
+function checkedEdit(edit, uploadId) {
+  if (!edit || typeof edit !== 'object') return null;
+  if (typeof edit.upload_id !== 'string' || !/^[\w-]+$/.test(edit.upload_id)) return null;
+  if (uploadId !== undefined && edit.upload_id !== uploadId) return null;
+  if (!isLogbookFile(edit.mainfile)) return null;
+  const entryId = typeof edit.entry_id === 'string' ? edit.entry_id : null;
+  return {upload_id: edit.upload_id, entry_id: entryId, mainfile: edit.mainfile};
+}
+
+const UNVERIFIED_EDIT = 'It referred to a logbook that could not be verified, '
+  + 'so saving stores it as a new logbook.';
+
+function validUploadId(value) {
+  return typeof value === 'string' && /^[\w-]+$/.test(value) ? value : null;
+}
+
+/* The upload the logbook is saved to whatever is chosen, or null. */
+function formUpload() {
+  return app.edit ? app.edit.upload_id : app.source;
+}
+
 async function api(path, options = {}) {
   // Several NOMAD endpoints (creating an upload, writing raw files) only answer
   // in JSON when asked for exactly `application/json`.
@@ -142,8 +205,20 @@ async function dashboard(path, body) {
     headers: body === undefined ? {} : {'Content-Type': 'application/json'},
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  const json = await response.json();
-  if (!response.ok) throw new Error(json.detail || `HTTP ${response.status}`);
+  const text = await response.text();
+  let json = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch (e) {
+    // E.g. an error page of a proxy.
+  }
+  if (!response.ok) {
+    const detail = json && json.detail;
+    throw new Error(detail
+      ? (typeof detail === 'string' ? detail : JSON.stringify(detail))
+      : `HTTP ${response.status}`);
+  }
+  if (json === null) throw new Error(`The dashboard sent no data (HTTP ${response.status}).`);
   return json;
 }
 
@@ -625,7 +700,7 @@ function changed() {
 function saveDraft() {
   try {
     localStorage.setItem(client().draft_key, JSON.stringify({
-      form: app.form, edit: app.edit, draft: app.draft, upload: app.upload,
+      form: app.form, edit: app.edit, draft: app.draft, source: app.source, upload: app.upload,
       pending: Object.keys(app.pendingFiles), savedAt: new Date().toISOString(),
     }));
     document.getElementById('draft-status').textContent = 'Kept in this browser at '
@@ -756,7 +831,7 @@ async function loadDatabaseAccess() {
   const database = databaseUpload();
   if (!app.user || !database) return;
   try {
-    const upload = (await api(`/uploads/${database}`)).data || {};
+    const upload = (await api(`/uploads/${encodeURIComponent(database)}`)).data || {};
     const userId = app.user.user_id;
     if ((upload.writers || []).includes(userId)) {
       app.maintainer = true;
@@ -1262,7 +1337,7 @@ function lineChart(plot, fileName) {
 const chartCache = new Map();
 
 async function rawFileText(uploadId, path) {
-  const url = `${API}/uploads/${uploadId}/raw/${path.split('/').map(encodeURIComponent).join('/')}`;
+  const url = API + uploadPath(uploadId, 'raw', path);
   const response = await fetch(url, {credentials: 'same-origin'});
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return response.text();
@@ -1297,9 +1372,10 @@ function renderFileCharts(r, value) {
     const file = pending[index];
     if (file) {
       plotFile(box, r.field.chart, file, fileName, () => file.text());
-    } else if (app.edit) {
-      const cacheKey = `${app.edit.upload_id}/${name}`;
-      const plot = () => plotFile(box, r.field.chart, cacheKey, fileName, () => rawFileText(app.edit.upload_id, name));
+    } else if (formUpload()) {
+      const source = formUpload();
+      const cacheKey = `${source}/${name}`;
+      const plot = () => plotFile(box, r.field.chart, cacheKey, fileName, () => rawFileText(source, name));
       if (chartCache.has(cacheKey)) plot();
       else box.append(el('button', {type: 'button', class: 'btn btn-text', onclick: plot}, `Plot ${fileName}`));
     }
@@ -1844,7 +1920,7 @@ async function logbookEntries(systems) {
 }
 
 async function fetchLogbook(entry) {
-  const response = await api(`/entries/${entry.entry_id}/archive`);
+  const response = await api(`/entries/${encodeURIComponent(entry.entry_id)}/archive`);
   return response.data.archive.data;
 }
 
@@ -1855,7 +1931,10 @@ async function openLogbook(picked) {
     const form = await dashboard('api/form-from-archive', {data, mode: 'edit'});
     localizeRun(form.run);
     app.form = {recipe: null, ...form};
-    app.edit = {upload_id: picked.entry.upload_id, entry_id: picked.entry.entry_id, mainfile: picked.entry.mainfile};
+    // A logbook not made by this dashboard (e.g. a hand-written .archive.yaml)
+    // is saved as a new file instead of being overwritten.
+    app.edit = checkedEdit({upload_id: picked.entry.upload_id, entry_id: picked.entry.entry_id, mainfile: picked.entry.mainfile});
+    app.source = validUploadId(picked.entry.upload_id);
     app.draft = null;
     app.upload = picked.entry.upload_id;
     app.pendingFiles = {};
@@ -1865,7 +1944,10 @@ async function openLogbook(picked) {
     changed();
     go('run');
     const awaiting = awaitingTechniques(app.form);
-    showBanner(`Opened ${picked.title}. Saving overwrites this logbook.`
+    showBanner(`Opened ${picked.title}. `
+      + (app.edit ? 'Saving overwrites this logbook.'
+        : 'Its file name is not one this dashboard writes (e.g. a hand-written or older logbook), '
+          + 'so saving stores it as a new logbook in the same upload.')
       + (awaiting.length ? ` Awaiting in-situ data: ${awaiting.join(', ')}.` : ''));
   } catch (e) {
     showBanner('Could not open the logbook: ' + e.message, 'error');
@@ -1935,7 +2017,7 @@ function uploadSelect(onChange) {
 }
 
 async function ensureUpload() {
-  if (app.edit) return app.edit.upload_id;
+  if (formUpload()) return formUpload();
   if (app.upload && app.upload !== '__new__') return app.upload;
   if (app.upload === '__new__') {
     const name = encodeURIComponent(app.newUploadName || client().upload_name);
@@ -1948,7 +2030,7 @@ async function ensureUpload() {
 }
 
 async function putArchive(uploadId, fileName, archive, overwrite) {
-  return api(`/uploads/${uploadId}/raw/?file_name=${encodeURIComponent(fileName)}`
+  return api(`${uploadPath(uploadId, 'raw')}?file_name=${encodeURIComponent(fileName)}`
     + `&overwrite_if_exists=${overwrite}&wait_for_processing=true`, {
     method: 'PUT',
     headers: {'Content-Type': 'application/json'},
@@ -2091,6 +2173,9 @@ function renderSave(container) {
   if (app.edit) {
     where.append(el('div', {class: 'field wide'}, el('span', {class: 'label'}, 'Saved to'),
       el('div', {class: 'computed'}, `${app.edit.mainfile} in upload ${app.edit.upload_id} (overwritten on save)`)));
+  } else if (app.source) {
+    where.append(el('div', {class: 'field wide'}, el('span', {class: 'label'}, 'Saved to'),
+      el('div', {class: 'computed'}, `A new logbook in upload ${app.source}, which holds its files`)));
   } else {
     const nameField = el('div', {class: 'field', id: 'new-upload-name'},
       el('label', {}, 'Name of the new upload'),
@@ -2132,7 +2217,7 @@ function updateSaveState() {
     status.replaceChildren(el('div', {class: 'banner success', style: 'margin: 8px 0 16px'},
       'Everything is filled in.' + (awaiting.length ? ` In-situ data still to come: ${awaiting.join(', ')}.` : '')));
   }
-  const noUpload = !app.edit && !app.draft && !app.upload;
+  const noUpload = !formUpload() && !app.draft && !app.upload;
   const reason = !app.user ? 'Log in to NOMAD first' : (noUpload ? 'Choose an upload' : '');
   const save = document.getElementById('btn-save');
   if (save) {
@@ -2180,7 +2265,7 @@ async function uploadPendingFiles(uploadId, directory) {
     const folder = parts.length > 2 ? `${directory}/${parts[0]}_${Number(parts[1]) + 1}` : `${directory}/${parts[0]}`;
     const body = new FormData();
     body.append('file', file, file.name);
-    await api(`/uploads/${uploadId}/raw/${folder}?wait_for_processing=false&overwrite_if_exists=true`, {
+    await api(`${uploadPath(uploadId, 'raw', folder)}?wait_for_processing=false&overwrite_if_exists=true`, {
       method: 'PUT', body,
     });
     if (Array.isArray(list)) list[position] = `${folder}/${file.name}`;
@@ -2191,6 +2276,7 @@ async function uploadPendingFiles(uploadId, directory) {
 
 async function saveLogbook() {
   if (app.saving) return;
+  let rerender = false;
   app.errors = validate(app.form, app.spec);
   if (app.errors.length) {
     app.spec.sections.forEach((s) => app.shown.add(s.key));
@@ -2200,8 +2286,23 @@ async function saveLogbook() {
   app.log = [];
   updateSaveState();
   try {
+    // Checked again here, whichever way the logbook was opened: the save goes
+    // to the upload of `app.edit` and overwrites its file.
+    if (app.edit && !checkedEdit(app.edit, app.draft ? app.draft.upload_id : undefined)) {
+      app.edit = null;
+      rerender = true;
+      logLine('The logbook to overwrite could not be verified, so it is saved as a new logbook.', 'warn');
+    }
     const logbookFile = app.edit ? app.edit.mainfile : null;
     let result = await dashboard('api/archive', {form: app.form, logbook_file: logbookFile});
+    const fileError = result.errors.find((e) => e.path === 'logbook_file');
+    if (fileError) {
+      app.edit = null;
+      rerender = true;
+      logLine(fileError.message, 'err');
+      showBanner(`${fileError.message} Save again to store it as a new logbook.`, 'error');
+      return;
+    }
     if (result.errors.length) throw new Error('The server found problems: ' + result.errors.map((e) => `${e.path}: ${e.message}`).join('; '));
     const uploadId = await ensureUpload();
     logLine(`Saving to upload ${uploadId}`);
@@ -2239,8 +2340,13 @@ async function saveLogbook() {
         logbookEntry = response.processing && response.processing.entry_id;
       }
     }
+    for (const warning of result.warnings || []) {
+      const sample = /^samples\.(\d+)$/.exec(warning.path || '');
+      logLine((sample ? `Sample ${Number(sample[1]) + 1}: ` : '') + warning.message, 'warn');
+    }
     await deleteNomadDraft();
     app.edit = {upload_id: uploadId, entry_id: logbookEntry, mainfile: result.logbook_file};
+    app.source = uploadId;
     app.upload = uploadId;
     if (logbookEntry) {
       app.log.push({text: 'Open the logbook in NOMAD', link: `${GUI}/projects/${uploadId}/entries/${logbookEntry}`, kind: 'ok'});
@@ -2254,7 +2360,9 @@ async function saveLogbook() {
     logLine('Saving failed: ' + e.message, 'err');
   } finally {
     app.saving = false;
-    refresh();
+    // The save card shows where the logbook goes, which changed.
+    if (rerender && app.current === 'save') render();
+    else refresh();
   }
 }
 
@@ -2374,7 +2482,7 @@ function exportPdf() {
 
 async function readNomadDraft(uploadId, path) {
   try {
-    return await api(`/uploads/${uploadId}/raw/${path}`);
+    return await api(uploadPath(uploadId, 'raw', path));
   } catch (e) {
     if (e.status === 404) return null;
     throw e;
@@ -2428,11 +2536,13 @@ async function saveDraftToNomad() {
       savedAt: new Date().toISOString(),
       savedBy: app.user.name || app.user.username || '',
     };
-    await api(`/uploads/${uploadId}/raw/${directory}?file_name=${encodeURIComponent(fileName)}`
+    await api(`${uploadPath(uploadId, 'raw', directory)}?file_name=${encodeURIComponent(fileName)}`
       + '&overwrite_if_exists=true&wait_for_processing=false', {
       method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(draft),
     });
     app.draft = {upload_id: uploadId, path, savedAt: draft.savedAt};
+    // Files added to the form were just uploaded here.
+    app.source = uploadId;
     app.upload = uploadId;
     logLine(`Draft saved as ${path}`, 'ok');
     saveDraft();
@@ -2450,7 +2560,7 @@ async function saveDraftToNomad() {
 async function deleteNomadDraft() {
   if (!app.draft) return;
   try {
-    await api(`/uploads/${app.draft.upload_id}/raw/${app.draft.path}`, {method: 'DELETE'});
+    await api(uploadPath(app.draft.upload_id, 'raw', app.draft.path), {method: 'DELETE'});
     logLine('Draft removed: the logbook is saved.', 'ok');
   } catch (e) {
     if (e.status !== 404) logLine(`The draft ${app.draft.path} could not be removed: ${e.message}`, 'warn');
@@ -2462,7 +2572,11 @@ async function openNomadDraft(uploadId, path, stored, force) {
   const same = app.draft && app.draft.upload_id === uploadId && app.draft.path === path;
   if (!force && !same && !(await confirmReplace())) return;
   app.form = upgradeForm(stored.form);
-  app.edit = stored.edit || null;
+  // The draft is a file others in the upload can change: only a logbook of
+  // this upload, made by this dashboard, may be overwritten by the save.
+  app.edit = checkedEdit(stored.edit, uploadId);
+  const unverified = Boolean(stored.edit) && !app.edit;
+  app.source = uploadId;
   app.draft = {upload_id: uploadId, path, savedAt: stored.savedAt};
   app.upload = uploadId;
   app.pendingFiles = {};
@@ -2472,7 +2586,8 @@ async function openNomadDraft(uploadId, path, stored, force) {
   changed();
   go('run');
   showBanner(`Continuing the draft ${path}, saved ${new Date(stored.savedAt).toLocaleString()}`
-    + (stored.savedBy ? ` by ${stored.savedBy}` : '') + '.');
+    + (stored.savedBy ? ` by ${stored.savedBy}` : '') + '.'
+    + (unverified ? ` ${UNVERIFIED_EDIT}` : ''), unverified ? 'error' : undefined);
 }
 
 /* The drafts in the user's unpublished uploads, newest first. */
@@ -2481,12 +2596,12 @@ async function findDrafts() {
   const found = await Promise.all(app.uploads.map(async (upload) => {
     let listing;
     try {
-      listing = await api(`/uploads/${upload.upload_id}/rawdir/${client().draft_dir}?page_size=200`);
+      listing = await api(`${uploadPath(upload.upload_id, 'rawdir', client().draft_dir)}?page_size=200`);
     } catch (e) {
       return [];
     }
     const files = ((listing.directory_metadata || {}).content || [])
-      .filter((f) => f.is_file && f.name.endsWith('.draft.json'));
+      .filter((f) => f.is_file && /^[\p{L}\p{N}\p{M}_.-]+\.draft\.json$/u.test(f.name));
     return Promise.all(files.map(async (f) => {
       const path = `${client().draft_dir}/${f.name}`;
       const stored = await readNomadDraft(upload.upload_id, path).catch(() => null);
@@ -2509,6 +2624,7 @@ async function newLogbook(force) {
   app.form = newForm();
   app.edit = null;
   app.draft = null;
+  app.source = null;
   app.pendingFiles = {};
   app.touched.clear();
   app.shown.clear();
@@ -2555,8 +2671,12 @@ async function init() {
   const linked = window.location.hash.slice(1);
   if (draft) {
     app.form = draft.form;
-    app.edit = draft.edit || null;
     app.draft = draft.draft || null;
+    app.edit = checkedEdit(draft.edit, app.draft ? app.draft.upload_id : undefined);
+    // Kept by older versions only as the upload of `edit` or `draft`.
+    app.source = validUploadId(draft.source)
+      || (app.draft ? validUploadId(app.draft.upload_id) : null)
+      || (app.edit ? app.edit.upload_id : null);
     app.upload = draft.upload || '';
     app.started = true;
     const dropped = dropPendingFiles(app.form, draft.pending);

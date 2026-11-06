@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import hashlib
 import html
+import logging
+from contextlib import contextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -20,11 +22,37 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from .convert import UnsafeLogbookFile
+from .convert import NotALogbook, UnsafeLogbookFile
 from .rules import step_time_warnings
 
 STATIC = Path(__file__).parent / 'static'
 ASSETS = ('app.js', 'pdf.js', 'style.css')
+
+logger = logging.getLogger(__name__)
+
+# What reading a form of the wrong shape raises, e.g. a list where an object is
+# expected. The form comes from the browser or from a draft in an upload.
+MALFORMED = (
+    TypeError,
+    AttributeError,
+    KeyError,
+    IndexError,
+    ValueError,
+    ArithmeticError,
+)
+
+
+@contextmanager
+def malformed_request(endpoint: str):
+    """Answer a form or archive of the wrong shape with a 400, not a 500."""
+    try:
+        yield
+    except MALFORMED as error:
+        logger.warning('%s: malformed request: %r', endpoint, error)
+        raise HTTPException(
+            status_code=400,
+            detail=f'Malformed form: {type(error).__name__}: {error}',
+        ) from error
 
 
 def asset_version(name: str) -> str:
@@ -81,24 +109,28 @@ def create_app(form_spec: dict, rules, converter) -> FastAPI:
 
     @app.post('/api/validate')
     async def post_validate(request: FormRequest):
-        return {
-            'errors': rules.validate(request.form, spec),
-            'warnings': step_time_warnings(request.form),
-        }
+        with malformed_request('validate'):
+            return {
+                'errors': rules.validate(request.form, spec),
+                'warnings': step_time_warnings(request.form),
+            }
 
     @app.post('/api/archive')
     async def post_archive(request: FormRequest):
-        errors = rules.validate(request.form, spec)
-        if errors:
-            return {'errors': errors, 'files': []}
-        try:
-            result = converter.form_to_files(request.form, spec, request.logbook_file)
-        except UnsafeLogbookFile as error:
-            return {
-                'errors': [{'path': 'logbook_file', 'message': str(error)}],
-                'files': [],
-            }
-        return {'errors': [], **result}
+        with malformed_request('archive'):
+            errors = rules.validate(request.form, spec)
+            if errors:
+                return {'errors': errors, 'files': []}
+            try:
+                result = converter.form_to_files(
+                    request.form, spec, request.logbook_file
+                )
+            except UnsafeLogbookFile as error:
+                return {
+                    'errors': [{'path': 'logbook_file', 'message': str(error)}],
+                    'files': [],
+                }
+            return {'errors': [], **result}
 
     @app.post('/api/draft-name')
     async def post_draft_name(request: FormRequest):
@@ -106,18 +138,20 @@ def create_app(form_spec: dict, rules, converter) -> FastAPI:
         Where a draft of the form is kept in the upload. Drafts are plain files,
         not entries: only a complete logbook becomes an entry.
         """
-        errors = rules.validate_draft(request.form, spec)
-        if errors:
-            return {'errors': errors, 'path': None}
-        return {'errors': [], 'path': converter.draft_path(request.form)}
+        with malformed_request('draft-name'):
+            errors = rules.validate_draft(request.form, spec)
+            if errors:
+                return {'errors': errors, 'path': None}
+            return {'errors': [], 'path': converter.draft_path(request.form)}
 
     @app.post('/api/form-from-archive')
     async def post_form_from_archive(request: ArchiveRequest):
-        try:
-            if request.mode == 'recipe':
-                return converter.recipe_to_form(request.data, spec)
-            return converter.archive_to_form(request.data, spec)
-        except ValueError as error:
-            raise HTTPException(status_code=400, detail=str(error)) from error
+        with malformed_request('form-from-archive'):
+            try:
+                if request.mode == 'recipe':
+                    return converter.recipe_to_form(request.data, spec)
+                return converter.archive_to_form(request.data, spec)
+            except NotALogbook as error:
+                raise HTTPException(status_code=400, detail=str(error)) from error
 
     return app

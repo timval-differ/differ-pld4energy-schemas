@@ -7,6 +7,7 @@ the schema quantities (SI), using the `unit` of each form field.
 
 from __future__ import annotations
 
+import math
 import re
 
 from nomad.units import ureg
@@ -77,11 +78,17 @@ def to_archive_value(value, field: dict, quantity):
         number = to_number(value) * field.get('scale', 1)
         if field.get('unit') and quantity.unit is not None:
             number = ureg.Quantity(number, field['unit']).to(quantity.unit).magnitude
+        if not math.isfinite(number):
+            # JSON has no infinity, so the archive could not be written.
+            raise ValueError(f'{field.get("key", "A number")} is too large.')
         return int(round(number)) if kind == 'integer' else number
     if kind == 'target_choice':
         return value
     if kind == 'files':
-        return [str(name) for name in value]
+        # A string would otherwise become a list of its characters.
+        if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+            raise ValueError('Files must be a list of file names.')
+        return list(value)
     return str(value)
 
 

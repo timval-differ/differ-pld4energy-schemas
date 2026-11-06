@@ -15,7 +15,7 @@ classifiers = [
 ]
 name = "differ_pld4e_schemas"
 description = "NOMAD schemas and the PLD and sputter logbook dashboards of the PLD4Energy lab at DIFFER"
-version = "0.3.2"
+version = "0.3.4"
 readme = "README.md"
 requires-python = ">=3.9"
 authors = [
@@ -32,7 +32,7 @@ dependencies = [
 ]
 
 [project.urls]
-Repository = "https://github.com/timval-differ/DIFFER-PLD4E-schemas"
+Repository = "https://github.com/timval-differ/differ-pld4energy-schemas"
 
 [project.optional-dependencies]
 dev = [

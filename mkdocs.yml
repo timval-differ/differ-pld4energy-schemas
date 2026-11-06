@@ -2,7 +2,7 @@ site_name: DIFFER-PLD4E-schemas
 site_description: A plugin for specialized schema's for the PLD4Energy lab at DIFFER
 site_author: Tim van Alphen
 
-repo_url: https://github.com/timval-differ/DIFFER-PLD4E-schemas
+repo_url: https://github.com/timval-differ/differ-pld4energy-schemas
 edit_uri: ""
 
 nav:

@@ -48,7 +48,7 @@ your Oasis distribution, e.g. as a Git dependency:
 
 ```toml
 dependencies = [
-    "differ-pld4e-schemas @ git+https://github.com/timval-differ/DIFFER-PLD4E-schemas.git",
+    "differ-pld4e-schemas @ git+https://github.com/timval-differ/differ-pld4energy-schemas.git",
 ]
 ```
 

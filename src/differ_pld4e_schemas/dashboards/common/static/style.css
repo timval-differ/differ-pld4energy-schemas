@@ -400,3 +400,32 @@ legend { padding: 0 6px; font-weight: 600; color: var(--text-secondary); font-si
 }
 .pick-list button:hover { background: var(--primary-light); }
 .pick-list .sub { display: block; color: var(--text-secondary); font-size: 13px; }
+
+/* Charts of exported data files (RHEED ROI intensities, MIC curvature) */
+.file-charts { display: flex; flex-direction: column; gap: 12px; align-self: stretch; }
+.file-charts:empty { display: none; }
+.chart { margin: 0; padding: 12px; border: 1px solid var(--divider); border-radius: var(--radius); background: var(--surface); }
+.chart figcaption { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.chart-title { font-weight: 600; }
+.chart-legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 14px; color: var(--text-secondary); margin-bottom: 4px; }
+.chart-key { display: inline-flex; align-items: center; gap: 6px; }
+.chart-swatch { display: inline-block; width: 14px; height: 3px; border-radius: 2px; }
+.chart-frame { position: relative; overflow: hidden; }
+.chart-svg { display: block; overflow: visible; }
+.chart-grid { stroke: var(--divider); stroke-width: 1; }
+.chart-axis { stroke: var(--border); stroke-width: 1; }
+.chart-tick { font-size: 13px; fill: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.chart-label { font-size: 14px; fill: var(--text-secondary); }
+.chart-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart-cross { stroke: var(--text-secondary); stroke-width: 1; stroke-dasharray: 3 3; }
+.chart-dot { stroke: var(--surface); stroke-width: 2; }
+.chart-tooltip {
+  position: absolute; top: 4px; transform: translateX(12px); pointer-events: none;
+  padding: 6px 8px; border: 1px solid var(--divider); border-radius: 6px; background: var(--surface);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12); font-size: 13px; white-space: nowrap;
+}
+.chart-tooltip.flip { transform: translateX(calc(-100% - 12px)); }
+.chart-tooltip-time { color: var(--text-secondary); margin-bottom: 2px; }
+.chart-tooltip-row { display: flex; align-items: center; gap: 6px; }
+.chart-tooltip-value { margin-left: auto; padding-left: 12px; font-variant-numeric: tabular-nums; color: var(--text); }
+.chart-error { color: var(--error); font-size: 13px; }

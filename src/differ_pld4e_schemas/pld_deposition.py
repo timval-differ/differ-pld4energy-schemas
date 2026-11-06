@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 from nomad.datamodel.data import ArchiveSection, EntryData
 from nomad.datamodel.metainfo.annotations import ELNAnnotation, ELNComponentEnum
 from nomad.datamodel.metainfo.basesections import Process
+from nomad.datamodel.metainfo.plot import PlotSection
 from nomad.metainfo import Datetime, MEnum, Quantity, Reference, Section, SubSection
 from nomad_material_processing.vapor_deposition.pvd.pld import (
     PLDLaser,
@@ -445,7 +446,7 @@ class LAPLDCoolDownStep(CoolDownStep, LAPLDHeaterControl, LAPLDStep):
     ramp_on = _ramp_on()
 
 
-class PLDLogbook(SampleRun, RunDetails, PulsedLaserDeposition, EntryData):
+class PLDLogbook(SampleRun, RunDetails, PulsedLaserDeposition, PlotSection, EntryData):
     """
     Electronic lab notebook of one PLD run. Use SA-PLD or LA-PLD logbook. A run
     starts with the samples it makes or processes (`samples`).
@@ -499,6 +500,16 @@ class PLDLogbook(SampleRun, RunDetails, PulsedLaserDeposition, EntryData):
         self._apply_recipe(logger)
         self._normalize_step_targets(logger)
         super().normalize(archive, logger)
+        # The figures of the in-situ measurements (normalized before the
+        # logbook), so that they show on the entry's overview.
+        measurements = self.in_situ_measurements or []
+        self.figures = [
+            figure
+            for number, measurement in enumerate(measurements, 1)
+            for figure in measurement.technique_figures(
+                f'Measurement {number}: ' if len(measurements) > 1 else ''
+            )
+        ]
 
     def _normalize_targets(self, archive: EntryArchive, logger: BoundLogger) -> None:
         seen_targets, seen_numbers = set(), set()

@@ -5,6 +5,7 @@ sample, so NOMAD's search knows the techniques used as methods.
 
 from __future__ import annotations
 
+from copy import deepcopy
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -95,8 +96,179 @@ class InSituTechnique(ArchiveSection):
             logger.warning(f'{self.m_def.label}: no data file has been added yet.')
 
 
-class RHEED(InSituTechnique):
-    """RHEED captures from the KSA 400 software."""
+MAX_POINTS = 5000
+
+
+def read_columns(lines, delimiter=None) -> tuple[list[str] | None, np.ndarray]:
+    """
+    The header (if any) and the data columns of an exported text file: one row
+    per line, columns separated by `delimiter` (white space if None). A line
+    that is not numbers before the data is the header; blank lines are skipped.
+    Returns the header names and an array of one row per column.
+    """
+    header, rows = None, []
+    for number, line in enumerate(lines, 1):
+        parts = [part.strip() for part in line.strip().split(delimiter)]
+        if not line.strip():
+            continue
+        try:
+            values = [float(part) for part in parts]
+        except ValueError:
+            if rows:
+                raise ValueError(f'line {number} is not numbers') from None
+            header = parts
+            continue
+        if rows and len(values) != len(rows[0]):
+            raise ValueError(
+                f'line {number} has {len(values)} columns instead of {len(rows[0])}'
+            )
+        rows.append(values)
+    if not rows or len(rows[0]) < 2:  # noqa: PLR2004
+        raise ValueError('no columns of data found')
+    return header, np.array(rows).T
+
+
+def block_size(number_of_points: int, max_points: int = MAX_POINTS) -> int:
+    """The number of samples averaged into one, to keep at most `max_points`."""
+    return max(1, -(-number_of_points // max_points))
+
+
+def block_mean(values: np.ndarray, size: int) -> np.ndarray:
+    """The mean of each block of `size` samples (of the last axis)."""
+    if size == 1:
+        return values
+    length = values.shape[-1]
+    blocks = -(-length // size)
+    padded = np.full((*values.shape[:-1], blocks * size), np.nan)
+    padded[..., :length] = values
+    return np.nanmean(padded.reshape(*values.shape[:-1], blocks, size), axis=-1)
+
+
+# The categorical colors of the dashboard's charts, in fixed order per series.
+SERIES_COLORS = (
+    '#2a78d6',
+    '#eb6834',
+    '#1baf7a',
+    '#eda100',
+    '#e87ba4',
+    '#008300',
+    '#6250d6',
+    '#e34948',
+)
+
+
+def line_figure(label, time, series, y_title) -> PlotlyFigure:
+    """One line per (name, values) of `series` against the time in s."""
+    import plotly.graph_objects as go
+
+    figure = go.Figure()
+    for index, (name, values) in enumerate(series):
+        figure.add_trace(
+            go.Scatter(
+                x=time,
+                y=values,
+                name=name,
+                mode='lines',
+                line={'width': 2, 'color': SERIES_COLORS[index % len(SERIES_COLORS)]},
+            )
+        )
+    figure.update_layout(
+        xaxis_title='Time (s)',
+        yaxis_title=y_title,
+        hovermode='x unified',
+        showlegend=True,
+    )
+    return PlotlyFigure(label=label, figure=figure.to_plotly_json())
+
+
+def _file_name(path: str) -> str:
+    return path.rsplit('/', maxsplit=1)[-1]
+
+
+class ExportedData(ArchiveSection):
+    """
+    Data read from one exported file. Long series are averaged over blocks of
+    `averaged_samples` samples, to at most 5000 points; the file keeps every
+    sample.
+    """
+
+    m_def = Section()
+    file = Quantity(type=str, a_browser={'adaptor': 'RawFileAdaptor'})
+    averaged_samples = Quantity(
+        type=int,
+        description='Number of samples of the file averaged into each point.',
+    )
+    time = Quantity(type=float, shape=['*'], unit='s')
+
+
+class ROIIntensity(ArchiveSection):
+    """The intensity in one region of interest (ROI) over time."""
+
+    m_def = Section(label='ROI intensity')
+    roi = Quantity(
+        type=int, description='Number of the ROI, in the order of the export.'
+    )
+    intensity = Quantity(
+        type=float,
+        shape=['*'],
+        description='Intensity in the ROI as exported by KSA 400 (arbitrary units).',
+    )
+
+
+class ROIIntensityMap(ExportedData):
+    """
+    The ROI intensities of one exported file of KSA 400 (.txt): columns
+    separated by white space, the time in s and then one column per ROI.
+    """
+
+    m_def = Section(label='ROI intensity map')
+    rois = SubSection(section_def=ROIIntensity, repeats=True)
+
+    @classmethod
+    def read(cls, path: str, lines) -> ROIIntensityMap:
+        _, columns = read_columns(lines)
+        size = block_size(columns.shape[1])
+        columns = block_mean(columns, size)
+        return cls(
+            file=path,
+            averaged_samples=size,
+            time=columns[0],
+            rois=[
+                ROIIntensity(roi=number, intensity=intensity)
+                for number, intensity in enumerate(columns[1:], 1)
+            ],
+        )
+
+    def figures(self) -> list[PlotlyFigure]:
+        series = [(f'ROI {roi.roi}', roi.intensity) for roi in self.rois or []]
+        return [
+            line_figure(
+                f'RHEED ROI intensity: {_file_name(self.file)}',
+                self.time.to('s').magnitude,
+                series,
+                'Intensity (a.u.)',
+            )
+        ]
+
+
+def _technique_exports(technique, archive, logger, files, reader) -> list:
+    """Each file of `files` read with `reader(path, lines)`; unreadable ones are
+    reported and skipped."""
+    exports = []
+    for path in files or []:
+        try:
+            with archive.m_context.raw_file(path, 'r') as lines:
+                exports.append(reader(path, lines))
+        except (NotImplementedError, OSError, ValueError) as error:
+            logger.warning(f'{technique.m_def.label}: could not read {path}: {error}')
+    return exports
+
+
+class RHEED(InSituTechnique, PlotSection):
+    """
+    RHEED captures from the KSA 400 software. The exported ROI intensity maps
+    (.txt) are read into `roi_intensities` and plotted.
+    """
 
     m_def = Section(label='RHEED')
     pattern_native_files = _files('Pattern captures, native KSA 400 format (.img).')
@@ -105,14 +277,125 @@ class RHEED(InSituTechnique):
         'ROI intensity maps, native KSA 400 format (.kdt).'
     )
     roi_intensity_export_files = _files('ROI intensity maps, exported (.txt).')
+    roi_intensities = SubSection(
+        section_def=ROIIntensityMap,
+        repeats=True,
+        description='Read-only: read from the exported ROI intensity maps.',
+    )
+
+    def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
+        super().normalize(archive, logger)
+        if archive.m_context is None:
+            # Without the upload's files, keep what was read before.
+            return
+        self.roi_intensities = _technique_exports(
+            self,
+            archive,
+            logger,
+            self.roi_intensity_export_files,
+            ROIIntensityMap.read,
+        )
+        self.figures = [f for m in self.roi_intensities for f in m.figures()]
 
 
-class MIC(InSituTechnique):
-    """Magnification inferred curvature, from the EZ-Curve software."""
+# Columns of an EZ-Curve export, by their name without the unit.
+MIC_COLUMNS = {
+    'time': 'time',
+    'sagittal curvature': 'sagittal_curvature',
+    'tangential curvature': 'tangential_curvature',
+    'sagittal stress x thickness': 'sagittal_stress_thickness',
+    'tangential stress x thickness': 'tangential_stress_thickness',
+    'sagittal derivative': 'sagittal_stress_thickness_rate',
+    'tangential derivative': 'tangential_stress_thickness_rate',
+    'sagittal bow': 'sagittal_bow',
+    'tangential bow': 'tangential_bow',
+}
+
+
+def _series(unit=None, description=None):
+    return Quantity(type=float, shape=['*'], unit=unit, description=description)
+
+
+class CurvatureData(ExportedData):
+    """
+    The curvature data of one exported file of EZ-Curve (.csv): columns
+    separated by semicolons, under a header that names each column and its unit.
+    """
+
+    m_def = Section(label='Curvature data')
+    sagittal_curvature = _series('1/km')
+    tangential_curvature = _series('1/km')
+    sagittal_stress_thickness = _series('GPa*nm', 'Sagittal stress x thickness.')
+    tangential_stress_thickness = _series('GPa*nm', 'Tangential stress x thickness.')
+    sagittal_stress_thickness_rate = _series(
+        'GPa*nm/s', 'Derivative of the sagittal stress x thickness.'
+    )
+    tangential_stress_thickness_rate = _series(
+        'GPa*nm/s', 'Derivative of the tangential stress x thickness.'
+    )
+    sagittal_bow = _series(description='Sagittal bow, in the unit of the export.')
+    tangential_bow = _series(description='Tangential bow, in the unit of the export.')
+
+    @classmethod
+    def read(cls, path: str, lines) -> CurvatureData:
+        header, columns = read_columns(lines, ';')
+        if header is None or len(header) != len(columns):
+            raise ValueError('no header naming each column')
+        size = block_size(columns.shape[1])
+        columns = block_mean(columns, size)
+        data = cls(file=path, averaged_samples=size)
+        for name, values in zip(header, columns):
+            key = MIC_COLUMNS.get(name.split('(')[0].strip().lower())
+            if key is not None:
+                setattr(data, key, values)
+        if data.time is None:
+            raise ValueError('no time column')
+        return data
+
+    def figures(self) -> list[PlotlyFigure]:
+        time = self.time.to('s').magnitude
+        name = _file_name(self.file)
+        figures = []
+        for title, key, unit in (
+            ('Stress x thickness', 'stress_thickness', 'GPa*nm'),
+            ('Curvature', 'curvature', '1/km'),
+        ):
+            series = [
+                (side.capitalize(), getattr(self, f'{side}_{key}').to(unit).magnitude)
+                for side in ('sagittal', 'tangential')
+                if getattr(self, f'{side}_{key}') is not None
+            ]
+            if series:
+                y_title = f'{title} ({unit.replace("*", "·")})'
+                figures.append(
+                    line_figure(f'MIC {title.lower()}: {name}', time, series, y_title)
+                )
+        return figures
+
+
+class MIC(InSituTechnique, PlotSection):
+    """
+    Magnification inferred curvature, from the EZ-Curve software. The exported
+    files (.csv) are read into `curvature_data` and plotted.
+    """
 
     m_def = Section(label='MIC')
     native_files = _files('Native EZ-Curve files (.ezc).')
     export_files = _files('Exported curvature data (.csv).')
+    curvature_data = SubSection(
+        section_def=CurvatureData,
+        repeats=True,
+        description='Read-only: read from the exported curvature data.',
+    )
+
+    def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
+        super().normalize(archive, logger)
+        if archive.m_context is None:
+            return
+        self.curvature_data = _technique_exports(
+            self, archive, logger, self.export_files, CurvatureData.read
+        )
+        self.figures = [f for d in self.curvature_data for f in d.figures()]
 
 
 class LAEDS(InSituTechnique, PlotSection):
@@ -259,6 +542,19 @@ class InSituTechniques(Measurement):
             self._add_methods(archive, [self.method])
         self._add_methods(archive, self.techniques_used())
 
+    def technique_figures(self, prefix: str = '') -> list[PlotlyFigure]:
+        """
+        Copies of the figures of the techniques (e.g. the RHEED ROI intensities),
+        for the entry's overview, which only shows the figures of the entry.
+        """
+        sub_sections = self.m_def.all_sub_sections
+        return [
+            PlotlyFigure(label=prefix + figure.label, figure=deepcopy(figure.figure))
+            for key in TECHNIQUES
+            for technique in self.m_get_sub_sections(sub_sections[key])
+            for figure in getattr(technique, 'figures', None) or []
+        ]
+
     @staticmethod
     def _add_methods(archive: EntryArchive, methods: list[str]) -> None:
         if archive.results is None:
@@ -269,7 +565,7 @@ class InSituTechniques(Measurement):
         archive.results.eln.methods = known + [m for m in methods if m not in known]
 
 
-class InSituTechniquesEntry(InSituTechniques, EntryData):
+class InSituTechniquesEntry(InSituTechniques, PlotSection, EntryData):
     """Stand-alone in-situ measurement, for samples outside a new deposition run."""
 
     m_def = Section(label='PLD In-situ Techniques')
@@ -279,3 +575,5 @@ class InSituTechniquesEntry(InSituTechniques, EntryData):
             # NOMAD would otherwise take the entry name, which may not be set yet.
             self.name = ', '.join(self.techniques_used()) or IN_SITU
         super().normalize(archive, logger)
+        # The techniques are normalized before the entry.
+        self.figures = self.technique_figures()

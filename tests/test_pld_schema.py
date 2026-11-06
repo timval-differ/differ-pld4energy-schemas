@@ -4,16 +4,23 @@ import numpy as np
 import pytest
 import yaml
 from nomad.datamodel import EntryArchive, EntryMetadata
+from nomad.datamodel.context import ClientContext
 from nomad.datamodel.data import EntryData
-from structlog.testing import CapturingLogger
+from nomad.normalizing.metainfo import MetainfoNormalizer
+from structlog.testing import CapturingLogger, capture_logs
 
 import differ_pld4e_schemas.schema_packages.schema_package  # noqa: F401
 from differ_pld4e_schemas.gas import BackgroundGas
 from differ_pld4e_schemas.in_situ import (
     LAEDS,
+    MIC,
     RHEED,
     InSituTechniques,
+    InSituTechniquesEntry,
+    block_mean,
+    block_size,
     energy_axis,
+    read_columns,
 )
 from differ_pld4e_schemas.laser import LaserCalibration, LaserParameters
 from differ_pld4e_schemas.pld_deposition import (
@@ -606,6 +613,132 @@ def test_la_eds_energy_axis():
     assert spectrum.number_of_channels == NUMBER_OF_CHANNELS
     assert np.allclose(spectrum.energy.to('eV').magnitude, [100, 110, 120])
     assert spectrum.figures
+
+
+# Exported RHEED and MIC data
+
+RAW_DATA = os.path.join('tests', 'data', 'raw_data')
+RHEED_EXPORT = 'RHEED/step1.txt'
+MIC_EXPORT = 'MIC/EZ-CURVE_dated_09_October_2026_timestamped_11h_51m_13s.csv'
+MIC_ROWS = 300
+
+
+def _normalize_with_files(data, local_dir=RAW_DATA):
+    archive = EntryArchive(
+        data=data,
+        metadata=EntryMetadata(),
+        m_context=ClientContext(local_dir=local_dir),
+    )
+    with capture_logs() as logs:
+        MetainfoNormalizer().normalize(archive)
+    return [log['event'] for log in logs]
+
+
+@pytest.fixture
+def mic_dir(tmp_path):
+    """The header and first rows of the MIC example, which is large."""
+    with open(os.path.join(RAW_DATA, MIC_EXPORT)) as export:
+        lines = [export.readline() for _ in range(MIC_ROWS + 1)]
+    (tmp_path / 'MIC').mkdir()
+    (tmp_path / MIC_EXPORT).write_text(''.join(lines))
+    (tmp_path / 'RHEED').mkdir()
+    (tmp_path / RHEED_EXPORT).write_text(
+        open(os.path.join(RAW_DATA, RHEED_EXPORT)).read()
+    )
+    return str(tmp_path)
+
+
+def test_read_columns():
+    header, columns = read_columns(['a;b (s)', '1;2', '', '3;4'], ';')
+    assert header == ['a', 'b (s)']
+    assert np.allclose(columns, [[1, 3], [2, 4]])
+    header, columns = read_columns(['0.0\t1.0\t2.0\n', '0.1 1.5 2.5'])
+    assert header is None
+    assert columns.shape == (3, 2)
+    with pytest.raises(ValueError, match='columns instead of'):
+        read_columns(['1 2', '1 2 3'])
+    with pytest.raises(ValueError, match='not numbers'):
+        read_columns(['1 2', 'x y'])
+    with pytest.raises(ValueError):
+        read_columns(['only a header'])
+
+
+def test_block_mean():
+    assert block_size(10, 5) == 2  # noqa: PLR2004
+    assert block_size(11, 5) == 3  # noqa: PLR2004
+    assert block_size(3, 5) == 1
+    assert np.allclose(block_mean(np.array([[1, 3, 5, 7, 9]]), 2), [[2, 6, 9]])
+
+
+def test_rheed_reads_roi_intensity_export():
+    rheed = RHEED(roi_intensity_export_files=[RHEED_EXPORT])
+    _normalize_with_files(InSituTechniquesEntry(rheed=[rheed]))
+    (roi_map,) = rheed.roi_intensities
+    assert roi_map.averaged_samples == 1
+    assert len(roi_map.time) == 2024  # noqa: PLR2004
+    assert roi_map.time[-1].to('s').magnitude == pytest.approx(214.621)
+    assert [roi.roi for roi in roi_map.rois] == [1, 2, 3]
+    assert roi_map.rois[0].intensity[0] == pytest.approx(98.99878)
+    assert [f.label for f in rheed.figures] == ['RHEED ROI intensity: step1.txt']
+    assert len(rheed.figures[0].figure['data']) == 3  # noqa: PLR2004
+
+
+def test_mic_reads_curvature_export(mic_dir):
+    mic = MIC(export_files=[MIC_EXPORT])
+    _normalize_with_files(InSituTechniquesEntry(mic=[mic]), mic_dir)
+    (data,) = mic.curvature_data
+    assert len(data.time) == MIC_ROWS
+    assert data.time[0].to('s').magnitude == pytest.approx(0.01)
+    assert data.sagittal_curvature[0].to('1/km').magnitude == pytest.approx(
+        14.6924654976594
+    )
+    assert data.tangential_stress_thickness[0].to('GPa*nm').magnitude == (
+        pytest.approx(0.870112194638309)
+    )
+    assert data.sagittal_stress_thickness_rate is not None
+    assert data.tangential_bow[0] == pytest.approx(-0.0287423133850098)
+    assert [f.label.split(':')[0] for f in mic.figures] == [
+        'MIC stress x thickness',
+        'MIC curvature',
+    ]
+
+
+def test_long_exports_are_averaged(tmp_path):
+    (tmp_path / 'long.txt').write_text(
+        '\n'.join(f'{i * 0.1} {i} {2 * i}' for i in range(12000))
+    )
+    rheed = RHEED(roi_intensity_export_files=['long.txt'])
+    _normalize_with_files(InSituTechniquesEntry(rheed=[rheed]), str(tmp_path))
+    (roi_map,) = rheed.roi_intensities
+    assert roi_map.averaged_samples == 3  # noqa: PLR2004
+    assert len(roi_map.time) == 4000  # noqa: PLR2004
+    assert roi_map.rois[0].intensity[0] == pytest.approx(1)
+
+
+def test_unreadable_export_is_reported():
+    rheed = RHEED(roi_intensity_export_files=['RHEED/missing.txt'])
+    events = _normalize_with_files(InSituTechniquesEntry(rheed=[rheed]))
+    assert any('could not read RHEED/missing.txt' in event for event in events)
+    assert not rheed.roi_intensities
+    assert rheed.data_status == 'complete'
+
+
+def test_export_figures_show_on_the_entry(mic_dir):
+    def measurement():
+        return InSituTechniques(
+            rheed=[RHEED(roi_intensity_export_files=[RHEED_EXPORT])],
+            mic=[MIC(export_files=[MIC_EXPORT])],
+        )
+
+    entry = InSituTechniquesEntry(**measurement().m_to_dict())
+    _normalize_with_files(entry, mic_dir)
+    assert len(entry.figures) == 3  # noqa: PLR2004
+    logbook = SAPLDLogbook(in_situ_measurements=[measurement(), measurement()])
+    _normalize_with_files(logbook, mic_dir)
+    labels = [figure.label for figure in logbook.figures]
+    assert len(labels) == 6  # noqa: PLR2004
+    assert labels[0] == 'Measurement 1: RHEED ROI intensity: step1.txt'
+    assert labels[-1].startswith('Measurement 2: MIC curvature')
 
 
 # Example entries

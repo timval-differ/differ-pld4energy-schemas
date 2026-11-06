@@ -31,6 +31,8 @@ Field keys:
     group        heading the field is shown under
     help         short explanation shown under the field
     min, max     limits of a number
+    chart        for `files` of exported data: how the page reads and plots
+                 them, see FILE_CHARTS in pld_logbook/spec.py
 """
 
 from __future__ import annotations

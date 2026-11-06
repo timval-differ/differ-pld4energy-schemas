@@ -317,6 +317,19 @@ def test_spec_section_archive_paths_exist_in_schema(section_key, section_cls):
         quantity_of(section_cls, field['archive'])
 
 
+def test_exported_data_files_have_charts():
+    fields = {f['key']: f for f in spec_module.in_situ_fields()}
+    rheed = fields['rheed_roi_intensity_export_files']['chart']
+    assert rheed['delimiter'] is None
+    assert rheed['plots'][0]['columns'] is None
+    mic = fields['mic_export_files']['chart']
+    assert mic['delimiter'] == ';'
+    # The columns are named as in the header of an EZ-Curve export.
+    columns = [c for plot in mic['plots'] for c in plot['columns']]
+    assert 'Sagittal Stress x Thickness' in columns
+    assert fields['rheed_pattern_export_files'].get('chart') is None
+
+
 def test_spec_qualified_names_are_stable():
     assert SPEC['logbook_sections']['LA-PLD'] == (
         'differ_pld4e_schemas.schema_packages.schema_package.LAPLDLogbook'

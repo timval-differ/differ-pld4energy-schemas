@@ -624,6 +624,40 @@ IN_SITU_TECHNIQUES = {
 }
 
 
+def _mic_plot(title, column, unit):
+    return {
+        'title': title,
+        'y_title': f'{title} ({unit})',
+        'columns': [f'Sagittal {column}', f'Tangential {column}'],
+        'names': ['Sagittal', 'Tangential'],
+    }
+
+
+# Exported data files the page plots when they are added. `delimiter` separates
+# the columns (None: white space); the first column is the time in s. A plot
+# shows the `columns` named in the file's header, or all others if None.
+FILE_CHARTS = {
+    'rheed_roi_intensity_export_files': {
+        'delimiter': None,
+        'plots': [
+            {
+                'title': 'ROI intensity',
+                'y_title': 'Intensity (a.u.)',
+                'columns': None,
+                'name': 'ROI {n}',
+            }
+        ],
+    },
+    'mic_export_files': {
+        'delimiter': ';',
+        'plots': [
+            _mic_plot('Stress x thickness', 'Stress x Thickness', 'GPa·nm'),
+            _mic_plot('Curvature', 'Curvature', '1/km'),
+        ],
+    },
+}
+
+
 def in_situ_fields():
     """
     The fields of one in-situ measurement: the sample and the process steps it
@@ -660,6 +694,7 @@ def in_situ_fields():
                     visible_if=on,
                     group=label,
                     technique=technique,
+                    chart=FILE_CHARTS.get(f'{technique}_{name}'),
                 )
             )
         if technique == 'la_eds':

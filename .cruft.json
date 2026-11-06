@@ -10,7 +10,7 @@
       "plugin_name": "DIFFER-PLD4E-schemas",
       "module_name": "differ_pld4e_schemas",
       "short_description": "A plugin for specialized schema's for the PLD4Energy lab at DIFFER",
-      "version": "0.1.0",
+      "version": "0.3.4",
       "license": "GPL-3.0+",
       "include_schema_package": true,
       "include_normalizer": false,

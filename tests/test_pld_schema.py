@@ -1,3 +1,5 @@
+import logging
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -21,6 +23,7 @@ from differ_pld4e_schemas.in_situ import (
     block_size,
     energy_axis,
     read_columns,
+    text_lines,
 )
 from differ_pld4e_schemas.laser import LaserCalibration, LaserParameters
 from differ_pld4e_schemas.pld_deposition import (
@@ -618,34 +621,60 @@ def test_la_eds_energy_axis():
 # Exported RHEED and MIC data
 
 DATA_DIR = Path(__file__).resolve().parent / 'data'
-RAW_DATA = str(DATA_DIR / 'raw_data')
+# Small exports kept in the repository (the full raw data is not): the RHEED
+# example, and the header and first MIC_ROWS rows of the MIC example. They are
+# kept byte for byte (see .gitattributes); the MIC header is Latin-1.
+EXPORTS = str(DATA_DIR / 'exports')
 RHEED_EXPORT = 'RHEED/step1.txt'
 MIC_EXPORT = 'MIC/EZ-CURVE_dated_09_October_2026_timestamped_11h_51m_13s.csv'
 MIC_ROWS = 300
 
 
-def _normalize_with_files(data, local_dir=RAW_DATA):
+class _LogRecords(logging.Handler):
+    def __init__(self):
+        super().__init__(logging.DEBUG)
+        self.messages = []
+
+    def emit(self, record):
+        self.messages.append(record.getMessage())
+
+
+class _LinuxContext(ClientContext):
+    """Files of an upload read as on a NOMAD server: text as UTF-8."""
+
+    def raw_file(self, path, mode='r', *args, **kwargs):
+        if 'b' not in mode:
+            kwargs.setdefault('encoding', 'utf-8')
+        return super().raw_file(path, mode, *args, **kwargs)
+
+
+def _normalize_with_files(data, local_dir=EXPORTS):
+    """
+    The messages logged while normalizing. NOMAD logs with structlog, or with
+    the standard logging module when installed without its infrastructure
+    extras (as in CI), so both are collected.
+    """
     archive = EntryArchive(
         data=data,
         metadata=EntryMetadata(),
-        m_context=ClientContext(local_dir=local_dir),
+        m_context=_LinuxContext(local_dir=local_dir),
     )
-    with capture_logs() as logs:
-        MetainfoNormalizer().normalize(archive)
-    return [log['event'] for log in logs]
+    records = _LogRecords()
+    logging.getLogger().addHandler(records)
+    try:
+        with capture_logs() as logs:
+            MetainfoNormalizer().normalize(archive)
+    finally:
+        logging.getLogger().removeHandler(records)
+    return [log['event'] for log in logs] + records.messages
 
 
 @pytest.fixture
 def mic_dir(tmp_path):
-    """The header and first rows of the MIC example, which is large."""
-    with open(Path(RAW_DATA) / MIC_EXPORT) as export:
-        lines = [export.readline() for _ in range(MIC_ROWS + 1)]
-    (tmp_path / 'MIC').mkdir()
-    (tmp_path / MIC_EXPORT).write_text(''.join(lines))
-    (tmp_path / 'RHEED').mkdir()
-    (tmp_path / RHEED_EXPORT).write_text(
-        open(Path(RAW_DATA) / RHEED_EXPORT).read()
-    )
+    """A copy of the exports, as files of an upload."""
+    for name in (MIC_EXPORT, RHEED_EXPORT):
+        (tmp_path / name).parent.mkdir(exist_ok=True)
+        shutil.copyfile(Path(EXPORTS) / name, tmp_path / name)
     return str(tmp_path)
 
 
@@ -662,6 +691,29 @@ def test_read_columns():
         read_columns(['1 2', 'x y'])
     with pytest.raises(ValueError):
         read_columns(['only a header'])
+
+
+def test_text_lines_read_any_encoding_and_line_ending():
+    lines = [
+        'Bow (µm);x\r\n'.encode('latin-1'),
+        'Bow (µm);y\n'.encode(),
+        b'1;2\r3;4\r\n',
+    ]
+    assert list(text_lines(lines)) == ['Bow (µm);x', 'Bow (µm);y', '1;2', '3;4']
+
+
+def test_mic_export_is_read_on_linux():
+    """
+    The MIC header is Latin-1, which is not UTF-8, the text encoding of a NOMAD
+    server (and of `_LinuxContext`); it is read all the same.
+    """
+    with pytest.raises(UnicodeDecodeError):
+        (Path(EXPORTS) / MIC_EXPORT).read_text(encoding='utf-8')
+    mic = MIC(export_files=[MIC_EXPORT])
+    events = _normalize_with_files(InSituTechniquesEntry(mic=[mic]))
+    assert not [event for event in events if 'could not read' in event]
+    (data,) = mic.curvature_data
+    assert len(data.time) == MIC_ROWS
 
 
 def test_block_mean():

@@ -36,6 +36,10 @@ class UnsafeLogbookFile(ValueError):
     """The logbook file a save would overwrite is not one this dashboard makes."""
 
 
+class NotALogbook(ValueError):
+    """The archive read into the form is not a logbook of this dashboard."""
+
+
 def is_logbook_file(name, systems) -> bool:
     """
     Whether `name` is a logbook file name as made by `run_file_stem`:
@@ -383,7 +387,7 @@ class LogbookConverter:
         """
         system = self.system_of(data)
         if system is None:
-            raise ValueError(
+            raise NotALogbook(
                 f'This entry is not a logbook of {" or ".join(self.logbook_sections)}.'
             )
         sections = sections_of(spec)

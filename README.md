@@ -34,53 +34,43 @@ field reference. Example entries are in `tests/data/`.
 
 ## Development
 
-For local development, create and activate a Python 3.9+ virtual environment:
-```sh
-git clone https://github.com/timval-differ/differ-pld4energy-schemas.git
-cd differ-pld4energy-schemas
-python3 -m venv .venv
-. .venv/bin/activate
-```
+New to the code? Read [Plugin structure](docs/explanation/plugin_structure.md)
+first: it maps the parts of the plugin (schemas and dashboards, server and
+page), what is checked where, the tests and CI, and where to make a change.
+[Contribute to this plugin](docs/how_to/contribute_to_this_plugin.md) has the
+recipes for common changes.
 
-Make sure to have `pip` upgraded:
-```sh
-pip install --upgrade pip
-```
-
-We recommend installing `uv` for fast pip installation of the packages:
-```sh
-pip install uv
-```
-
-Install the plugin and its development dependencies:
-```sh
-python -m pip install --upgrade pip
-python -m pip install -e '.[dev]'
-```
+The plugin is developed inside the lab's distribution,
+[`timval-differ/nomad-distro-dev`](https://github.com/timval-differ/nomad-distro-dev)
+(a fork of FAIRmat-NFDI's `nomad-distro-dev`), checked out in
+`packages/differ-pld4energy-schemas`; see
+[Install this plugin](docs/how_to/install_this_plugin.md). It needs Python 3.10
+or newer and `nomad-lab` 2.0 or newer; [uv](https://docs.astral.sh/uv/) manages
+the environment. The dashboards' browser code is type-checked and tested with
+Node 22 or newer (no build step: the browser loads the files as they are).
 
 The example archives in `tests/data/` leave out the references to substrates and targets. Add references to existing NOMAD entries before uploading.
 
 ### Run the tests
 
-You can run locally the tests:
+From the plugin folder:
 ```sh
-python -m pytest -sv tests
+uv run pytest                     # Python: schemas and dashboards
+npm ci                            # once, and after package-lock.json changes
+npm run typecheck && npm test     # the dashboards' scripts
 ```
 
-where the `-s` and `-v` options toggle the output verbosity.
-
-Our CI/CD pipeline produces a more comprehensive test report using the `pytest-cov` package. You can generate a local coverage report:
+To measure the coverage of the plugin's code by the Python tests:
 ```sh
-uv pip install pytest-cov
-python -m pytest --cov=src tests
+uv run --with coverage coverage run --source=src -m pytest && uv run --with coverage coverage report
 ```
 
 ### Run linting and auto-formatting
 
-We use [Ruff](https://docs.astral.sh/ruff/) for linting and formatting the code. Ruff auto-formatting is also a part of the GitHub workflow actions. You can run locally:
+We use [Ruff](https://docs.astral.sh/ruff/) for linting and formatting the code; CI runs `ruff check`. You can run locally:
 ```sh
-ruff check .
-ruff format . --check
+uv run ruff check src tests
+uv run ruff format src tests
 ```
 
 ### Debugging
@@ -94,7 +84,7 @@ For interactive debugging of the tests, use `pytest` with the `--pdb` flag. We r
         "type": "debugpy",
         "request": "launch",
         "cwd": "${workspaceFolder}",
-        "program": "${workspaceFolder}/.pyenv/bin/pytest",
+        "module": "pytest",
         "justMyCode": true,
         "env": {
             "_PYTEST_RAISE": "1"
@@ -115,15 +105,13 @@ The settings configuration file `.vscode/settings.json` automatically applies th
 
 ### Documentation on Github pages
 
-To view the documentation locally, install the related packages using:
+To view the documentation locally (the docs tools are in the `dev` extras):
 ```sh
-uv pip install -r requirements_docs.txt
+uv run --extra dev mkdocs serve -a 127.0.0.1:8001   # NOMAD uses port 8000
 ```
 
-Run the documentation server:
-```sh
-mkdocs serve
-```
+It is published to GitHub Pages on every push to `main`. See
+[Contribute to the documentation](docs/how_to/contribute_to_the_documentation.md).
 
 ## Adding this plugin to NOMAD
 

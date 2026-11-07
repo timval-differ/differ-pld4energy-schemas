@@ -1,5 +1,9 @@
 # Contribute to This Plugin
 
+New to the code? Start with [Plugin structure](../explanation/plugin_structure.md):
+the parts of the plugin, how they talk to each other, what is checked where, the
+tests, and where to make a change. This page has the recipes for common changes.
+
 ## Code layout
 
 | Module | Contents |
@@ -7,29 +11,35 @@
 | `pld_deposition.py` | PLD logbooks (`PLDLogbook`, `SAPLDLogbook`, `LAPLDLogbook`), process steps, target selection, recipe loader, and the save logic (`normalize`) |
 | `sps_deposition.py` | The SPS logbook (`SPSLogbook`), its process steps, plasma and target selection, and its save logic |
 | `process_steps.py` | Steps shared by all systems: `GasProcessStep` (pressure, gases, valve), `HeatingStep`, `CoolDownStep` |
+| `base_sections.py` | What every logbook adds to the native NOMAD process: the operator, and a name when none is given |
 | `references.py` | Comparing and copying references between entries |
 | `laser.py` | `LaserCalibration` (with the T1 calculation) and `LaserParameters` |
 | `gas.py` | `BackgroundGas`, the gases and atmospheres |
 | `stages.py` | `HeaterStagePosition`, `TargetStage`, `CartesianHeaterScan`, `PolarHeaterScan` |
-| `sample.py` | System-agnostic samples: the `Sample` entry, `SampleInRun`, `Layer`, the `SampleRun` base of a run, `sample_id()` and `sample_name()` |
+| `sample.py` | System-agnostic samples: the `Sample` entry, the `SubstrateType` entry (the substrate database), `SampleInRun`, `Layer`, the `SampleRun` base of a run, `sample_id()` and `sample_name()` |
 | `target.py` | `Target`, and the `PLDTarget` and `SputterTarget` database entries |
-| `in_situ.py` | In-situ techniques, the LA-EDS energy axis and plot |
+| `in_situ.py` | In-situ techniques: reading and plotting exported RHEED and MIC files, the LA-EDS energy axis |
+| `composition.py` | Chemical formulas of targets and substrate types, and the elements NOMAD's search uses |
+| `database.py` | The target and substrate database: the one upload that holds every target and substrate type |
 | `schema_packages/schema_package.py` | Imports all modules and initialises the schema package |
 | `dashboards/` | The PLD and sputter logbook dashboards, see [below](#the-logbook-dashboards) |
 
 ## Develop and test
 
+Develop in [`nomad-distro-dev`](install_this_plugin.md#in-a-local-development-setup-nomad-distro-dev),
+with the plugin in `packages/differ-pld4energy-schemas` (Python 3.10 or newer).
 From the plugin folder:
 
 ```sh
-uv run pytest            # all tests
+uv run pytest            # all Python tests (schemas and dashboards)
 uv run ruff check src tests
 uv run ruff format src tests
 ```
 
-`tests/test_pld_schema.py` covers the PLD schemas and `tests/test_sputter_schema.py`
-the SPS schemas; `tests/data/example_*.archive.yaml` are example entries, which
-are also tested.
+The tests work from any folder (also from the distribution root). What each
+test file covers is listed under [Tests and CI](../explanation/plugin_structure.md#tests-and-ci);
+`tests/data/example_*.archive.yaml` are example entries, which are also tested,
+and `tests/data/exports/` holds small exported data files (RHEED, MIC).
 
 The dashboards' browser code (`dashboards/common/static/*.js`) is plain
 JavaScript that the browser loads as ES modules, without a build step. It is
@@ -44,6 +54,19 @@ npm test                 # tests/js/*.test.js
 `npm run typecheck` uses the TypeScript version pinned in `package.json`. Only
 files marked `// @ts-check` are checked, so a script is opted in once its JSDoc
 types are right.
+
+The validation rules exist in Python (`common/rules.py`) and in the page
+(`common/static/rules.js`), and a parity test keeps them equal. After a
+deliberate change of the rules, regenerate the expected results and check the
+page's rules against them:
+
+```sh
+UPDATE_JS_PARITY=1 uv run pytest tests/dashboards/test_js_parity.py
+npm test     # fails until rules.js agrees
+```
+
+In PowerShell, set the variable first:
+`$env:UPDATE_JS_PARITY=1; uv run pytest tests/dashboards/test_js_parity.py; Remove-Item Env:UPDATE_JS_PARITY`.
 
 To check an archive file with the full NOMAD processing, run from the
 distribution root:
@@ -142,18 +165,24 @@ number(
 - The quantity must exist in the schemas; values are converted to its
   unit. `test_spec_archive_paths_exist_in_schema` checks every step field, and
   `test_spec_section_archive_paths_exist_in_schema` the other sections.
-- Fields are required unless `required=False` (comments, booleans and computed
-  fields are optional by default).
+- Fields are required unless `required=False` (`textarea`, `bool`, `computed`,
+  `rows` and `files` fields are optional by default).
 - Choices that also exist in the schema are checked against it by
   `test_spec_choices_match_schema`.
 
 Field kinds: `text`, `textarea`, `number`, `integer`, `select`, `bool`,
 `date`, `time`, `reference` (an entry from NOMAD: a target, sample or
 substrate type), `target_choice` and `sample_choice` (one of the targets or
-samples of the form), `rows` (a repeating sub-section, with `columns`), `file`
-and `computed`. A `reference` can copy values of the chosen entry into the form
-with `ref_copy` (e.g. the material of a target), and `required_if` makes a field
-required only while a condition holds.
+samples of the form), `step_choice` (process steps of the form), `rows` (a
+repeating sub-section, with `columns`), `files` (uploaded files, optionally with
+a `chart`) and `computed`. A `reference` can copy values of the chosen entry
+into the form with `ref_copy` (e.g. the material of a target), and
+`required_if` makes a field required only while a condition holds.
+
+Every field key and kind is listed in the docstring of `common/fields.py` and in
+`KNOWN_KINDS` and `FIELD_KEYS` there; `tests/dashboards/test_spec_contract.py`
+fails on a key or kind it does not know, so a misspelt key is caught. Add a new
+key in both places.
 
 #### Steps and sections
 
@@ -177,13 +206,37 @@ in both the Python side (`common/` or the dashboard's `rules.py`) and
 
 ### Run the dashboard
 
-- Tests: `uv run pytest tests/dashboards`
+- Tests: `uv run pytest tests/dashboards` and `npm test`
 - In NOMAD: restart `uv run poe start` and open
   <http://localhost:8000/nomad-oasis/dashboards/differ_pld4e_schemas-pld-logbook/>
   or `.../differ_pld4e_schemas-sputter-logbook/`.
-  Changes to `static/` only need a browser reload; Python changes need a restart.
-  When the scripts are newer than the running dashboard code, the page says so and
-  asks for a restart, instead of running against an old form definition.
+  Restart NOMAD after **any** change, to `static/` too: the page compares the
+  version of its files with the one the server took when it started, and until
+  a restart it asks for one instead of running against an old form definition.
+- The dashboards need the target and substrate database upload
+  (`database_upload_id`, see [Configuration](../explanation/plugin_structure.md#configuration)).
+- A dashboard whose URL answers 404 failed to load: see
+  [When the dashboard does not load](../explanation/plugin_structure.md#when-the-dashboard-does-not-load).
 
 When you change a schema quantity the form uses (rename, unit, choices), update
 `spec.py` in the same change; the dashboard tests fail until both agree.
+
+## Git workflow
+
+The plugin has its own repository
+([timval-differ/differ-pld4energy-schemas](https://github.com/timval-differ/differ-pld4energy-schemas)),
+which `nomad-distro-dev` includes as a git submodule in
+`packages/differ-pld4energy-schemas`. Work in the plugin folder as in any
+repository:
+
+1. Branch from `main` (`git switch -c fix/…`).
+2. Commit, with tests and the documentation in the same change, and push.
+3. Open a pull request in the plugin repository. CI must pass
+   (`install-and-test`, `dashboard-scripts`, `ruff-linting`).
+4. After the merge, update the distribution to the new plugin commit: in the
+   distribution root, `git -C packages/differ-pld4energy-schemas switch main`,
+   `git -C packages/differ-pld4energy-schemas pull`, then commit the changed
+   submodule pointer (`git add packages/differ-pld4energy-schemas`).
+
+Keep each file's line endings (most files use LF): an editor or script that
+changes them makes the whole file show as changed in the pull request.

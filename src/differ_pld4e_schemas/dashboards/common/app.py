@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 import html
 import logging
+import re
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -26,7 +27,6 @@ from .convert import NotALogbook, UnsafeLogbookFile
 from .rules import step_time_warnings
 
 STATIC = Path(__file__).parent / 'static'
-ASSETS = ('app.js', 'pdf.js', 'style.css')
 
 logger = logging.getLogger(__name__)
 
@@ -59,19 +59,46 @@ def asset_version(name: str) -> str:
     return hashlib.sha256((STATIC / name).read_bytes()).hexdigest()[:12]
 
 
+def static_version() -> str:
+    """
+    A version of all static files together. The page and the server compare it
+    to tell when NOMAD has to be restarted after an update, so a change to any
+    script (not only app.js) counts.
+    """
+    digest = hashlib.sha256()
+    for path in sorted(STATIC.iterdir()):
+        if path.is_file():
+            digest.update(path.name.encode() + b'\0' + path.read_bytes() + b'\0')
+    return digest.hexdigest()[:12]
+
+
 def index_page(title: str) -> str:
     """
-    The page, linking its script and style sheet with a version taken from their
-    content. Browsers cache static files, so without it an updated dashboard
-    could run an old app.js against a new form definition.
+    The page, linking every static file it names (`static/<name>"`) with a
+    version taken from its content. Browsers cache static files, so without it
+    an updated dashboard could run an old app.js against a new form definition.
     """
     page = (STATIC / 'index.html').read_text(encoding='utf-8')
-    for name in ASSETS:
-        page = page.replace(
-            f'static/{name}"', f'static/{name}?v={asset_version(name)}"'
-        )
+    page = re.sub(
+        r'static/([\w.-]+)"',
+        lambda match: f'static/{match[1]}?v={asset_version(match[1])}"',
+        page,
+    )
     page = page.replace('{{title}}', html.escape(title))
-    return page.replace('{{script_version}}', asset_version('app.js'))
+    return page.replace('{{script_version}}', static_version())
+
+
+class RevalidatedStaticFiles(StaticFiles):
+    """
+    Static files the browser asks about again on every use (answered with 304
+    while unchanged). Scripts loaded by other scripts get no `?v=`, so they must
+    not be cached by guesswork either.
+    """
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        response.headers['Cache-Control'] = 'no-cache'
+        return response
 
 
 class FormRequest(BaseModel):
@@ -94,14 +121,14 @@ def create_app(form_spec: dict, rules, converter) -> FastAPI:
     # The static files are read from disk on every request, but the Python code
     # only on start. The page compares this version with its own to tell when
     # NOMAD has to be restarted after an update.
-    spec = {**form_spec, 'script_version': asset_version('app.js')}
+    spec = {**form_spec, 'script_version': static_version()}
 
     @app.get('/', include_in_schema=False)
     async def index():
         # Never cached, so a new version always loads its matching assets.
         return HTMLResponse(index_page(title), headers={'Cache-Control': 'no-cache'})
 
-    app.mount('/static', StaticFiles(directory=STATIC), name='static')
+    app.mount('/static', RevalidatedStaticFiles(directory=STATIC), name='static')
 
     @app.get('/api/spec')
     async def get_spec():

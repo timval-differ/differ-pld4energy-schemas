@@ -15,7 +15,9 @@ nav:
       - Reproduce a run with a recipe: how_to/reuse_a_recipe.md
       - Contribute to this plugin: how_to/contribute_to_this_plugin.md
       - Contribute to the documentation: how_to/contribute_to_the_documentation.md
-  - Explanation: explanation/explanation.md
+  - Explanation:
+      - Design of the schemas and dashboards: explanation/explanation.md
+      - Plugin structure (for developers): explanation/plugin_structure.md
   - Reference: reference/references.md
 plugins:
   - search
@@ -57,5 +59,4 @@ use_directory_urls: false
 extra_css:
   - stylesheets/extra.css
 extra_javascript:
-  - javascript.js
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js

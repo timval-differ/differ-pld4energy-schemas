@@ -53,9 +53,11 @@ Step-by-step instructions for specific tasks:
 ### Explanation
 
 How the schemas are put together and why: entries and references, generated
-(read-only) fields, units and calculations.
+(read-only) fields, units and calculations. For developers: the map of the
+code, what is checked where, the tests, and where to make a change.
 
 - [Explanation](explanation/explanation.md)
+- [Plugin structure (for developers)](explanation/plugin_structure.md)
 
 </div>
 <div markdown="block">

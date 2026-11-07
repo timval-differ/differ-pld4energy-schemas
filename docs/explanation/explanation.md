@@ -296,9 +296,13 @@ and the energy per channel. The `.sp0` reader is still to be written; the LA-EDS
 spectrum supplier changes from RSX1000 to RaySpec RSX2000, so the reader is kept
 separate and easy to replace.
 
-## The PLD logbook dashboard
+## The logbook dashboards
 
-The dashboard lives in `src/differ_pld4e_schemas/dashboards/pld_logbook/`. It is part of this plugin, so the form and the schemas it writes are always released together.
+The dashboards live in `src/differ_pld4e_schemas/dashboards/` (`pld_logbook/`,
+`sputter_logbook/` and the shared `common/`). They are part of this plugin, so
+the forms and the schemas they write are always released together. This section
+explains why they exist and how they behave; [Plugin structure](plugin_structure.md)
+maps their code, endpoints and checks for developers.
 
 ### Why a dashboard
 
@@ -317,7 +321,7 @@ then writes normal NOMAD entries of the PLD4Energy schemas.
 ### How it fits together
 
 ```
-browser (static/app.js)                     dashboard app (FastAPI)
+browser (static/*.js)                       dashboard app (FastAPI)
   form, live checks  ── GET  api/spec ──►     spec.py   form definition
                      ── POST api/archive ─►   rules.py  validation (again)
                      ◄─ archive files ────    convert.py form ⇄ archive (SI units)
@@ -327,7 +331,7 @@ browser (static/app.js)                     dashboard app (FastAPI)
 browser ──► NOMAD API (with the user's session)
   /users/me, /uploads, /entries/query, /entries/archive/query,
   PUT/GET/DELETE /uploads/<id>/raw/...  (in-situ files, drafts, archives)
-  GET /uploads/<id>/rawdir/pld_drafts   (list drafts)
+  GET /uploads/<id>/rawdir/<draft_dir>  (list drafts)
 ```
 
 - **`spec.py`** is the single definition of the form: sections, fields, units,
@@ -391,7 +395,8 @@ Users must log every step of a run, also external users of the facility, but a
 run is often filled in on several computers. Saving incomplete logbooks would
 let half-logged runs end up in NOMAD as data. Instead, an unfinished run can be
 saved as a **draft**: the form state as a plain JSON file,
-`pld_drafts/<system>_<date>_<hhmm>[_<run name>].draft.json`, in the upload.
+`<draft dir>/<system>_<date>_<hhmm>[_<run name>].draft.json`, in the upload
+(`pld_drafts` for the PLD logbook, `sps_drafts` for the sputter logbook).
 
 - No NOMAD parser reads `.draft.json` files, so a draft is never an entry: it is
   not searchable, creates no Sample entries and does not count as logged.
@@ -409,18 +414,25 @@ computer.
 
 1. The form is validated by the server, which also returns the file name of the
    logbook (`<system>_<date>_<hhmm>[_<run name>].archive.json`).
-2. In-situ files are uploaded to `pld_files/<logbook file name>/`.
+2. In-situ and log files are uploaded to
+   `<file dir>/<system>_<date>_<hhmm>[_<run name>]/`, the logbook's file name
+   without `.archive.json` (`<file dir>` is `pld_files` for the PLD logbook,
+   `sps_files` for the sputter logbook).
 3. One Sample archive is written per new or external sample, named after its
    sample ID, and the logbook archive refers to it by file name. A Sample that
    this logbook created before is written again (overwritten), so corrections
-   made in the dashboard reach it; existing samples of other runs are never
-   written.
+   made in the dashboard reach it, but only through the file its sample ID
+   gives; existing samples of other runs are never written.
 4. The logbook is written. A new logbook never overwrites an existing file; an
-   opened logbook is overwritten.
+   opened logbook is overwritten if it was made by the dashboard (its file is
+   named `<system>_<date>_<hhmm>[_<run name>].archive.json`). Other logbooks,
+   e.g. hand-written `.archive.yaml` files, are saved as a new logbook in the
+   same upload instead.
 5. The draft of the run, if any, is deleted.
 
-Each file is written with `wait_for_processing=true`, so NOMAD's processing
-errors and warnings are shown in the log.
+The Sample and logbook archives are written with `wait_for_processing=true`,
+so NOMAD's processing errors and warnings are shown in the log. Data files and
+drafts are written without waiting: NOMAD does not make entries of them.
 
 The start of the run is saved with the browser's UTC offset. NOMAD stores it in
 UTC, so the dashboard shows it in local time again when a logbook is opened. The

@@ -14,12 +14,12 @@
  */
 import {makePdf} from './pdf.js';
 import {createRules} from './rules.js';
-import {uid, localDate, localTime, utcOffset, localizeRun, fileNameFor, entryRef} from './util.js';
+import {API, GUI} from './config.js';
+import {el} from './dom.js';
+import {api, dashboard, putArchive, rawFileText, readNomadDraft} from './nomad-api.js';
+import {renderFileCharts} from './charts.js';
+import {uid, localDate, localTime, utcOffset, localizeRun, fileNameFor, entryRef, uploadPath, validUploadId, formatNumber} from './util.js';
 
-const BASE = window.location.pathname.replace(/\/dashboards\/.*$/, '');
-const API = BASE + '/api/v1';
-const GUI = BASE + '/gui/v2';
-const DASHBOARD = window.location.pathname.replace(/\/?$/, '/');
 const DRAFT_VERSION = 1;
 const INCH = 0.0254;
 
@@ -76,47 +76,6 @@ function client() {
   return app.spec.client;
 }
 
-/**
- * A new element: `attrs` become properties, attributes, or listeners (`on…`).
- * @template {keyof HTMLElementTagNameMap} K
- * @param {K} tag
- * @param {Object<string, any>} [attrs]
- * @param {...any} children nodes, text, or (nested) lists of them
- * @returns {HTMLElementTagNameMap[K]}
- */
-function el(tag, attrs, ...children) {
-  const node = document.createElement(tag);
-  for (const [key, value] of Object.entries(attrs || {})) {
-    if (value === undefined || value === null || value === false) continue;
-    if (key === 'class') node.className = value;
-    else if (key.startsWith('on')) node.addEventListener(key.slice(2), value);
-    else if (key in node && key !== 'list') node[key] = value;
-    else node.setAttribute(key, value === true ? '' : value);
-  }
-  for (const child of children.flat()) {
-    if (child === null || child === undefined || child === false) continue;
-    node.append(child instanceof Node ? child : document.createTextNode(String(child)));
-  }
-  return node;
-}
-
-/*
- * The API path of a file or folder in an upload (`kind` 'raw' or 'rawdir'),
- * with every part encoded. Upload ids and paths come from drafts and forms
- * kept in uploads others can write to, so a part that would leave the folder
- * ('..') or change the request (?, #) is refused or encoded.
- */
-function uploadPath(uploadId, kind, path = '') {
-  if (typeof uploadId !== 'string' || !/^[\w-]+$/.test(uploadId)) {
-    throw new Error(`Not an upload id: ${uploadId}`);
-  }
-  const parts = path ? String(path).split('/') : [];
-  if (parts.some((part) => part === '' || part === '.' || part === '..')) {
-    throw new Error(`Not a path in the upload: ${path}`);
-  }
-  return `/uploads/${uploadId}/${kind}/` + parts.map(encodeURIComponent).join('/');
-}
-
 function escapeRegExp(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -151,59 +110,9 @@ function checkedEdit(edit, uploadId) {
 const UNVERIFIED_EDIT = 'It referred to a logbook that could not be verified, '
   + 'so saving stores it as a new logbook.';
 
-function validUploadId(value) {
-  return typeof value === 'string' && /^[\w-]+$/.test(value) ? value : null;
-}
-
 /* The upload the logbook is saved to whatever is chosen, or null. */
 function formUpload() {
   return app.edit ? app.edit.upload_id : app.source;
-}
-
-async function api(path, options = {}) {
-  // Several NOMAD endpoints (creating an upload, writing raw files) only answer
-  // in JSON when asked for exactly `application/json`.
-  const headers = {Accept: 'application/json', ...(options.headers || {})};
-  const response = await fetch(API + path, {credentials: 'same-origin', ...options, headers});
-  let body = null;
-  const text = await response.text();
-  try {
-    body = text ? JSON.parse(text) : null;
-  } catch (e) {
-    body = text;
-  }
-  if (!response.ok) {
-    const detail = body && body.detail
-      ? (typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail))
-      : `HTTP ${response.status}`;
-    const error = new Error(detail);
-    error.status = response.status;
-    throw error;
-  }
-  return body;
-}
-
-async function dashboard(path, body) {
-  const response = await fetch(DASHBOARD + path, {
-    method: body === undefined ? 'GET' : 'POST',
-    headers: body === undefined ? {} : {'Content-Type': 'application/json'},
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const text = await response.text();
-  let json = null;
-  try {
-    json = text ? JSON.parse(text) : null;
-  } catch (e) {
-    // E.g. an error page of a proxy.
-  }
-  if (!response.ok) {
-    const detail = json && json.detail;
-    throw new Error(detail
-      ? (typeof detail === 'string' ? detail : JSON.stringify(detail))
-      : `HTTP ${response.status}`);
-  }
-  if (json === null) throw new Error(`The dashboard sent no data (HTTP ${response.status}).`);
-  return json;
 }
 
 function showBanner(message, kind, action) {
@@ -642,11 +551,6 @@ function fillSelect(select, options, value, field) {
   select.value = current;
 }
 
-function formatNumber(value) {
-  if (value === null || value === undefined) return '–';
-  return Number(value.toPrecision(6)).toString();
-}
-
 function control(field, local, path) {
   const id = 'f-' + path.replace(/\./g, '-');
   const set = (value) => {
@@ -790,249 +694,6 @@ function renderFields(container, fields, local, path) {
   }
 }
 
-/* ------------------------------------------------- charts of data files */
-
-/*
- * Exported data files (e.g. RHEED ROI intensities, MIC curvature) are plotted
- * as soon as they are added, from the file in the browser; once saved, from
- * NOMAD on request. The field's `chart` (FILE_CHARTS in spec.py) says how to
- * read the file and what to plot. The NOMAD entry plots the same data.
- */
-const SERIES_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'];
-const CHART_POINTS = 1000;
-const SVG = 'http://www.w3.org/2000/svg';
-
-/* Header (or null) and columns of an exported text file, as in in_situ.read_columns. */
-function readColumns(text, delimiter) {
-  let header = null;
-  let columns = null;
-  const lines = text.split(/\r?\n/);
-  for (let number = 1; number <= lines.length; number++) {
-    const line = lines[number - 1];
-    if (!line.trim()) continue;
-    const parts = delimiter ? line.split(delimiter).map((p) => p.trim()) : line.trim().split(/\s+/);
-    const values = parts.map((p) => (p === '' ? NaN : Number(p)));
-    if (values.some(Number.isNaN)) {
-      if (columns) throw new Error(`line ${number} is not numbers`);
-      header = parts;
-      continue;
-    }
-    if (!columns) columns = values.map(() => []);
-    if (values.length !== columns.length) {
-      throw new Error(`line ${number} has ${values.length} columns instead of ${columns.length}`);
-    }
-    values.forEach((v, i) => columns[i].push(v));
-  }
-  if (!columns || columns.length < 2) throw new Error('no columns of data found');
-  return {header, columns};
-}
-
-/* The mean of each block of samples, keeping at most `points`. */
-function blockMean(values, points) {
-  const size = Math.ceil(values.length / points);
-  if (size <= 1) return values;
-  const means = [];
-  for (let start = 0; start < values.length; start += size) {
-    const block = values.slice(start, start + size);
-    means.push(block.reduce((a, b) => a + b, 0) / block.length);
-  }
-  return means;
-}
-
-/* The plots of a chart definition: [{title, yTitle, x, series: [{name, values}]}]. */
-function chartPlots(chart, {header, columns}) {
-  const name = (column) => column.split('(')[0].trim().toLowerCase();
-  const x = blockMean(columns[0], CHART_POINTS);
-  const plots = chart.plots.map((plot) => {
-    let series;
-    if (plot.columns === null) {
-      series = columns.slice(1).map((values, i) => ({name: plot.name.replace('{n}', i + 1), values}));
-    } else {
-      series = plot.columns.map((column, i) => {
-        const index = (header || []).findIndex((h) => name(h) === column.toLowerCase());
-        return index < 0 ? null : {name: plot.names[i], values: columns[index]};
-      }).filter(Boolean);
-    }
-    series = series.map((s) => ({...s, values: blockMean(s.values, CHART_POINTS)}));
-    return {title: plot.title, yTitle: plot.y_title, x, series};
-  }).filter((plot) => plot.series.length);
-  if (!plots.length) throw new Error('none of the expected columns found');
-  return plots;
-}
-
-function svgEl(tag, attrs, ...children) {
-  const node = document.createElementNS(SVG, tag);
-  for (const [key, value] of Object.entries(attrs || {})) node.setAttribute(key, value);
-  node.append(...children);
-  return node;
-}
-
-/* About `count` round tick values within min..max, or (outward) around it. */
-function niceTicks(min, max, count = 5, outward = false) {
-  if (!(max > min)) return [min];
-  const raw = (max - min) / count;
-  const power = 10 ** Math.floor(Math.log10(raw));
-  const step = [1, 2, 5, 10].map((f) => f * power).find((s) => s >= raw);
-  const ticks = [];
-  const first = (outward ? Math.floor(min / step) : Math.ceil(min / step)) * step;
-  const last = outward ? Math.ceil(max / step) * step : max;
-  for (let v = first; v <= last + step * 1e-9; v += step) {
-    ticks.push(Number(v.toPrecision(12)));
-  }
-  return ticks;
-}
-
-/*
- * A line chart of one plot against the time, with a crosshair tooltip. It is
- * drawn at the width it gets (and redrawn when that changes), so that its text
- * keeps the size of the page's text instead of being scaled with the chart.
- */
-function lineChart(plot, fileName) {
-  const H = 300;
-  const m = {left: 72, right: 20, top: 12, bottom: 52};
-  const {x, series} = plot;
-  const color = (i) => SERIES_COLORS[i % SERIES_COLORS.length];
-  const all = series.flatMap((s) => s.values).filter(Number.isFinite);
-  let [yMin, yMax] = [Math.min(...all), Math.max(...all)];
-  if (yMin === yMax) [yMin, yMax] = [yMin - 1, yMax + 1];
-  const yTicks = niceTicks(yMin, yMax, 5, true);
-  [yMin, yMax] = [yTicks[0], yTicks[yTicks.length - 1]];
-  const [xMin, xMax] = [x[0], x[x.length - 1]];
-  const sy = (v) => H - m.bottom - ((v - yMin) / (yMax - yMin)) * (H - m.top - m.bottom);
-  const tooltip = el('div', {class: 'chart-tooltip', hidden: true});
-
-  const draw = (W) => {
-    const sx = (v) => m.left + ((v - xMin) / (xMax - xMin || 1)) * (W - m.left - m.right);
-    const svg = svgEl('svg', {width: W, height: H, viewBox: `0 0 ${W} ${H}`, class: 'chart-svg', role: 'img',
-      'aria-label': `${plot.title} against time, ${fileName}`});
-    for (const t of yTicks) {
-      svg.append(svgEl('line', {x1: m.left, x2: W - m.right, y1: sy(t), y2: sy(t), class: 'chart-grid'}),
-        svgEl('text', {x: m.left - 8, y: sy(t), class: 'chart-tick', 'text-anchor': 'end', 'dominant-baseline': 'middle'},
-          formatNumber(t)));
-    }
-    // About one time tick per 110 px.
-    for (const t of niceTicks(xMin, xMax, Math.max(2, Math.floor((W - m.left - m.right) / 110)))) {
-      svg.append(svgEl('line', {x1: sx(t), x2: sx(t), y1: H - m.bottom, y2: H - m.bottom + 5, class: 'chart-axis'}),
-        svgEl('text', {x: sx(t), y: H - m.bottom + 20, class: 'chart-tick', 'text-anchor': 'middle'}, formatNumber(t)));
-    }
-    const middle = (m.top + H - m.bottom) / 2;
-    svg.append(
-      svgEl('line', {x1: m.left, x2: W - m.right, y1: H - m.bottom, y2: H - m.bottom, class: 'chart-axis'}),
-      svgEl('text', {x: (m.left + W - m.right) / 2, y: H - 8, class: 'chart-label', 'text-anchor': 'middle'}, 'Time (s)'),
-      svgEl('text', {x: 16, y: middle, class: 'chart-label', 'text-anchor': 'middle',
-        transform: `rotate(-90 16 ${middle})`}, plot.yTitle));
-    series.forEach((s, i) => {
-      let d = '';
-      let pen = 'M';
-      s.values.forEach((v, j) => {
-        if (!Number.isFinite(v)) { pen = 'M'; return; }
-        d += `${pen}${sx(x[j]).toFixed(1)} ${sy(v).toFixed(1)}`;
-        pen = 'L';
-      });
-      svg.append(svgEl('path', {d, class: 'chart-line', stroke: color(i)}));
-    });
-
-    // Hover: a crosshair at the nearest time, a dot per series, and a tooltip.
-    const cross = svgEl('line', {y1: m.top, y2: H - m.bottom, class: 'chart-cross', visibility: 'hidden'});
-    const dots = series.map((s, i) => svgEl('circle', {r: 4, class: 'chart-dot', fill: color(i), visibility: 'hidden'}));
-    const hit = svgEl('rect', {x: m.left, y: m.top, width: W - m.left - m.right, height: H - m.top - m.bottom,
-      fill: 'transparent'});
-    svg.append(cross, ...dots, hit);
-    hit.addEventListener('pointerleave', () => {
-      tooltip.hidden = true;
-      for (const node of [cross, ...dots]) node.setAttribute('visibility', 'hidden');
-    });
-    hit.addEventListener('pointermove', (e) => {
-      const px = e.clientX - svg.getBoundingClientRect().left;
-      const time = xMin + ((px - m.left) / (W - m.left - m.right)) * (xMax - xMin);
-      let j = x.findIndex((v) => v >= time);
-      if (j < 0) j = x.length - 1;
-      if (j > 0 && time - x[j - 1] < x[j] - time) j -= 1;
-      cross.setAttribute('x1', sx(x[j]));
-      cross.setAttribute('x2', sx(x[j]));
-      cross.setAttribute('visibility', 'visible');
-      series.forEach((s, i) => {
-        const shown = Number.isFinite(s.values[j]);
-        dots[i].setAttribute('visibility', shown ? 'visible' : 'hidden');
-        if (shown) { dots[i].setAttribute('cx', sx(x[j])); dots[i].setAttribute('cy', sy(s.values[j])); }
-      });
-      tooltip.replaceChildren(el('div', {class: 'chart-tooltip-time'}, `${formatNumber(x[j])} s`),
-        ...series.map((s, i) => el('div', {class: 'chart-tooltip-row'},
-          el('span', {class: 'chart-swatch', style: `background:${color(i)}`}),
-          el('span', {}, s.name), el('span', {class: 'chart-tooltip-value'}, formatNumber(s.values[j])))));
-      tooltip.hidden = false;
-      tooltip.style.left = `${sx(x[j])}px`;
-      tooltip.classList.toggle('flip', sx(x[j]) > W / 2);
-    });
-    return svg;
-  };
-
-  let width = 0;
-  const frame = el('div', {class: 'chart-frame'}, draw(720), tooltip);
-  new ResizeObserver(() => {
-    const now = Math.round(frame.clientWidth);
-    if (!now || now === width) return;
-    width = now;
-    tooltip.hidden = true;
-    frame.firstChild.replaceWith(draw(Math.max(now, 320)));
-  }).observe(frame);
-
-  const legend = series.length > 1 ? el('div', {class: 'chart-legend'}, ...series.map((s, i) => el('span', {class: 'chart-key'},
-    el('span', {class: 'chart-swatch', style: `background:${color(i)}`}), s.name))) : null;
-  return el('figure', {class: 'chart'},
-    el('figcaption', {}, el('span', {class: 'chart-title'}, plot.title), el('span', {class: 'muted small'}, fileName)),
-    legend, frame);
-}
-
-/* Parsed plots by File (added here) or by path (saved in NOMAD), read once. */
-const chartCache = new Map();
-
-async function rawFileText(uploadId, path) {
-  const url = API + uploadPath(uploadId, 'raw', path);
-  const response = await fetch(url, {credentials: 'same-origin'});
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  return response.text();
-}
-
-async function plotFile(box, chart, key, fileName, read) {
-  box.replaceChildren(el('span', {class: 'muted small'}, `Reading ${fileName}…`));
-  if (!chartCache.has(key)) {
-    // Let the message show before a large file is parsed.
-    chartCache.set(key, new Promise((resolve) => setTimeout(resolve)).then(read)
-      .then((text) => chartPlots(chart, readColumns(text, chart.delimiter))));
-  }
-  try {
-    const plots = await chartCache.get(key);
-    box.replaceChildren(...plots.map((plot) => lineChart(plot, fileName)));
-  } catch (error) {
-    chartCache.delete(key);
-    box.replaceChildren(el('span', {class: 'chart-error'}, `Could not plot ${fileName}: ${error.message}`));
-  }
-}
-
-/* The charts of the files of a field, redrawn only when its files change. */
-function renderFileCharts(r, value) {
-  const files = value || [];
-  const pending = files.map((_, index) => app.pendingFiles[`${r.path}.${index}`]);
-  const key = files.join('|') + '|' + pending.map(Boolean).join();
-  if (r.charts.dataset.key === key) return;
-  r.charts.dataset.key = key;
-  r.charts.replaceChildren(...files.map((name, index) => {
-    const fileName = String(name).split('/').pop();
-    const box = el('div', {class: 'file-chart'});
-    const file = pending[index];
-    if (file) {
-      plotFile(box, r.field.chart, file, fileName, () => file.text());
-    } else if (formUpload()) {
-      const source = formUpload();
-      const cacheKey = `${source}/${name}`;
-      const plot = () => plotFile(box, r.field.chart, cacheKey, fileName, () => rawFileText(source, name));
-      if (chartCache.has(cacheKey)) plot();
-      else box.append(el('button', {type: 'button', class: 'btn btn-text', onclick: plot}, `Plot ${fileName}`));
-    }
-    return box;
-  }));
-}
 
 /* Remove one file of a `files` field; files still to upload keep their place. */
 function removeFile(local, key, path, index) {
@@ -1128,7 +789,7 @@ function refresh() {
           onclick: () => removeFile(r.local, r.field.key, r.path, index),
         }, '✕'))));
       if (!(value || []).length) r.fileList.append(el('span', {class: 'muted'}, 'No files added'));
-      if (r.charts && visible) renderFileCharts(r, value);
+      if (r.charts && visible) renderFileCharts(r, value, {pendingFiles: app.pendingFiles, uploadId: formUpload(), readRaw: rawFileText});
     }
     if (kind === 'step_choice') renderStepChoices(r);
     if (r.field.required && r.field.required_if) {
@@ -1679,15 +1340,6 @@ async function ensureUpload() {
   throw new Error('Choose an upload first.');
 }
 
-async function putArchive(uploadId, fileName, archive, overwrite) {
-  return api(`${uploadPath(uploadId, 'raw')}?file_name=${encodeURIComponent(fileName)}`
-    + `&overwrite_if_exists=${overwrite}&wait_for_processing=true`, {
-    method: 'PUT',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(archive),
-  });
-}
-
 /*
  * Add an entry to one of the databases (targets, substrates) without leaving
  * the form. `place` puts the new entry into the form, e.g. into the first
@@ -2129,15 +1781,6 @@ function exportPdf() {
  * entry: only the final save creates the logbook and sample entries, and it
  * deletes the draft.
  */
-
-async function readNomadDraft(uploadId, path) {
-  try {
-    return await api(uploadPath(uploadId, 'raw', path));
-  } catch (e) {
-    if (e.status === 404) return null;
-    throw e;
-  }
-}
 
 async function saveDraftToNomad() {
   if (app.saving) return;

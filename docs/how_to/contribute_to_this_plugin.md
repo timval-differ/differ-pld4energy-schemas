@@ -31,6 +31,20 @@ uv run ruff format src tests
 the SPS schemas; `tests/data/example_*.archive.yaml` are example entries, which
 are also tested.
 
+The dashboards' browser code (`dashboards/common/static/*.js`) is plain
+JavaScript that the browser loads as ES modules, without a build step. It is
+type-checked and tested with Node 22 or newer, also from the plugin folder:
+
+```sh
+npm ci                   # once, and after package-lock.json changes
+npm run typecheck        # files that start with `// @ts-check`
+npm test                 # tests/js/*.test.js
+```
+
+`npm run typecheck` uses the TypeScript version pinned in `package.json`. Only
+files marked `// @ts-check` are checked, so a script is opted in once its JSDoc
+types are right.
+
 To check an archive file with the full NOMAD processing, run from the
 distribution root:
 

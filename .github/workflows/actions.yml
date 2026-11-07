@@ -11,6 +11,7 @@ env:
   UV_VERSION: 0.9
   PYTHON_VERSION: 3.11
   UV_SYSTEM_PYTHON: true
+  NODE_VERSION: 26
 
 jobs:
   install-and-test:
@@ -37,6 +38,19 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         uv run --with coveralls coveralls --service=github
+
+  dashboard-scripts:
+    # Type checking and tests of the dashboard's browser code (package.json).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
 
   ruff-linting:
     runs-on: ubuntu-latest

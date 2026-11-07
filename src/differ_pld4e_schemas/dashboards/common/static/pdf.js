@@ -1,3 +1,4 @@
+// @ts-check
 /*
  * A small PDF writer for the logbook report, so the dashboard can hand out a
  * PDF without a print dialog: NOMAD shows dashboards in a sandboxed frame in
@@ -113,7 +114,7 @@ const PDF_STYLES = {
  * The report as a PDF. `blocks` is a list of {kind, text} with the kinds of
  * PDF_STYLES; a `row` has a `label` and a `value` in two columns instead.
  */
-function makePdf(blocks, title) {
+export function makePdf(blocks, title) {
   const page = {width: 595.28, height: 841.89, margin: 50};
   const width = page.width - 2 * page.margin;
   const labelWidth = width * 0.38;

@@ -1,0 +1,17 @@
+{
+  // Type checking of the dashboard's browser code, without building it: the
+  // browser loads the files as they are. Only files that start with
+  // `// @ts-check` are checked (checkJs is off), so a file is opted in once
+  // its types are right. Run with `npm run typecheck`.
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "strict": false,
+    "target": "es2022",
+    "module": "es2022",
+    "moduleResolution": "bundler",
+    "lib": ["es2022", "dom"]
+  },
+  "include": ["src/**/static/*.js", "tests/js/**/*.js"]
+}

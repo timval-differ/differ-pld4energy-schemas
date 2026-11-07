@@ -131,3 +131,6 @@ dmypy.json
 
 # raw data for testing
 tests/data/raw_data/
+
+# Node (type checking and tests of the dashboard scripts)
+node_modules/

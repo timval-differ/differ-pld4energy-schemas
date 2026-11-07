@@ -8,8 +8,11 @@
  * before it builds the archive files. Everything that needs the user's NOMAD
  * session (uploads, searching entries, writing files) goes straight to the
  * NOMAD API, which accepts the GUI's Authorization cookie.
+ *
+ * The page loads this file as an ES module (strict mode, its own scope); it
+ * imports the other scripts in this folder.
  */
-'use strict';
+import {makePdf} from './pdf.js';
 
 const BASE = window.location.pathname.replace(/\/dashboards\/.*$/, '');
 const API = BASE + '/api/v1';

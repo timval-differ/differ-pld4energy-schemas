@@ -1155,10 +1155,13 @@ def test_page_offers_pdf_export(client):
     """
     page = client.get('/').text
     assert 'id="btn-pdf"' in page
-    assert re.search(r'static/pdf\.js\?v=[0-9a-f]{12}"', page)
-    assert page.index('static/pdf.js') < page.index('static/app.js')
-    assert 'function makePdf(' in client.get('/static/pdf.js').text
+    # app.js is a module that imports the PDF writer itself.
+    assert re.search(
+        r'<script type="module" src="static/app\.js\?v=[0-9a-f]{12}">', page
+    )
     script = client.get('/static/app.js').text
+    assert "import {makePdf} from './pdf.js';" in script
+    assert 'export function makePdf(' in client.get('/static/pdf.js').text
     assert not re.search(r'window\.(print|confirm|alert|prompt)\([^)]', script)
 
 

@@ -114,14 +114,14 @@ form definition, rules and converter.
 | `common/app.py` | FastAPI app: serves the page, `api/spec`, `api/validate`, `api/archive`, `api/draft-name`, `api/form-from-archive` |
 | `common/rules.py` | `LogbookRules`: computed values, section requirements, validation, draft checks |
 | `common/convert.py` | `LogbookConverter`: form ⇄ archive for run, samples, system details, targets and steps; file and draft names |
-| `common/static/` | The page (`index.html`, `app.js`, `pdf.js`, `style.css`), no build step |
+| `common/static/` | The page, no build step: `index.html`, `style.css` and ES modules: `app.js` (the page), `rules.js` (computed values and validation, mirroring `rules.py`), `util.js`, `constants.js`, `pdf.js` (PDF export) |
 | `common/fields.py` | `field()`, `number()`, `comments()` |
 | `common/steps.py` | Field groups of every system: gases, pressure, temperature, heating and cool-down |
 | `common/values.py` | Conditions (`evaluate`), reading form values |
 | `common/archive.py` | Form values ⇄ archive quantities, unit conversion |
 | `common/samples.py` | The *Samples* section: fields, sample IDs and names, Sample files |
 
-`app.js` must not name a system: what differs between dashboards comes from
+The scripts must not name a system: what differs between dashboards comes from
 the spec (`client`, section intros, variant keys).
 
 ### Add or change a dashboard field
@@ -173,7 +173,7 @@ required only while a condition holds.
 
 If you add a new kind of field, condition, rule or computed value, implement it
 in both the Python side (`common/` or the dashboard's `rules.py`) and
-`common/static/app.js`, and add a test.
+`common/static/rules.js`, and add tests (`tests/dashboards/`, `tests/js/`).
 
 ### Run the dashboard
 
@@ -182,7 +182,7 @@ in both the Python side (`common/` or the dashboard's `rules.py`) and
   <http://localhost:8000/nomad-oasis/dashboards/differ_pld4e_schemas-pld-logbook/>
   or `.../differ_pld4e_schemas-sputter-logbook/`.
   Changes to `static/` only need a browser reload; Python changes need a restart.
-  When `app.js` is newer than the running dashboard code, the page says so and
+  When the scripts are newer than the running dashboard code, the page says so and
   asks for a restart, instead of running against an old form definition.
 
 When you change a schema quantity the form uses (rename, unit, choices), update

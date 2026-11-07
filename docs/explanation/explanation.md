@@ -335,7 +335,7 @@ browser ──► NOMAD API (with the user's session)
   The browser renders the form from it and the server validates against it.
 - **`rules.py`** computes values (1st window transmission, sample IDs and
   names), how much of a section the process steps need, and validates a form.
-  `static/app.js` contains the same rules so problems show while typing; the
+  `static/rules.js` contains the same rules so problems show while typing; the
   server always validates again before it builds anything.
 - **`convert.py`** turns a complete form into archive files and reads saved
   logbooks back into a form.

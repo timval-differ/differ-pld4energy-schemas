@@ -1,7 +1,7 @@
 """
 Computed values and validation of a logbook form.
 
-`static/app.js` implements the same rules for live feedback in the browser;
+`static/rules.js` implements the same rules for live feedback in the browser;
 the server always validates again before an archive is built.
 
 Form data layout::

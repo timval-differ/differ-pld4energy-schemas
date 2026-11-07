@@ -114,7 +114,7 @@ form definition, rules and converter.
 | `common/app.py` | FastAPI app: serves the page, `api/spec`, `api/validate`, `api/archive`, `api/draft-name`, `api/form-from-archive` |
 | `common/rules.py` | `LogbookRules`: computed values, section requirements, validation, draft checks |
 | `common/convert.py` | `LogbookConverter`: form ⇄ archive for run, samples, system details, targets and steps; file and draft names |
-| `common/static/` | The page, no build step: `index.html`, `style.css` and ES modules: `app.js` (the page), `rules.js` (computed values and validation, mirroring `rules.py`), `util.js`, `constants.js`, `pdf.js` (PDF export) |
+| `common/static/` | The page, no build step: `index.html`, `style.css` and ES modules: `app.js` (the page: form, NOMAD lookups, dialogs, save, drafts), `rules.js` (computed values and validation, mirroring `rules.py`), `charts.js` (plots of exported data files), `nomad-api.js` (requests to NOMAD and to the dashboard), `pdf.js` (PDF export), `dom.js` (`el()`), `config.js` (URLs), `util.js`, `constants.js` |
 | `common/fields.py` | `field()`, `number()`, `comments()` |
 | `common/steps.py` | Field groups of every system: gases, pressure, temperature, heating and cool-down |
 | `common/values.py` | Conditions (`evaluate`), reading form values |

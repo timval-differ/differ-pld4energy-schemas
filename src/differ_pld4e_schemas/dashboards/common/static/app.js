@@ -45,6 +45,8 @@ const app = {
   rendered: [],
   saving: false,
   log: [],
+  referencesLoadedAt: 0, // when targets and samples were last loaded (ms)
+  dialogCancelled: null, // closes the open dialog as cancelled
 };
 
 /* ---------------------------------------------------------------- helpers */
@@ -54,6 +56,14 @@ function client() {
   return app.spec.client;
 }
 
+/**
+ * A new element: `attrs` become properties, attributes, or listeners (`on…`).
+ * @template {keyof HTMLElementTagNameMap} K
+ * @param {K} tag
+ * @param {Object<string, any>} [attrs]
+ * @param {...any} children nodes, text, or (nested) lists of them
+ * @returns {HTMLElementTagNameMap[K]}
+ */
 function el(tag, attrs, ...children) {
   const node = document.createElement(tag);
   for (const [key, value] of Object.entries(attrs || {})) {
@@ -344,7 +354,7 @@ function filmThickness(step) {
     ? {pulses: step.film_thickness_pulses} : {thickness: step.film_thickness};
 }
 
-function sampleName(item, root = app.form) {
+function sampleName(item, root) {
   if (!madeHere(item)) return item.name || existingSample(item).sampleName || null;
   // The material is copied from the chosen substrate entry (see copyFromRef).
   const material = item.substrate ? item.substrate_material
@@ -956,7 +966,7 @@ function choiceOptions(field, local) {
   if (field.kind === 'sample_choice') {
     return (root.samples || []).map((s, index) => {
       if (madeHere(s)) {
-        return {value: `new:${s.uid}`, label: sampleId(s, root) || sampleName(s) || `Sample ${index + 1}`};
+        return {value: `new:${s.uid}`, label: sampleId(s, root) || sampleName(s, root) || `Sample ${index + 1}`};
       }
       return s.sample ? {value: s.sample, label: refName('sample', s.sample)} : null;
     }).filter(Boolean);
@@ -1531,7 +1541,7 @@ function itemTitle(path) {
     return `${s.item_label} ${Number(index) + 1}` + (item.target ? `: ${refName('target', item.target)}` : '');
   }
   if (key === 'samples') {
-    const name = sampleId(item, app.form) || sampleName(item);
+    const name = sampleId(item, app.form) || sampleName(item, app.form);
     return `${s.item_label} ${Number(index) + 1}` + (name ? `: ${name}` : '');
   }
   if (key === 'in_situ') {
@@ -1598,11 +1608,10 @@ function renderNav() {
   next.hidden = position >= keys.length - 1;
 }
 
-let referencesLoaded = 0;
 
 function go(key, focusPath) {
-  if (key !== app.current && (key === 'targets' || key === 'samples') && Date.now() - referencesLoaded > 30000) {
-    referencesLoaded = Date.now();
+  if (key !== app.current && (key === 'targets' || key === 'samples') && Date.now() - app.referencesLoadedAt > 30000) {
+    app.referencesLoadedAt = Date.now();
     loadReferences();
   }
   app.current = key;
@@ -2692,7 +2701,7 @@ async function init() {
   app.errors = validate(app.form, app.spec);
   render();
   await loadUser();
-  referencesLoaded = Date.now();
+  app.referencesLoadedAt = Date.now();
   await Promise.all([loadDatabaseAccess(), loadReferences(), loadUploads()]);
   // Render again: the operator is filled in from the login.
   render();

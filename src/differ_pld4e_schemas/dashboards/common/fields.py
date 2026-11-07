@@ -33,9 +33,76 @@ Field keys:
     min, max     limits of a number
     chart        for `files` of exported data: how the page reads and plots
                  them, see FILE_CHARTS in pld_logbook/spec.py
+    accept       for `files`: the file types offered, as for <input accept>
+    technique    for `files`: the in-situ technique the files belong to
+    placeholder  example text shown in an empty input
+    default      value of a new form or list item
+    compute      for `computed`: the name of the computed value
+    item_label   for `rows`: what one row is called
+    row_start    for `rows`: a field that starts a new line in the row
+    gas          the gas a field of the gas block belongs to
+
+KNOWN_KINDS and FIELD_KEYS list these, and tests/dashboards/test_spec_contract.py
+checks the form definitions against them, so that a misspelt key (e.g.
+`visble_if`) fails a test instead of being ignored by the page and the server.
 """
 
 from __future__ import annotations
+
+KNOWN_KINDS = frozenset(
+    {
+        'text',
+        'textarea',
+        'number',
+        'integer',
+        'select',
+        'bool',
+        'date',
+        'time',
+        'reference',
+        'target_choice',
+        'sample_choice',
+        'step_choice',
+        'rows',
+        'files',
+        'computed',
+    }
+)
+
+FIELD_KEYS = frozenset(
+    {
+        'key',
+        'label',
+        'kind',
+        'unit',
+        'unit_label',
+        'scale',
+        'archive',
+        'required',
+        'required_if',
+        'visible_if',
+        'options',
+        'options_by',
+        'columns',
+        'reference',
+        'ref_copy',
+        'database',
+        'prefill',
+        'group',
+        'help',
+        'min',
+        'max',
+        'chart',
+        'accept',
+        'technique',
+        'placeholder',
+        'default',
+        'compute',
+        'item_label',
+        'row_start',
+        'gas',
+    }
+)
 
 
 def field(key, label, kind='text', **kwargs):

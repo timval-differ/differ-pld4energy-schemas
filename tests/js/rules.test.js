@@ -123,6 +123,21 @@ describe('numbers and times', () => {
     }
   });
 
+  test('numbers the server would not take are not numbers', () => {
+    for (const value of ['1e400', '-1e999', '1_000', '1,000,5', '١٢', '0x10', 'Infinity', 'NaN', '1 000']) {
+      assert.equal(toNumber(value), null, value);
+    }
+  });
+
+  test('dates are real dates written yyyy-mm-dd', () => {
+    const {isDate} = rules();
+    for (const value of ['2026-10-22', '2024-02-29', '2000-02-29']) assert.equal(isDate(value), true, value);
+    for (const value of ['2026-02-30', '2025-02-29', '1900-02-29', '2026-13-01', '2026-00-10', '20261022',
+      '2026-W43-4', '2026-10-22T09:15', ' 2026-10-22', '0000-01-01', '', null, 20261022]) {
+      assert.equal(isDate(value), false, String(value));
+    }
+  });
+
   test('clock times and what was typed for them', () => {
     assert.equal(clockMinutes('09:30'), 570);
     assert.equal(clockMinutes('24:00'), null);
@@ -179,11 +194,24 @@ describe('samples', () => {
     assert.equal(sampleName({uid: 'n', origin: 'New sample'}, data), null);
   });
 
-  test('a film takes the material of its target, from the form or else from NOMAD', () => {
-    const data = form({targets: [{uid: 't1', target: TARGET}]});
-    assert.deepEqual(rules().sampleFilms(data.samples[0], data), [{target: TARGET, material: undefined, thickness: '20'}]);
-    const fromNomad = rules({target: [{ref: TARGET, material: 'STO'}], sample: []});
-    assert.equal(fromNomad.sampleFilms(data.samples[0], data)[0].material, 'STO');
+  test('a film takes the material of its target as selected in the form, like the server', () => {
+    const data = form();
+    assert.deepEqual(rules().sampleFilms(data.samples[0], data), [{target: TARGET, material: 'SrTiO3', thickness: '20'}]);
+    // Not from the entry in NOMAD: the server does not look it up (the page
+    // copies it into the form instead).
+    const missing = form({targets: [{uid: 't1', target: TARGET}, {uid: 't2', target: TARGET, material: 'Later'}]});
+    const withEntries = rules({target: [{ref: TARGET, material: 'STO'}], sample: []});
+    assert.equal(withEntries.sampleFilms(missing.samples[0], missing)[0].material, undefined);
+  });
+
+  test('film thicknesses in the name are written like Python writes them', () => {
+    const {gText} = rules();
+    const cases = {
+      0: '0', 20: '20', 12.5: '12.5', 0.1: '0.1', 100000: '100000', 123456.7: '123457',
+      1234567: '1.23457e+06', 1e6: '1e+06', 0.0001: '0.0001', 0.00005: '5e-05',
+      1.5e-7: '1.5e-07', 1e21: '1e+21', [-2.5]: '-2.5', 999999.5: '1e+06',
+    };
+    for (const [value, text] of Object.entries(cases)) assert.equal(gText(Number(value)), text, value);
   });
 
   test('on a system whose films cover all samples, every sample gets every film', () => {

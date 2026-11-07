@@ -247,9 +247,11 @@ class LogbookRules:
         on it, from the step's target (its material as selected under Targets)
         and film thickness, in nm or as a number of pulses.
         """
-        materials = {
-            t.get('target'): t.get('material') for t in root.get('targets') or []
-        }
+        # The first row of a target counts, as in static/rules.js (a target
+        # selected twice is reported by the validation anyway).
+        materials = {}
+        for target in root.get('targets') or []:
+            materials.setdefault(target.get('target'), target.get('material'))
         choice = sample_choice(item)
         return [
             {

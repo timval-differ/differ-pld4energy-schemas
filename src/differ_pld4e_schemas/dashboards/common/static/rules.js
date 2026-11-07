@@ -54,28 +54,53 @@ export function createRules(ctx) {
     return field.options || [];
   }
 
+  /* A number as typed in the form (mirror values.to_number and its NUMBER). */
   function toNumber(value) {
     if (typeof value === 'boolean' || value === null || value === undefined) return null;
     if (typeof value === 'number') return Number.isFinite(value) ? value : null;
     if (typeof value === 'string') {
       const text = value.trim().replace(',', '.');
-      if (!/^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$/.test(text)) return null;
-      return Number(text);
+      if (!/^[-+]?([0-9]+\.?[0-9]*|\.[0-9]+)([eE][-+]?[0-9]+)?$/.test(text)) return null;
+      const number = Number(text);
+      return Number.isFinite(number) ? number : null;
     }
     return null;
   }
 
-  function compute(name, local, root) {
-    if (name === 'transmission_window_1') {
+  /* A real date as yyyy-mm-dd, not 2026-02-30 (mirror values.parse_date). */
+  function isDate(value) {
+    const match = /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/.exec(typeof value === 'string' ? value : '');
+    if (!match) return false;
+    const [year, month, day] = match.slice(1).map(Number);
+    const moment = new Date(Date.UTC(year, month - 1, day));
+    return year >= 1 && moment.getUTCFullYear() === year
+      && moment.getUTCMonth() === month - 1 && moment.getUTCDate() === day;
+  }
+
+  /* hh:mm on a 24-hour clock (mirror values.parse_time). */
+  function isTime(value) {
+    return clockMinutes(value) !== null;
+  }
+
+  /*
+   * Computed values, by the name a `computed` field gives (mirror
+   * LogbookRules.compute and the dashboards' extra_computed).
+   */
+  const COMPUTED = {
+    transmission_window_1(local) {
       const before = toNumber(local.energy_before_chamber);
       const after = toNumber(local.energy_after_chamber);
       const t2 = toNumber(local.transmission_window_2);
       if (before === null || after === null || !before || !t2) return null;
       return (after / (before * t2 / 100)) * 100;
-    }
-    if (name === 'sample_id') return sampleId(local, root);
-    if (name === 'sample_name') return sampleName(local, root);
-    throw new Error('Unknown computed value ' + name);
+    },
+    sample_id: (local, root) => sampleId(local, root),
+    sample_name: (local, root) => sampleName(local, root),
+  };
+
+  function compute(name, local, root) {
+    if (!Object.hasOwn(COMPUTED, name)) throw new Error('Unknown computed value ' + name);
+    return COMPUTED[name](local, root);
   }
 
   /* Samples (mirror dashboards/common/samples.py and sample.py) */
@@ -94,6 +119,13 @@ export function createRules(ctx) {
     return null;
   }
 
+  /*
+   * The entry in NOMAD of an existing sample, for its ID and name. The server
+   * does not look samples up: its sample ID of an existing sample is the one in
+   * the form. So only the browser reports an existing sample whose ID is also
+   * that of a sample made in this run (it was added twice); the parity tests
+   * run without entries from NOMAD.
+   */
   function existingSample(item) {
     return ctx.refs.sample.find((r) => r.ref === item.sample) || {};
   }
@@ -106,7 +138,7 @@ export function createRules(ctx) {
     const date = lookup('/run/date', item, root);
     const time = lookup('/run/time', item, root);
     const number = sampleNumber(item, root);
-    if (!system || !/^\d{4}-\d{2}-\d{2}$/.test(date || '') || !/^\d{2}:\d{2}$/.test(time || '') || !number) {
+    if (!system || !isDate(date) || !isTime(time) || !number) {
       return null;
     }
     return `${system}_${date}_${time}_S${pad(number)}`;
@@ -119,9 +151,11 @@ export function createRules(ctx) {
 
   /* The films grown on a sample: one per film step on it (mirror LogbookRules.sample_films). */
   function sampleFilms(item, root) {
+    // The material copied from the target's entry when it was chosen (the page
+    // fills it in for older forms, see fillTargetMaterials), as on the server.
     const material = (target) => {
       const selected = (root.targets || []).find((t) => t.target === target);
-      return (selected && selected.material) || (ctx.refs.target.find((r) => r.ref === target) || {}).material;
+      return selected ? selected.material : undefined;
     };
     const all = ctx.spec.client.all_samples.includes((root.run || {}).system);
     return (root.steps || [])
@@ -148,11 +182,27 @@ export function createRules(ctx) {
       if (!film.material) continue;
       const thickness = toNumber(film.thickness);
       const pulses = toNumber(film.pulses);
-      if (thickness !== null) parts.push(`${film.material}-${Number(thickness.toPrecision(6))}nm`);
-      else if (pulses !== null) parts.push(`${film.material}-${Number(pulses.toPrecision(6))}p`);
+      if (thickness !== null) parts.push(`${film.material}-${gText(thickness)}nm`);
+      else if (pulses !== null) parts.push(`${film.material}-${gText(pulses)}p`);
       else parts.push(film.material);
     }
     return parts.join('_');
+  }
+
+  /*
+   * A number as Python's f'{x:g}' writes it (sample._number_text): 6
+   * significant digits, without trailing zeros, in exponent notation below
+   * 1e-4 and from 1e6, e.g. 20, 12.5, 1.23457e+06, 5e-05.
+   */
+  function gText(x) {
+    if (x === 0) return Object.is(x, -0) ? '-0' : '0';
+    const [mantissa, exponentText] = x.toExponential(5).split('e');
+    const exponent = Number(exponentText);
+    const trim = (text) => (text.includes('.') ? text.replace(/0+$/, '').replace(/\.$/, '') : text);
+    if (exponent < -4 || exponent >= 6) {
+      return `${trim(mantissa)}e${exponent < 0 ? '-' : '+'}${String(Math.abs(exponent)).padStart(2, '0')}`;
+    }
+    return trim(x.toFixed(5 - exponent));
   }
 
   function valueOf(field, local, root) {
@@ -213,9 +263,9 @@ export function createRules(ctx) {
     } else if (kind === 'select') {
       if (!fieldOptions(field, local, root).includes(value)) return 'Choose one of the options.';
     } else if (kind === 'date') {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return 'Enter a date.';
+      if (!isDate(value)) return 'Enter a date.';
     } else if (kind === 'time') {
-      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) return 'Enter a time (hh:mm).';
+      if (!isTime(value)) return 'Enter a time (hh:mm).';
     } else if (kind === 'reference' && field.database) {
       const database = ctx.spec.database_upload_id;
       if (!database) return 'The target and substrate database is not set up in NOMAD yet. Ask a maintainer.';
@@ -301,7 +351,7 @@ export function createRules(ctx) {
   }
 
   function clockMinutes(value) {
-    return /^([01]\d|2[0-3]):[0-5]\d$/.test(value || '')
+    return typeof value === 'string' && /^([01][0-9]|2[0-3]):[0-5][0-9]$/.test(value)
       ? Number(value.slice(0, 2)) * 60 + Number(value.slice(3)) : null;
   }
 
@@ -313,7 +363,7 @@ export function createRules(ctx) {
   function stepMoments(data) {
     const run = data.run || {};
     const day = 24 * 60;
-    let previous = /^\d{4}-\d{2}-\d{2}$/.test(run.date || '') ? clockMinutes(run.time) : null;
+    let previous = isDate(run.date) ? clockMinutes(run.time) : null;
     return (data.steps || []).map((step) => ['start_time', 'end_time'].map((key) => {
       const clock = clockMinutes(step[key]);
       if (clock === null || previous === null) return null;
@@ -365,8 +415,8 @@ export function createRules(ctx) {
     const run = data.run || {};
     const errors = [];
     if (!ctx.spec.systems.includes(run.system)) errors.push({path: 'run.system', message: 'Choose the PVD system.'});
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(run.date || '')) errors.push({path: 'run.date', message: 'Enter a date.'});
-    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(run.time || '')) errors.push({path: 'run.time', message: 'Enter a time (hh:mm).'});
+    if (!isDate(run.date)) errors.push({path: 'run.date', message: 'Enter a date.'});
+    if (!isTime(run.time)) errors.push({path: 'run.time', message: 'Enter a time (hh:mm).'});
     return errors;
   }
 
@@ -375,6 +425,9 @@ export function createRules(ctx) {
     evaluate,
     fieldOptions,
     toNumber,
+    isDate,
+    isTime,
+    COMPUTED,
     compute,
     madeHere,
     sampleNumber,
@@ -384,6 +437,7 @@ export function createRules(ctx) {
     sampleFilms,
     filmThickness,
     sampleName,
+    gText,
     valueOf,
     isEmpty,
     targetChoices,

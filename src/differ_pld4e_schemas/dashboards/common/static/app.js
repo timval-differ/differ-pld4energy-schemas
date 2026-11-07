@@ -554,7 +554,22 @@ async function loadReferences() {
   } catch (e) {
     showBanner('Could not load the substrates: ' + e.message, 'error');
   }
+  fillTargetMaterials(app.form);
   refresh();
+}
+
+/*
+ * The material of each target, copied from its entry when the target was
+ * chosen; filled in here for forms in which it is missing (older drafts, or
+ * an entry that had no material yet), so that sample names in the page and
+ * the saved logbook agree.
+ */
+function fillTargetMaterials(form) {
+  for (const row of (form && form.targets) || []) {
+    if (!row || !row.target || row.material) continue;
+    const found = app.refs.target.find((r) => r.ref === row.target);
+    if (found && found.material) row.material = found.material;
+  }
 }
 
 /* Copy values of a chosen entry into the form, e.g. the material of a target. */

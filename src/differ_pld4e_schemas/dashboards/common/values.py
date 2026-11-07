@@ -71,6 +71,12 @@ def visible_fields(fields: list, local: dict, root: dict) -> list:
     return [f for f in fields if evaluate(f.get('visible_if'), local, root)]
 
 
+# A number as typed in the form, after its first ',' became '.'. The same
+# pattern is in static/rules.js (toNumber); the parity tests check they agree.
+NUMBER = re.compile(r'[-+]?([0-9]+\.?[0-9]*|\.[0-9]+)([eE][-+]?[0-9]+)?')
+DATE = re.compile(r'[0-9]{4}-[0-9]{2}-[0-9]{2}')
+
+
 def to_number(value):
     """A float, or None if the value is not a number."""
     if isinstance(value, bool):
@@ -78,24 +84,28 @@ def to_number(value):
     if isinstance(value, (int, float)):
         return float(value) if math.isfinite(value) else None
     if isinstance(value, str):
-        try:
-            number = float(value.replace(',', '.'))
-        except ValueError:
+        # A decimal comma, as typed on many keyboards; not '1_000' or '1e5,0'.
+        text = value.strip().replace(',', '.', 1)
+        if not NUMBER.fullmatch(text):
             return None
+        number = float(text)
         return number if math.isfinite(number) else None
     return None
 
 
 def parse_date(value):
+    """A date from 'yyyy-mm-dd' (a real one: not 2026-02-30), or None."""
+    if not isinstance(value, str) or not DATE.fullmatch(value):
+        return None
     try:
         return date.fromisoformat(value)
-    except (TypeError, ValueError):
+    except ValueError:
         return None
 
 
 def parse_time(value):
     """A time from 'HH:MM', or None."""
-    if not isinstance(value, str) or not re.fullmatch(r'\d{2}:\d{2}', value):
+    if not isinstance(value, str) or not re.fullmatch(r'[0-9]{2}:[0-9]{2}', value):
         return None
     try:
         return time.fromisoformat(value)

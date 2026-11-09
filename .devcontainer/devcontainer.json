@@ -7,7 +7,7 @@
   // Features to add to the dev container. More info: https://containers.dev/features.
   "features": {
     // Node for type checking and testing the dashboard scripts (package.json).
-    "ghcr.io/devcontainers/features/node:1": {"version": "26"}
+    "ghcr.io/devcontainers/features/node:2": {"version": "26"}
   },
   // Use 'forwardPorts' to make a list of ports inside the container available locally.
   // "forwardPorts": [],

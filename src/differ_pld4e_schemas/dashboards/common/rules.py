@@ -22,10 +22,9 @@ from differ_pld4e_schemas.database import database_reference_error
 from differ_pld4e_schemas.time_zone import is_skipped
 
 from .samples import (
-    MADE_HERE,
-    NEW_SAMPLE,
     compute_sample_id,
     compute_sample_name,
+    made_here,
     sample_choices,
 )
 from .values import (
@@ -45,7 +44,7 @@ LEVELS = ('none', 'optional', 'required')
 
 def sample_choice(item: dict):
     """How a step refers to a sample of the run (see `sample_choices`)."""
-    if item.get('origin', NEW_SAMPLE) in MADE_HERE:
+    if made_here(item.get('origin')):
         return f'new:{item.get("uid")}'
     return item.get('sample')
 

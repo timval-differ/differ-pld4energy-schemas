@@ -23,7 +23,7 @@ SUBSTRATE = '../uploads/target_db/archive/substrate_si#/data'
 
 def _write_logbook(directory, **sample):
     logbook = SAPLDLogbook(
-        datetime='2026-10-22T09:00:00+00:00',
+        datetime='2026-10-22T09:00:00+02:00',
         samples=[SampleInRun(origin='New sample', substrate=SUBSTRATE, **sample)],
     )
     (directory / LOGBOOK).write_text(
@@ -63,7 +63,7 @@ def test_existing_sample_file_is_not_overwritten(tmp_path):
 
 def test_no_sample_entry_without_an_upload():
     logbook = SAPLDLogbook(
-        datetime='2026-10-22T09:00:00+00:00',
+        datetime='2026-10-22T09:00:00+02:00',
         samples=[SampleInRun(origin='New sample', substrate=SUBSTRATE)],
     )
     logbook.normalize(

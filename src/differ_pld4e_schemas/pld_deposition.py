@@ -7,7 +7,6 @@ are filled from what is entered.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from nomad.datamodel.data import ArchiveSection, EntryData
@@ -486,8 +485,7 @@ class PLDLogbook(SampleRun, RunDetails, PulsedLaserDeposition, PlotSection, Entr
     )
 
     def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
-        if self.datetime is None:
-            self.datetime = datetime.now(timezone.utc)
+        self.default_datetime(archive, logger)
         # Store the system: NOMAD does not show a default as a value.
         pvd_system = self.m_def.all_quantities['pvd_system']
         if not self.m_is_set(pvd_system) and pvd_system.default is not None:

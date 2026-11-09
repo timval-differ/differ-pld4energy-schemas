@@ -93,6 +93,25 @@ CHANGES = {
         'samples.0.origin': 'Existing sample',
         'samples.0.sample': '../uploads/u0/archive/s0#/data',
     },
+    'new sample after a saved one whose predecessor was removed': {
+        'samples': [
+            {
+                'uid': 'sub1',
+                'origin': 'New sample',
+                'substrate': '../uploads/target_db/archive/substrate_si#/data',
+                'substrate_material': 'Si',
+                'ref': '../upload/archive/mainfile/x_S02.archive.json#data',
+                'sample_id': 'LA-PLD_2026-10-22_09:15_S02',
+            },
+            {
+                'uid': 'sub2',
+                'origin': 'New sample',
+                'substrate': '../uploads/target_db/archive/substrate_si#/data',
+                'substrate_material': 'Si',
+            },
+        ],
+    },
+    'sample without an origin': {'samples.0.origin': None},
     'saved sample keeps its ID': {
         'samples.0.ref': '../upload/archive/mainfile/x.archive.json#data',
         'samples.0.sample_id': 'LA-PLD_2026-01-01_08:00_S03',

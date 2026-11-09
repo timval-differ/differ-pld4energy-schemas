@@ -6,7 +6,7 @@ data:
   m_def: differ_pld4e_schemas.sps_deposition.SPSLogbook
   name: Ta-Ti multilayer on Si
   operator_name: Ada Lovelace
-  datetime: '2026-10-22T09:00:00+00:00'
+  datetime: '2026-10-22T09:00:00+02:00'
   description: Ta and Ti from the 2" positions.
   base_pressure: 1.0e-5  # 1e-7 mbar
   substrate_carrier: 4" carrier SPS

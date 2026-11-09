@@ -4,12 +4,13 @@ the target and substrate database upload and an upload with an existing
 sample. Built from the plugin's own classes so they follow the schema.
 """
 
-from differ_pld4e_schemas.sample import Sample, SubstrateType
+from differ_pld4e_schemas.sample import Sample, SubstrateType, sample_uuid_for
 from differ_pld4e_schemas.target import PLDTarget, SputterTarget
 from helpers import DATABASE_UPLOAD
 
 SAMPLE_UPLOAD = 'u0'
 INCH = 0.0254
+EXISTING_SAMPLE_ID = 'LA-PLD_2026-01-05_10:00_S01'
 
 
 def _entry(section):
@@ -29,8 +30,13 @@ def database_uploads():
             ),
         },
         SAMPLE_UPLOAD: {
+            # As processed: with the UUID its normalizer gives it.
             'sample0': _entry(
-                Sample(sample_id='LA-PLD_2026-01-05_10:00_S01', name='Si_STO-20nm')
+                Sample(
+                    sample_id=EXISTING_SAMPLE_ID,
+                    sample_uuid=sample_uuid_for(EXISTING_SAMPLE_ID),
+                    name='Si_STO-20nm',
+                )
             ),
         },
     }

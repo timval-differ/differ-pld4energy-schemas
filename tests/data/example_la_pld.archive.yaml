@@ -6,7 +6,7 @@ data:
   m_def: differ_pld4e_schemas.pld_deposition.LAPLDLogbook
   name: SrTiO3 on Si
   operator_name: Ada Lovelace
-  datetime: '2026-10-22T09:00:00+00:00'
+  datetime: '2026-10-22T09:00:00+02:00'
   base_pressure: 1.0e-6  # 1e-8 mbar
   substrate_carrier: 4" wafer carrier
   particle_reduction_plate: in use

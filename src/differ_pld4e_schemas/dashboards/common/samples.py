@@ -25,19 +25,23 @@ Form data of one sample::
 from __future__ import annotations
 
 import re
-import uuid
 from datetime import datetime
 
 from differ_pld4e_schemas.sample import (
     EXISTING_SAMPLE,
     EXTERNAL_SAMPLE,
+    MADE_HERE,
     NEW_SAMPLE,
     SAMPLE_ORIGINS,
     Layer,
     Sample,
     SampleInRun,
+    assign_sample_numbers,
+    made_here,
+    origin_or_default,
     sample_id,
     sample_name,
+    sample_uuid_for,
 )
 
 from .archive import (
@@ -52,8 +56,6 @@ from .archive import (
 )
 from .fields import comments, field, number
 from .values import lookup, parse_date, parse_time, to_number
-
-MADE_HERE = (NEW_SAMPLE, EXTERNAL_SAMPLE)
 
 
 def origin_is(*origins) -> dict:
@@ -162,7 +164,7 @@ def sample_section() -> dict:
 
 
 def run_start(root: dict) -> datetime | None:
-    """Local start of the run from `/run/date` and `/run/time`."""
+    """Start of the run on the lab's clock, from `/run/date` and `/run/time`."""
     day = parse_date(lookup('/run/date', {}, root))
     clock = parse_time(lookup('/run/time', {}, root))
     if day is None or clock is None:
@@ -170,21 +172,30 @@ def run_start(root: dict) -> datetime | None:
     return datetime.combine(day, clock)
 
 
+def _stored_sample_id(item: dict):
+    """The ID a sample keeps: that of its saved entry (see compute_sample_id)."""
+    return item.get('sample_id') if item.get('ref') else None
+
+
 def sample_number(item: dict, root: dict) -> int | None:
-    """Position of a new or external sample among those of the run (from 1)."""
-    number = 0
-    for other in root.get('samples') or []:
-        if other.get('origin', NEW_SAMPLE) not in MADE_HERE:
-            continue
-        number += 1
+    """
+    The S-number of a new or external sample not saved yet: after the highest
+    number of the run's saved samples, in list order (`assign_sample_numbers`,
+    as the logbook normalizer numbers them).
+    """
+    samples = root.get('samples') or []
+    numbers = assign_sample_numbers(
+        (made_here(other.get('origin')), _stored_sample_id(other)) for other in samples
+    )
+    for other, assigned in zip(samples, numbers):
         if other is item or (item.get('uid') and other.get('uid') == item['uid']):
-            return number
+            return assigned
     return None
 
 
 def compute_sample_id(item: dict, root: dict):
     # An existing sample keeps its ID, and so does a sample whose entry exists.
-    if item.get('origin', NEW_SAMPLE) not in MADE_HERE or item.get('ref'):
+    if not made_here(item.get('origin')) or item.get('ref'):
         return item.get('sample_id')
     return sample_id(
         lookup('/run/system', item, root), run_start(root), sample_number(item, root)
@@ -200,7 +211,7 @@ def prior_films(item: dict) -> list:
 
 def compute_sample_name(item: dict, root: dict, films: list):
     """From the substrate, the films it came with and those grown in this run."""
-    if item.get('origin', NEW_SAMPLE) not in MADE_HERE:
+    if not made_here(item.get('origin')):
         return item.get('name')
     layers = [
         (
@@ -225,7 +236,7 @@ def sample_choices(root: dict) -> list:
     """Values a step can use to name one sample of the run."""
     choices = []
     for item in root.get('samples') or []:
-        if item.get('origin', NEW_SAMPLE) in MADE_HERE:
+        if made_here(item.get('origin')):
             choices.append(f'new:{item.get("uid")}')
         elif item.get('sample'):
             choices.append(item['sample'])
@@ -326,7 +337,7 @@ def _layers_to_archive(films: list) -> list:
 
 
 def _substrate_to_archive(item: dict, entry: dict) -> None:
-    if item.get('origin', NEW_SAMPLE) not in MADE_HERE:
+    if not made_here(item.get('origin')):
         return
     if item.get('substrate'):
         entry['substrate'] = item['substrate']
@@ -335,21 +346,23 @@ def _substrate_to_archive(item: dict, entry: dict) -> None:
         entry['substrate_material'] = material
 
 
-def samples_to_archive(
-    data: dict, fields: list, start_text: str, films_of, systems=None
+def samples_to_archive(  # noqa: PLR0913
+    data: dict, fields: list, start_text: str, films_of, systems=None, *, made_in=None
 ):
     """
     The `samples` of the run's archive, the Sample files to write, a map from
     the form's sample choices to references and warnings ({'path', 'message'}).
     `films_of(item)` gives the films grown on a sample in this run; `systems`
-    are those of the dashboard (by default only the run's system).
+    are those of the dashboard (by default only the run's system); `made_in`
+    is the logbook file, recorded on the Sample entries it makes.
     """
     system = (data.get('run') or {}).get('system')
     systems = systems or [system]
     samples, files, references, warnings = [], [], {}, []
     for index, item in enumerate(data.get('samples') or []):
-        entry = {'sample_uuid': item.get('sample_uuid') or str(uuid.uuid4())}
+        entry = {}
         fill(entry, SampleInRun, fields, item, data)
+        entry['origin'] = origin_or_default(entry.get('origin'))
         _substrate_to_archive(item, entry)
         films = films_of(item)
         layers = _layers_to_archive(films)
@@ -361,11 +374,18 @@ def samples_to_archive(
         ):
             if value:
                 entry[key] = value
-        if entry.get('origin', NEW_SAMPLE) in MADE_HERE:
+        if made_here(entry['origin']):
+            # Kept once saved; else derived from the ID, as the normalizer does.
+            # An existing sample's UUID comes from its entry (normalizer).
+            uuid_ = item.get('sample_uuid') or sample_uuid_for(entry.get('sample_id'))
+            if uuid_:
+                entry['sample_uuid'] = uuid_
             reference = item.get('ref')
             own_file = own_sample_file(reference, entry.get('sample_id'), systems)
             if entry.get('sample_id') and (not reference or own_file):
                 file = _sample_file(entry, item, system, start_text, own_file)
+                if made_in:
+                    file['archive']['data']['made_in'] = made_in
                 files.append(file)
                 reference = file['reference']
             elif reference and is_mainfile_reference(reference):
@@ -405,9 +425,9 @@ def samples_to_form(data: dict, fields: list, new_uid):
         if entry.get('substrate'):
             item['substrate'] = normalize_reference(entry['substrate'])
             item['substrate_material'] = entry.get('substrate_material')
-        item.setdefault('origin', NEW_SAMPLE)
+        item['origin'] = origin_or_default(item.get('origin'))
         reference = normalize_reference(entry.get('reference'))
-        if item['origin'] in MADE_HERE:
+        if made_here(item['origin']):
             item['ref'] = entry.get('reference')
             choice = f'new:{item["uid"]}'
         else:

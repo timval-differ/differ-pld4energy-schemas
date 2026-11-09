@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import pytest
+from helpers import ENTRY_CREATE_TIME
 from helpers.nomad_harness import assert_no_errors, process_copy, warnings
 from nomad.datamodel import EntryArchive, EntryMetadata
 from structlog.testing import CapturingLogger
@@ -30,7 +31,9 @@ SPS_STEPS = (SPSPreSputteringStep, SPSHeatingStep, SPSSputteringStep, SPSCoolDow
 
 
 def _normalize(data):
-    archive = EntryArchive(data=data, metadata=EntryMetadata())
+    archive = EntryArchive(
+        data=data, metadata=EntryMetadata(entry_create_time=ENTRY_CREATE_TIME)
+    )
     logger = CapturingLogger()
     data.normalize(archive, logger)
     return archive, [(call[0], call[1][0]) for call in logger.calls]
@@ -173,7 +176,7 @@ def test_sputtering_step_times_are_in_minutes():
 
 def test_new_samples_get_sps_ids_and_names():
     logbook = SPSLogbook(
-        datetime='2026-10-22T09:15:00+00:00',
+        datetime='2026-10-22T09:15:00+02:00',
         samples=[
             SampleInRun(
                 origin='New sample',

@@ -79,13 +79,20 @@ samples they will make or process, so a logbook starts with a list of
   an extra deposition, an annealing or only characterisation.
 
 New and external samples get a sample ID `<system>_<yyyy-mm-dd>_<hh:mm>_S<nn>`
-from the start of the run, numbered in the order of the list, and a name made
+from the start of the run on the lab clock, numbered in the order of the
+list after the highest number already given (a removed sample's number is not
+given again, so it cannot take over that sample's entry), and a name made
 from the substrate and films (`SrTiO3_YSZ-20nm_SrRuO3-50nm`). The ID identifies
 the sample and never changes once its entry exists; the name describes it. On
 save the logbook creates a **Sample** entry for each of them (using
 `create_archive` from `nomad-material-processing`) and links it. The file is
-named after the sample ID. If a file with that name already exists, it is linked
-rather than overwritten, so Sample entries are never replaced by accident. An
+named after the sample ID and records the logbook file that made it
+(`made_in`). If a file with that name already exists, it is linked rather than
+overwritten, so Sample entries are never replaced by accident; but only if this
+logbook made it: a file made by another logbook is not linked, and an error is
+logged. Files from before `made_in` existed are linked with a warning. A
+sample ID that an earlier version made from the start in UTC is kept when its
+file exists. An
 existing sample's entry is never changed by a logbook: it may be in another or
 in a published upload. The films grown on it in this run are recorded in the
 logbook.
@@ -156,7 +163,7 @@ and typing them by hand would let them disagree with their source.
 | --- | --- | --- | --- |
 | PVD system | logbook | Fixed by the logbook type. A free choice would allow an "SA-PLD" logbook with LA-PLD carriers and steps. | Use the other logbook type. |
 | Sample ID | samples in the logbook, Sample | Built as `<system>_<yyyy-mm-dd>_<hh:mm>_S<nn>`, so IDs always follow the same pattern. Kept once filled in, because labels and later runs refer to it. | Before the first save: change the system, start or order of the samples. |
-| Sample UUID | samples in the logbook, Sample | Generated once and never changed, because it is printed on QR labels. Editing it would break the link between a label and its sample. | Not changeable. |
+| Sample UUID | samples in the logbook, Sample | Derived from the sample ID (UUID version 5), so it is the same however often the entry is processed, and kept once stored, because it is printed on QR labels. The Sample entry owns it: a run copies it from there. Editing it would break the link between a label and its sample. | Not changeable. |
 | Substrate material and size | Sample | Taken from the substrate. | Change the substrate. |
 | Material, manufacturer, purchase date | targets in the logbook | Copied from the PLD Target entry, for checking your selection. | Correct the PLD Target entry. |
 | Target number | pre-ablation and deposition steps | Copied from the target details, so the steps always show the number the target has in this run. | Change it in the target details. |

@@ -18,8 +18,10 @@ substrate and the targets, so NOMAD's search finds samples by element.
 
 from __future__ import annotations
 
+import json
 import re
 import uuid
+from datetime import timezone
 from typing import TYPE_CHECKING
 
 from nomad.datamodel.data import ArchiveSection, EntryData
@@ -44,6 +46,7 @@ from differ_pld4e_schemas.database import (
     check_database_reference,
 )
 from differ_pld4e_schemas.target import GENERATED, Target, in_stock_quantity
+from differ_pld4e_schemas.time_zone import lab_wall_time
 
 if TYPE_CHECKING:
     from nomad.datamodel.datamodel import EntryArchive
@@ -55,22 +58,86 @@ __all__ = [
     'SampleInRun',
     'SampleRun',
     'SubstrateType',
+    'assign_sample_numbers',
     'm_package',
+    'made_here',
+    'origin_or_default',
     'sample_id',
     'sample_name',
+    'sample_uuid_for',
 ]
 
 NEW_SAMPLE = 'New sample'
 EXTERNAL_SAMPLE = 'External sample'
 EXISTING_SAMPLE = 'Existing sample'
 SAMPLE_ORIGINS = (NEW_SAMPLE, EXTERNAL_SAMPLE, EXISTING_SAMPLE)
+MADE_HERE = (NEW_SAMPLE, EXTERNAL_SAMPLE)
+# Sample UUIDs are derived from the sample ID in this namespace, so they are the
+# same however often an entry is processed (see `sample_uuid_for`).
+SAMPLE_UUID_NAMESPACE = uuid.uuid5(
+    uuid.NAMESPACE_URL,
+    'https://github.com/timval-differ/differ-pld4energy-schemas/sample',
+)
+_SAMPLE_NUMBER = re.compile(r'_S(\d+)$')
+
+
+def origin_or_default(origin):
+    """A sample without an origin (none chosen yet) is a new sample."""
+    return origin or NEW_SAMPLE
+
+
+def made_here(origin) -> bool:
+    """New and external samples are made (get their entry) in the run."""
+    return origin_or_default(origin) in MADE_HERE
 
 
 def sample_id(system, start, number):
-    """`{system}_{yyyy-mm-dd}_{hh:mm}_S{nn}`, or None while a part is missing."""
+    """
+    `{system}_{yyyy-mm-dd}_{hh:mm}_S{nn}`, or None while a part is missing.
+    `start` is on the lab's clock: the caller converts a stored datetime with
+    `time_zone.lab_wall_time`.
+    """
     if not system or start is None or not number:
         return None
     return f'{system}_{start:%Y-%m-%d_%H:%M}_S{int(number):02d}'
+
+
+def number_of(sample_id_) -> int | None:
+    """The nn of a sample ID ending in `_S{nn}`."""
+    if not isinstance(sample_id_, str):
+        return None
+    match = _SAMPLE_NUMBER.search(sample_id_)
+    return int(match.group(1)) if match else None
+
+
+def assign_sample_numbers(rows) -> list:
+    """
+    The S-number of each sample of a run, from (made here, stored sample ID)
+    pairs in list order: None for a sample not made here or one that keeps its
+    stored ID; the others are numbered after the highest stored number. A
+    number is never given twice, so a sample removed from the run does not
+    pass its number (and its Sample entry) on to the next new one.
+    """
+    rows = list(rows)
+    highest = max(
+        (number_of(stored) or 0 for here, stored in rows if here and stored),
+        default=0,
+    )
+    numbers = []
+    for here, stored in rows:
+        if here and not stored:
+            highest += 1
+            numbers.append(highest)
+        else:
+            numbers.append(None)
+    return numbers
+
+
+def sample_uuid_for(sample_id_) -> str | None:
+    """The UUID of a sample, derived from its ID (e.g. for a QR code label)."""
+    if not sample_id_:
+        return None
+    return str(uuid.uuid5(SAMPLE_UUID_NAMESPACE, sample_id_))
 
 
 def _number_text(value) -> str:
@@ -293,10 +360,15 @@ class Sample(CompositeSystem, _SampleDetails, EntryData):
         description='The system the sample was made in, e.g. SA-PLD.',
         a_eln=ELNAnnotation(component=ELNComponentEnum.StringEditQuantity),
     )
+    made_in = Quantity(
+        type=str,
+        description='Read-only: the file of the logbook that made this entry. '
+        'Only that logbook links it as a sample it made.',
+    )
 
     def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
         if not self.sample_uuid:
-            self.sample_uuid = str(uuid.uuid4())
+            self.sample_uuid = sample_uuid_for(self.sample_id) or str(uuid.uuid4())
         check_database_reference(self.substrate, archive, logger, 'substrate')
         self._copy_substrate_and_films()
         if not self.name:
@@ -349,12 +421,13 @@ class SampleInRun(_SampleDetails, CompositeSystemReference):
         layers = [*(self.prior_layers or []), *(self.layers or [])]
         return sample_name(self.substrate_material, _layer_pairs(layers))
 
-    def to_sample(self, system, start) -> Sample:
+    def to_sample(self, system, start, made_in=None) -> Sample:
         sample = Sample(
             name=self.name,
             datetime=start,
             description=self.comments,
             system=system,
+            made_in=made_in,
             sample_id=self.sample_id,
             sample_uuid=self.sample_uuid,
             origin=self.origin,
@@ -389,16 +462,18 @@ class SampleRun(ArchiveSection):
     def _normalize_samples(
         self, archive: EntryArchive, logger: BoundLogger, system, start
     ) -> None:
-        seen, number = set(), 0
-        for item in self.samples or []:
-            if not item.sample_uuid:
-                item.sample_uuid = str(uuid.uuid4())
-            if item.origin == EXISTING_SAMPLE:
+        items = list(self.samples or [])
+        numbers = assign_sample_numbers(
+            (made_here(item.origin), item.sample_id) for item in items
+        )
+        seen = set()
+        for item, number in zip(items, numbers):
+            if not made_here(item.origin):
                 self._copy_existing(item)
             else:
-                number += 1
                 check_database_reference(item.substrate, archive, logger, 'substrate')
-                item.sample_id = item.sample_id or sample_id(system, start, number)
+                if not item.sample_id:
+                    item.sample_id = self._new_sample_id(archive, system, start, number)
                 item._copy_substrate_and_films()
                 if not item.name:
                     item.name = item._generated_name()
@@ -406,30 +481,104 @@ class SampleRun(ArchiveSection):
                 if item.sample_id in seen:
                     logger.warning(f'Sample {item.sample_id} is listed twice.')
                 seen.add(item.sample_id)
-            if item.origin == EXISTING_SAMPLE:
+            if not made_here(item.origin):
                 if item.reference is None:
                     logger.warning('Select the existing sample.')
             elif item.reference is None and item.sample_id:
-                item.reference = self._create_sample_entry(item, archive, system, start)
+                item.reference = self._create_sample_entry(
+                    item, archive, system, start, logger
+                )
+            if made_here(item.origin):
+                # The UUID of the Sample entry, which owns it; else one from the ID.
+                (linked_uuid,) = resolved(item.reference, 'sample_uuid')
+                item.sample_uuid = (
+                    linked_uuid or item.sample_uuid or sample_uuid_for(item.sample_id)
+                )
             # The sample ID, as on the Sample entry. Only set once the entry is
             # linked: without a link NOMAD would look the entry up by it.
             if item.reference is not None and item.sample_id:
                 item.lab_id = item.sample_id
 
     @staticmethod
-    def _copy_existing(item: SampleInRun) -> None:
-        sample_id_, name = resolved(item.reference, 'sample_id', 'name')
-        item.sample_id = item.sample_id or sample_id_
-        item.name = item.name or name
+    def _new_sample_id(archive, system, start, number):
+        """
+        The ID of a new sample, from the run start on the lab's clock. Earlier
+        versions used UTC: a sample whose entry was made with that ID keeps it.
+        """
+        if start is None:
+            return None
+        new = sample_id(system, lab_wall_time(start), number)
+        utc = start.astimezone(timezone.utc) if start.tzinfo else start
+        legacy = sample_id(system, utc, number)
+        context = getattr(archive, 'm_context', None) if archive is not None else None
+        if legacy != new and context is not None:
+            try:
+                if context.raw_path_exists(
+                    file_name_for(legacy)
+                ) and not context.raw_path_exists(file_name_for(new)):
+                    return legacy
+            except (NotImplementedError, OSError, TypeError):
+                pass
+        return new
 
     @staticmethod
-    def _create_sample_entry(item: SampleInRun, archive: EntryArchive, system, start):
+    def _copy_existing(item: SampleInRun) -> None:
+        """The ID, name and UUID of an existing sample come from its entry."""
+        sample_id_, name, sample_uuid = resolved(
+            item.reference, 'sample_id', 'name', 'sample_uuid'
+        )
+        item.sample_id = item.sample_id or sample_id_
+        item.name = item.name or name
+        if sample_uuid:
+            item.sample_uuid = sample_uuid
+
+    @staticmethod
+    def _sample_file_owner(archive: EntryArchive, file_name: str):
+        """(exists, the logbook that made it) of a Sample file in the upload."""
+        context = archive.m_context
+        if not context.raw_path_exists(file_name):
+            return False, None
+        try:
+            with context.raw_file(file_name) as file:
+                data = json.load(file).get('data') or {}
+        except (OSError, ValueError, AttributeError):
+            return True, None
+        return True, data.get('made_in')
+
+    @classmethod
+    def _create_sample_entry(  # noqa: PLR0913
+        cls, item: SampleInRun, archive: EntryArchive, system, start, logger
+    ):
+        """
+        The Sample entry of a sample made in this run: written into the upload,
+        or the one made by an earlier save of this logbook. A file of this
+        sample ID made by another logbook is not linked: the two runs would
+        share one sample.
+        """
         if archive is None or archive.m_context is None or archive.metadata is None:
             return None
         if not archive.metadata.upload_id:
             return None
+        from nomad.datamodel.context import ClientContext
         from nomad_material_processing.utils import create_archive
 
+        if isinstance(archive.m_context, ClientContext):
+            return None
+        mainfile = archive.metadata.mainfile
+        file_name = file_name_for(item.sample_id)
+        exists, owner = cls._sample_file_owner(archive, file_name)
+        if exists and owner and mainfile and owner != mainfile:
+            logger.error(
+                f'Sample {item.sample_id}: {file_name} was made by the logbook '
+                f'{owner}, so it is not linked here. Check the start of the run, '
+                'or enter the sample ID of this sample.'
+            )
+            return None
+        if exists and not owner:
+            logger.warning(
+                f'Sample {item.sample_id}: linked to the existing {file_name}, '
+                'which does not record the logbook that made it.'
+            )
         return create_archive(
-            item.to_sample(system, start), archive, file_name_for(item.sample_id)
+            item.to_sample(system, start, made_in=mainfile), archive, file_name
         )

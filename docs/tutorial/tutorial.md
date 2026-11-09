@@ -78,9 +78,10 @@ Save. For each new and external sample the plugin then:
 
 - fills in the **sample ID** as `SA-PLD_<yyyy-mm-dd>_<hh:mm>_S<nn>`, e.g.
   `SA-PLD_2026-10-22_09:00_S01`, numbering the new and external samples of the
-  run in order;
+  run in order after those already numbered;
 - fills in the **name** from the substrate and films, e.g. `Si_SrTiO3-20nm`;
-- generates a **sample UUID** (use it for a QR label);
+- fills in a **sample UUID** derived from the sample ID (use it for a QR
+  label);
 - creates a **Sample** entry in the same upload and links it in **sample**.
 
 That Sample entry is the sample's identity from now on: deposition steps,
@@ -88,8 +89,9 @@ recipes and later in-situ measurements refer to it. An existing sample is only
 linked; its entry is not changed.
 
 !!! tip
-    The sample ID uses the time of the logbook's **datetime** as NOMAD stores
-    it, in UTC. The dashboard uses your local time instead.
+    The sample ID uses the logbook's **datetime** on the lab clock
+    (Europe/Amsterdam), as the dashboard does. Enter the datetime with its
+    offset, e.g. `2026-10-22T09:00:00+02:00`.
 
 ## 3. Fill in the system details
 

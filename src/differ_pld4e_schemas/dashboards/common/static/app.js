@@ -1576,6 +1576,17 @@ async function uploadPendingFiles(uploadId, directory) {
   }
 }
 
+/** Throws unless api/archive returned the files of a logbook without errors. */
+function checkArchiveResult(result) {
+  const errors = result.errors || [];
+  if (errors.length) {
+    throw new Error('The server found problems: ' + errors.map((e) => `${e.path}: ${e.message}`).join('; '));
+  }
+  if (!result.logbook_file || !Array.isArray(result.files) || !result.files.length) {
+    throw new Error('The server returned no logbook to save.');
+  }
+}
+
 async function saveLogbook() {
   if (app.saving) return;
   let rerender = false;
@@ -1605,13 +1616,17 @@ async function saveLogbook() {
       showBanner(`${fileError.message} Save again to store it as a new logbook.`, 'error');
       return;
     }
-    if (result.errors.length) throw new Error('The server found problems: ' + result.errors.map((e) => `${e.path}: ${e.message}`).join('; '));
+    checkArchiveResult(result);
     const uploadId = await ensureUpload();
     logLine(`Saving to upload ${uploadId}`);
     if (Object.keys(app.pendingFiles).length) {
       const directory = `${client().file_dir}/${result.logbook_file.replace(/\.archive\.json$/, '')}`;
       await uploadPendingFiles(uploadId, directory);
+      // Built again with the uploaded file names. Checked like the first time:
+      // with errors there are no files, and an unchecked result would be
+      // reported as saved and the draft deleted.
       result = await dashboard('api/archive', {form: app.form, logbook_file: logbookFile});
+      checkArchiveResult(result);
     }
     let logbookEntry = null;
     for (const file of result.files) {

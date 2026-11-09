@@ -17,8 +17,8 @@ import json
 import os
 from pathlib import Path
 
-import test_pld_logbook as pld
-import test_sputter_logbook as sputter
+from helpers import pld_forms as pld
+from helpers import sputter_forms as sputter
 
 from differ_pld4e_schemas.dashboards.common.rules import step_time_warnings
 from differ_pld4e_schemas.dashboards.pld_logbook import rules as pld_rules

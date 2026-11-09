@@ -4,7 +4,8 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-import yaml
+from helpers.nomad_harness import assert_no_errors, process_copy, warnings
+from helpers.schema import enum_values
 from nomad.datamodel import EntryArchive, EntryMetadata
 from nomad.datamodel.context import ClientContext
 from nomad.datamodel.data import EntryData
@@ -261,7 +262,7 @@ def test_target_stage_has_z_scan_widths_and_speeds():
 
 
 def test_mask_size_5x18():
-    assert '5x18' in LaserParameters.m_def.all_quantities['mask_size'].type._list
+    assert '5x18' in enum_values(LaserParameters, 'mask_size')
 
 
 def test_spot_size_follows_mask_size():
@@ -804,15 +805,15 @@ def test_export_figures_show_on_the_entry(mic_dir):
         ('example_la_pld.archive.yaml', 'LA-PLD'),
     ),
 )
-def test_example_logbooks(file_name, system):
-    with open(DATA_DIR / file_name) as archive_file:
-        archive = EntryArchive.m_from_dict(yaml.safe_load(archive_file))
-    archive.metadata = EntryMetadata()
+def test_example_logbooks(file_name, system, tmp_path):
+    archive, logs, upload = process_copy(DATA_DIR / file_name, tmp_path)
+    assert_no_errors(logs)
+    assert warnings(logs) == []
     logbook = archive.data
-    # Like NOMAD processing: normalize sub-sections before their parents.
-    for section in reversed(list(logbook.m_all_contents(include_self=True))):
-        section.normalize(archive, CapturingLogger())
     assert logbook.pvd_system == system
+    # The normalizer made the Sample entry of the new sample.
+    assert upload.created == [f'{system}_2026-10-22_09_00_S01.archive.json']
+    assert logbook.samples[0].reference is not None
     assert logbook.laser_details.transmission_window_1 == pytest.approx(
         0.42 / 0.5 / 0.92 * 100
     )

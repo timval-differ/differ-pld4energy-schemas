@@ -274,13 +274,16 @@ to, so both sides check:
 | --- | --- |
 | `tests/test_pld_schema.py`, `test_sputter_schema.py` | The schemas: sections, save logic, recipes, exported data files. |
 | `tests/test_database.py`, `test_native_search.py` | The target and substrate database; the native sections NOMAD searches. |
+| `tests/test_sample_creation.py` | The Sample entries the logbook normalizer writes into an upload. |
 | `tests/schema_packages/` | The schema package loads, with an example entry. |
 | `tests/dashboards/test_pld_logbook.py`, `test_sputter_logbook.py` | Each dashboard: spec against the schemas, validation, conversion, the app. |
-| `tests/dashboards/test_spec_contract.py` | The form definitions' keys, kinds, conditions and computed values. |
+| `tests/dashboards/test_spec_contract.py` | The form definitions' keys, kinds, conditions and computed values; every number field's unit against the unit of its schema quantity. |
+| `tests/dashboards/test_processing.py` | The files each dashboard writes, processed as NOMAD processes an upload (archive parser and all normalizers), with no errors or warnings. |
 | `tests/dashboards/test_js_parity.py` | Writes and checks `tests/js/fixtures/parity.json`. |
 | `tests/dashboards/test_dashboard_input.py` | Which files a save may overwrite. |
 | `tests/dashboards/test_malformed_input.py` | Malformed requests get a 400, 422 or a 200 listing the problems, never a 500. |
 | `tests/dashboards/test_page.py` | The page, versioned and revalidated static files, no blocked dialogs. |
+| `tests/helpers/` | Shared by the tests: the complete forms (`pld_forms`, `sputter_forms`), the entries they refer to (`database`), and `nomad_harness`, which processes a file like a NOMAD server without mongo or Elasticsearch. `tests/` is on the pytest `pythonpath`. |
 | `tests/js/*.test.js` | The scripts: `rules`, `parity`, `charts`, `nomad-api`, `pdf`. |
 
 Test data: `tests/data/example_*.archive.yaml` are example entries;

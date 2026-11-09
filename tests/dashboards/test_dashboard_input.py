@@ -6,9 +6,9 @@ file of an opened logbook made by the dashboard, and only a sample's own file.
 import copy
 
 import pytest
-import test_pld_logbook as pld
-import test_sputter_logbook as sputter
 from fastapi.testclient import TestClient
+from helpers import pld_forms as pld
+from helpers import sputter_forms as sputter
 
 from differ_pld4e_schemas.dashboards import (
     pld_logbook_dashboard_entry_point,
@@ -194,3 +194,19 @@ def test_new_sample_is_never_overwritten():
     result = pld_form_to_files(copy.deepcopy(pld.FORM), pld.SPEC)
     assert result['files'][0]['overwrite'] is False
     assert result['warnings'] == []
+
+
+@pytest.mark.parametrize('entry_point, data, logbook_file', DASHBOARDS)
+def test_archive_with_errors_returns_no_logbook(entry_point, data, logbook_file):
+    """The page saves only when it gets a logbook back (app.js checkArchiveResult)."""
+    client = TestClient(entry_point.load())
+    invalid = copy.deepcopy(data)
+    invalid['run']['operator_name'] = ''
+    body = client.post('/api/archive', json={'form': invalid}).json()
+    assert body['errors']
+    assert body['files'] == []
+    assert 'logbook_file' not in body
+    complete = client.post('/api/archive', json={'form': data}).json()
+    assert complete['errors'] == []
+    assert complete['logbook_file'] == logbook_file
+    assert complete['files']

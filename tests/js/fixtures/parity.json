@@ -2721,7 +2721,7 @@
     "draft_errors": [],
     "errors": [
      {
-      "message": "Enter a number.",
+      "message": "Write the number without a thousands separator, with a dot or one comma for decimals: 1500 or 1.5.",
       "path": "chamber.base_pressure"
      }
     ],
@@ -4069,10 +4069,15 @@
      "samples.0.sample_id": "LA-PLD_2026-10-22_09:15_S01"
     },
     "draft_errors": [],
-    "errors": [],
+    "errors": [
+     {
+      "message": "Write the number without a thousands separator, with a dot or one comma for decimals: 1500 or 1.5.",
+      "path": "chamber.base_pressure"
+     }
+    ],
     "form": {
      "chamber": {
-      "base_pressure": -5,
+      "base_pressure": "12,000",
       "particle_reduction_plate": "in use",
       "substrate_carrier": "4\" wafer carrier"
      },
@@ -4224,7 +4229,1022 @@
       }
      ]
     },
+    "name": "number with a thousands separator",
+    "warnings": []
+   },
+   {
+    "computed": {
+     "laser.transmission_window_1_calculated": 91.30434782608695,
+     "samples.0.name": "Si_SrTiO3-20nm",
+     "samples.0.sample_id": "LA-PLD_2026-10-22_09:15_S01"
+    },
+    "draft_errors": [],
+    "errors": [
+     {
+      "message": "Write the number without a thousands separator, with a dot or one comma for decimals: 1500 or 1.5.",
+      "path": "chamber.base_pressure"
+     }
+    ],
+    "form": {
+     "chamber": {
+      "base_pressure": "1.000,5",
+      "particle_reduction_plate": "in use",
+      "substrate_carrier": "4\" wafer carrier"
+     },
+     "in_situ": [
+      {
+       "la_eds": true,
+       "la_eds_energy_offset": 100,
+       "la_eds_energy_per_channel": 10,
+       "la_eds_sp0_files": [
+        "pld_files/run1/in_situ_1/spectrum.sp0"
+       ],
+       "rheed": true,
+       "rheed_pattern_export_files": [
+        "pld_files/run1/in_situ_1/pattern1.png",
+        "pld_files/run1/in_situ_1/pattern2.png"
+       ],
+       "sample": "new:sub1",
+       "steps": [
+        "step2"
+       ],
+       "uid": "m1"
+      }
+     ],
+     "laser": {
+      "energy_after_chamber": 420,
+      "energy_before_chamber": 500,
+      "transmission_window_1_manual": false,
+      "transmission_window_2": 92
+     },
+     "logfiles": {
+      "system_logfiles": [
+       "pld_files/run1/logfiles/tsst.txt"
+      ]
+     },
+     "run": {
+      "date": "2026-10-22",
+      "name": "STO on Si",
+      "operator_email": "ada@example.org",
+      "operator_name": "Ada Lovelace",
+      "system": "LA-PLD",
+      "time": "09:15",
+      "utc_offset": "+02:00"
+     },
+     "samples": [
+      {
+       "origin": "New sample",
+       "substrate": "../uploads/target_db/archive/substrate_si#/data",
+       "substrate_material": "Si",
+       "uid": "sub1"
+      }
+     ],
+     "steps": [
+      {
+       "actual_current": 4.9,
+       "actual_voltage": 19.8,
+       "atmosphere": "Background gas",
+       "drift_compensation": true,
+       "end_time": "10:05",
+       "fix_output": false,
+       "gas_O2": true,
+       "gas_O2_flow_readout": 4.9,
+       "gas_O2_flow_setpoint": 5,
+       "heater_output": 35,
+       "heating_mode": "Laser heating (PID)",
+       "laser_output_limitation": 50,
+       "pressure": 0.1,
+       "ramp_on": true,
+       "ramp_rate": 10,
+       "start_time": "09:20",
+       "supply_current": 5,
+       "supply_voltage": 20,
+       "temperature_setpoint": 700,
+       "type": "heating",
+       "uid": "step1",
+       "valve_position": 30,
+       "valve_position_fixed": true
+      },
+      {
+       "actual_current": 4.9,
+       "actual_voltage": 19.8,
+       "atmosphere": "Background gas",
+       "attenuator_position": 60,
+       "drift_compensation": true,
+       "end_time": "10:40",
+       "film_thickness": 20,
+       "film_thickness_unit": "nm",
+       "fix_output": false,
+       "gas_O2": true,
+       "gas_O2_flow_readout": 4.9,
+       "gas_O2_flow_setpoint": 5,
+       "heater_scan_axis": "X",
+       "heater_scan_type": "Polar scan",
+       "heater_size": "25mm / 1\"",
+       "heating_mode": "Laser heating (PID)",
+       "laser_energy": 30,
+       "laser_fluence": 1.5,
+       "laser_frequency": 1,
+       "laser_mode": "HV NGR",
+       "laser_output_limitation": 50,
+       "laser_voltage": 22,
+       "magnification": "5X",
+       "mask_size": "5x18",
+       "max_laser_frequency": 50,
+       "number_of_laser_pulses": 3000,
+       "number_of_scans": 10,
+       "pressure": 0.1,
+       "pulse_spacing": 0.5,
+       "radius_start": 0,
+       "radius_stop": 40,
+       "sample": "new:sub1",
+       "scan_speed_x": 2,
+       "scan_speed_y": 1.5,
+       "scan_width_x": 10,
+       "scan_width_y": 8,
+       "spin": 0,
+       "spot_height": 1,
+       "spot_size": 2,
+       "spot_width": 1,
+       "start_time": "10:10",
+       "start_x_position": 0,
+       "start_y_position": 0,
+       "start_z_position": 5,
+       "substrate_temperature": 700,
+       "supply_current": 5,
+       "supply_voltage": 20,
+       "target": "../uploads/target_db/archive/target1#/data",
+       "target_area": "Square filled",
+       "target_scan_axis": "X",
+       "target_select": 0,
+       "target_size": "25mm / 1\"",
+       "tilt": 0,
+       "type": "deposition",
+       "uid": "step2",
+       "valve_position": 30,
+       "valve_position_fixed": true,
+       "x": 1,
+       "x_offset": 1,
+       "y": 2,
+       "y_offset": 1,
+       "z": 50
+      }
+     ],
+     "targets": [
+      {
+       "material": "SrTiO3",
+       "target": "../uploads/target_db/archive/target1#/data",
+       "target_number": "2",
+       "uid": "t1"
+      }
+     ]
+    },
+    "name": "number with a comma and a dot",
+    "warnings": []
+   },
+   {
+    "computed": {
+     "laser.transmission_window_1_calculated": 91.30434782608695,
+     "samples.0.name": "Si_SrTiO3-20nm",
+     "samples.0.sample_id": "LA-PLD_2026-10-22_09:15_S01"
+    },
+    "draft_errors": [],
+    "errors": [],
+    "form": {
+     "chamber": {
+      "base_pressure": "0,125",
+      "particle_reduction_plate": "in use",
+      "substrate_carrier": "4\" wafer carrier"
+     },
+     "in_situ": [
+      {
+       "la_eds": true,
+       "la_eds_energy_offset": 100,
+       "la_eds_energy_per_channel": 10,
+       "la_eds_sp0_files": [
+        "pld_files/run1/in_situ_1/spectrum.sp0"
+       ],
+       "rheed": true,
+       "rheed_pattern_export_files": [
+        "pld_files/run1/in_situ_1/pattern1.png",
+        "pld_files/run1/in_situ_1/pattern2.png"
+       ],
+       "sample": "new:sub1",
+       "steps": [
+        "step2"
+       ],
+       "uid": "m1"
+      }
+     ],
+     "laser": {
+      "energy_after_chamber": 420,
+      "energy_before_chamber": 500,
+      "transmission_window_1_manual": false,
+      "transmission_window_2": 92
+     },
+     "logfiles": {
+      "system_logfiles": [
+       "pld_files/run1/logfiles/tsst.txt"
+      ]
+     },
+     "run": {
+      "date": "2026-10-22",
+      "name": "STO on Si",
+      "operator_email": "ada@example.org",
+      "operator_name": "Ada Lovelace",
+      "system": "LA-PLD",
+      "time": "09:15",
+      "utc_offset": "+02:00"
+     },
+     "samples": [
+      {
+       "origin": "New sample",
+       "substrate": "../uploads/target_db/archive/substrate_si#/data",
+       "substrate_material": "Si",
+       "uid": "sub1"
+      }
+     ],
+     "steps": [
+      {
+       "actual_current": 4.9,
+       "actual_voltage": 19.8,
+       "atmosphere": "Background gas",
+       "drift_compensation": true,
+       "end_time": "10:05",
+       "fix_output": false,
+       "gas_O2": true,
+       "gas_O2_flow_readout": 4.9,
+       "gas_O2_flow_setpoint": 5,
+       "heater_output": 35,
+       "heating_mode": "Laser heating (PID)",
+       "laser_output_limitation": 50,
+       "pressure": 0.1,
+       "ramp_on": true,
+       "ramp_rate": 10,
+       "start_time": "09:20",
+       "supply_current": 5,
+       "supply_voltage": 20,
+       "temperature_setpoint": 700,
+       "type": "heating",
+       "uid": "step1",
+       "valve_position": 30,
+       "valve_position_fixed": true
+      },
+      {
+       "actual_current": 4.9,
+       "actual_voltage": 19.8,
+       "atmosphere": "Background gas",
+       "attenuator_position": 60,
+       "drift_compensation": true,
+       "end_time": "10:40",
+       "film_thickness": 20,
+       "film_thickness_unit": "nm",
+       "fix_output": false,
+       "gas_O2": true,
+       "gas_O2_flow_readout": 4.9,
+       "gas_O2_flow_setpoint": 5,
+       "heater_scan_axis": "X",
+       "heater_scan_type": "Polar scan",
+       "heater_size": "25mm / 1\"",
+       "heating_mode": "Laser heating (PID)",
+       "laser_energy": 30,
+       "laser_fluence": 1.5,
+       "laser_frequency": 1,
+       "laser_mode": "HV NGR",
+       "laser_output_limitation": 50,
+       "laser_voltage": 22,
+       "magnification": "5X",
+       "mask_size": "5x18",
+       "max_laser_frequency": 50,
+       "number_of_laser_pulses": 3000,
+       "number_of_scans": 10,
+       "pressure": 0.1,
+       "pulse_spacing": 0.5,
+       "radius_start": 0,
+       "radius_stop": 40,
+       "sample": "new:sub1",
+       "scan_speed_x": 2,
+       "scan_speed_y": 1.5,
+       "scan_width_x": 10,
+       "scan_width_y": 8,
+       "spin": 0,
+       "spot_height": 1,
+       "spot_size": 2,
+       "spot_width": 1,
+       "start_time": "10:10",
+       "start_x_position": 0,
+       "start_y_position": 0,
+       "start_z_position": 5,
+       "substrate_temperature": 700,
+       "supply_current": 5,
+       "supply_voltage": 20,
+       "target": "../uploads/target_db/archive/target1#/data",
+       "target_area": "Square filled",
+       "target_scan_axis": "X",
+       "target_select": 0,
+       "target_size": "25mm / 1\"",
+       "tilt": 0,
+       "type": "deposition",
+       "uid": "step2",
+       "valve_position": 30,
+       "valve_position_fixed": true,
+       "x": 1,
+       "x_offset": 1,
+       "y": 2,
+       "y_offset": 1,
+       "z": 50
+      }
+     ],
+     "targets": [
+      {
+       "material": "SrTiO3",
+       "target": "../uploads/target_db/archive/target1#/data",
+       "target_number": "2",
+       "uid": "t1"
+      }
+     ]
+    },
+    "name": "decimal comma below one",
+    "warnings": []
+   },
+   {
+    "computed": {
+     "laser.transmission_window_1_calculated": 91.30434782608695,
+     "samples.0.name": "Si_SrTiO3-20nm",
+     "samples.0.sample_id": "LA-PLD_2026-10-22_09:15_S01"
+    },
+    "draft_errors": [],
+    "errors": [
+     {
+      "message": "Write the number without a thousands separator, with a dot or one comma for decimals: 1500 or 1.5.",
+      "path": "chamber.base_pressure"
+     }
+    ],
+    "form": {
+     "chamber": {
+      "base_pressure": "-1,250",
+      "particle_reduction_plate": "in use",
+      "substrate_carrier": "4\" wafer carrier"
+     },
+     "in_situ": [
+      {
+       "la_eds": true,
+       "la_eds_energy_offset": 100,
+       "la_eds_energy_per_channel": 10,
+       "la_eds_sp0_files": [
+        "pld_files/run1/in_situ_1/spectrum.sp0"
+       ],
+       "rheed": true,
+       "rheed_pattern_export_files": [
+        "pld_files/run1/in_situ_1/pattern1.png",
+        "pld_files/run1/in_situ_1/pattern2.png"
+       ],
+       "sample": "new:sub1",
+       "steps": [
+        "step2"
+       ],
+       "uid": "m1"
+      }
+     ],
+     "laser": {
+      "energy_after_chamber": 420,
+      "energy_before_chamber": 500,
+      "transmission_window_1_manual": false,
+      "transmission_window_2": 92
+     },
+     "logfiles": {
+      "system_logfiles": [
+       "pld_files/run1/logfiles/tsst.txt"
+      ]
+     },
+     "run": {
+      "date": "2026-10-22",
+      "name": "STO on Si",
+      "operator_email": "ada@example.org",
+      "operator_name": "Ada Lovelace",
+      "system": "LA-PLD",
+      "time": "09:15",
+      "utc_offset": "+02:00"
+     },
+     "samples": [
+      {
+       "origin": "New sample",
+       "substrate": "../uploads/target_db/archive/substrate_si#/data",
+       "substrate_material": "Si",
+       "uid": "sub1"
+      }
+     ],
+     "steps": [
+      {
+       "actual_current": 4.9,
+       "actual_voltage": 19.8,
+       "atmosphere": "Background gas",
+       "drift_compensation": true,
+       "end_time": "10:05",
+       "fix_output": false,
+       "gas_O2": true,
+       "gas_O2_flow_readout": 4.9,
+       "gas_O2_flow_setpoint": 5,
+       "heater_output": 35,
+       "heating_mode": "Laser heating (PID)",
+       "laser_output_limitation": 50,
+       "pressure": 0.1,
+       "ramp_on": true,
+       "ramp_rate": 10,
+       "start_time": "09:20",
+       "supply_current": 5,
+       "supply_voltage": 20,
+       "temperature_setpoint": 700,
+       "type": "heating",
+       "uid": "step1",
+       "valve_position": 30,
+       "valve_position_fixed": true
+      },
+      {
+       "actual_current": 4.9,
+       "actual_voltage": 19.8,
+       "atmosphere": "Background gas",
+       "attenuator_position": 60,
+       "drift_compensation": true,
+       "end_time": "10:40",
+       "film_thickness": 20,
+       "film_thickness_unit": "nm",
+       "fix_output": false,
+       "gas_O2": true,
+       "gas_O2_flow_readout": 4.9,
+       "gas_O2_flow_setpoint": 5,
+       "heater_scan_axis": "X",
+       "heater_scan_type": "Polar scan",
+       "heater_size": "25mm / 1\"",
+       "heating_mode": "Laser heating (PID)",
+       "laser_energy": 30,
+       "laser_fluence": 1.5,
+       "laser_frequency": 1,
+       "laser_mode": "HV NGR",
+       "laser_output_limitation": 50,
+       "laser_voltage": 22,
+       "magnification": "5X",
+       "mask_size": "5x18",
+       "max_laser_frequency": 50,
+       "number_of_laser_pulses": 3000,
+       "number_of_scans": 10,
+       "pressure": 0.1,
+       "pulse_spacing": 0.5,
+       "radius_start": 0,
+       "radius_stop": 40,
+       "sample": "new:sub1",
+       "scan_speed_x": 2,
+       "scan_speed_y": 1.5,
+       "scan_width_x": 10,
+       "scan_width_y": 8,
+       "spin": 0,
+       "spot_height": 1,
+       "spot_size": 2,
+       "spot_width": 1,
+       "start_time": "10:10",
+       "start_x_position": 0,
+       "start_y_position": 0,
+       "start_z_position": 5,
+       "substrate_temperature": 700,
+       "supply_current": 5,
+       "supply_voltage": 20,
+       "target": "../uploads/target_db/archive/target1#/data",
+       "target_area": "Square filled",
+       "target_scan_axis": "X",
+       "target_select": 0,
+       "target_size": "25mm / 1\"",
+       "tilt": 0,
+       "type": "deposition",
+       "uid": "step2",
+       "valve_position": 30,
+       "valve_position_fixed": true,
+       "x": 1,
+       "x_offset": 1,
+       "y": 2,
+       "y_offset": 1,
+       "z": 50
+      }
+     ],
+     "targets": [
+      {
+       "material": "SrTiO3",
+       "target": "../uploads/target_db/archive/target1#/data",
+       "target_number": "2",
+       "uid": "t1"
+      }
+     ]
+    },
+    "name": "decimal comma after a minus",
+    "warnings": []
+   },
+   {
+    "computed": {
+     "laser.transmission_window_1_calculated": 91.30434782608695,
+     "samples.0.name": "Si_SrTiO3-20nm",
+     "samples.0.sample_id": "LA-PLD_2026-10-22_09:15_S01"
+    },
+    "draft_errors": [],
+    "errors": [
+     {
+      "message": "Enter a number.",
+      "path": "chamber.base_pressure"
+     }
+    ],
+    "form": {
+     "chamber": {
+      "base_pressure": 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,
+      "particle_reduction_plate": "in use",
+      "substrate_carrier": "4\" wafer carrier"
+     },
+     "in_situ": [
+      {
+       "la_eds": true,
+       "la_eds_energy_offset": 100,
+       "la_eds_energy_per_channel": 10,
+       "la_eds_sp0_files": [
+        "pld_files/run1/in_situ_1/spectrum.sp0"
+       ],
+       "rheed": true,
+       "rheed_pattern_export_files": [
+        "pld_files/run1/in_situ_1/pattern1.png",
+        "pld_files/run1/in_situ_1/pattern2.png"
+       ],
+       "sample": "new:sub1",
+       "steps": [
+        "step2"
+       ],
+       "uid": "m1"
+      }
+     ],
+     "laser": {
+      "energy_after_chamber": 420,
+      "energy_before_chamber": 500,
+      "transmission_window_1_manual": false,
+      "transmission_window_2": 92
+     },
+     "logfiles": {
+      "system_logfiles": [
+       "pld_files/run1/logfiles/tsst.txt"
+      ]
+     },
+     "run": {
+      "date": "2026-10-22",
+      "name": "STO on Si",
+      "operator_email": "ada@example.org",
+      "operator_name": "Ada Lovelace",
+      "system": "LA-PLD",
+      "time": "09:15",
+      "utc_offset": "+02:00"
+     },
+     "samples": [
+      {
+       "origin": "New sample",
+       "substrate": "../uploads/target_db/archive/substrate_si#/data",
+       "substrate_material": "Si",
+       "uid": "sub1"
+      }
+     ],
+     "steps": [
+      {
+       "actual_current": 4.9,
+       "actual_voltage": 19.8,
+       "atmosphere": "Background gas",
+       "drift_compensation": true,
+       "end_time": "10:05",
+       "fix_output": false,
+       "gas_O2": true,
+       "gas_O2_flow_readout": 4.9,
+       "gas_O2_flow_setpoint": 5,
+       "heater_output": 35,
+       "heating_mode": "Laser heating (PID)",
+       "laser_output_limitation": 50,
+       "pressure": 0.1,
+       "ramp_on": true,
+       "ramp_rate": 10,
+       "start_time": "09:20",
+       "supply_current": 5,
+       "supply_voltage": 20,
+       "temperature_setpoint": 700,
+       "type": "heating",
+       "uid": "step1",
+       "valve_position": 30,
+       "valve_position_fixed": true
+      },
+      {
+       "actual_current": 4.9,
+       "actual_voltage": 19.8,
+       "atmosphere": "Background gas",
+       "attenuator_position": 60,
+       "drift_compensation": true,
+       "end_time": "10:40",
+       "film_thickness": 20,
+       "film_thickness_unit": "nm",
+       "fix_output": false,
+       "gas_O2": true,
+       "gas_O2_flow_readout": 4.9,
+       "gas_O2_flow_setpoint": 5,
+       "heater_scan_axis": "X",
+       "heater_scan_type": "Polar scan",
+       "heater_size": "25mm / 1\"",
+       "heating_mode": "Laser heating (PID)",
+       "laser_energy": 30,
+       "laser_fluence": 1.5,
+       "laser_frequency": 1,
+       "laser_mode": "HV NGR",
+       "laser_output_limitation": 50,
+       "laser_voltage": 22,
+       "magnification": "5X",
+       "mask_size": "5x18",
+       "max_laser_frequency": 50,
+       "number_of_laser_pulses": 3000,
+       "number_of_scans": 10,
+       "pressure": 0.1,
+       "pulse_spacing": 0.5,
+       "radius_start": 0,
+       "radius_stop": 40,
+       "sample": "new:sub1",
+       "scan_speed_x": 2,
+       "scan_speed_y": 1.5,
+       "scan_width_x": 10,
+       "scan_width_y": 8,
+       "spin": 0,
+       "spot_height": 1,
+       "spot_size": 2,
+       "spot_width": 1,
+       "start_time": "10:10",
+       "start_x_position": 0,
+       "start_y_position": 0,
+       "start_z_position": 5,
+       "substrate_temperature": 700,
+       "supply_current": 5,
+       "supply_voltage": 20,
+       "target": "../uploads/target_db/archive/target1#/data",
+       "target_area": "Square filled",
+       "target_scan_axis": "X",
+       "target_select": 0,
+       "target_size": "25mm / 1\"",
+       "tilt": 0,
+       "type": "deposition",
+       "uid": "step2",
+       "valve_position": 30,
+       "valve_position_fixed": true,
+       "x": 1,
+       "x_offset": 1,
+       "y": 2,
+       "y_offset": 1,
+       "z": 50
+      }
+     ],
+     "targets": [
+      {
+       "material": "SrTiO3",
+       "target": "../uploads/target_db/archive/target1#/data",
+       "target_number": "2",
+       "uid": "t1"
+      }
+     ]
+    },
+    "name": "number as a huge JSON integer",
+    "warnings": []
+   },
+   {
+    "computed": {
+     "laser.transmission_window_1_calculated": 91.30434782608695,
+     "samples.0.name": "Si_SrTiO3-20nm",
+     "samples.0.sample_id": "LA-PLD_2026-10-22_09:15_S01"
+    },
+    "draft_errors": [],
+    "errors": [
+     {
+      "message": "Must be at least 0.",
+      "path": "steps.0.valve_position"
+     }
+    ],
+    "form": {
+     "chamber": {
+      "base_pressure": 1e-08,
+      "particle_reduction_plate": "in use",
+      "substrate_carrier": "4\" wafer carrier"
+     },
+     "in_situ": [
+      {
+       "la_eds": true,
+       "la_eds_energy_offset": 100,
+       "la_eds_energy_per_channel": 10,
+       "la_eds_sp0_files": [
+        "pld_files/run1/in_situ_1/spectrum.sp0"
+       ],
+       "rheed": true,
+       "rheed_pattern_export_files": [
+        "pld_files/run1/in_situ_1/pattern1.png",
+        "pld_files/run1/in_situ_1/pattern2.png"
+       ],
+       "sample": "new:sub1",
+       "steps": [
+        "step2"
+       ],
+       "uid": "m1"
+      }
+     ],
+     "laser": {
+      "energy_after_chamber": 420,
+      "energy_before_chamber": 500,
+      "transmission_window_1_manual": false,
+      "transmission_window_2": 92
+     },
+     "logfiles": {
+      "system_logfiles": [
+       "pld_files/run1/logfiles/tsst.txt"
+      ]
+     },
+     "run": {
+      "date": "2026-10-22",
+      "name": "STO on Si",
+      "operator_email": "ada@example.org",
+      "operator_name": "Ada Lovelace",
+      "system": "LA-PLD",
+      "time": "09:15",
+      "utc_offset": "+02:00"
+     },
+     "samples": [
+      {
+       "origin": "New sample",
+       "substrate": "../uploads/target_db/archive/substrate_si#/data",
+       "substrate_material": "Si",
+       "uid": "sub1"
+      }
+     ],
+     "steps": [
+      {
+       "actual_current": 4.9,
+       "actual_voltage": 19.8,
+       "atmosphere": "Background gas",
+       "drift_compensation": true,
+       "end_time": "10:05",
+       "fix_output": false,
+       "gas_O2": true,
+       "gas_O2_flow_readout": 4.9,
+       "gas_O2_flow_setpoint": 5,
+       "heater_output": 35,
+       "heating_mode": "Laser heating (PID)",
+       "laser_output_limitation": 50,
+       "pressure": 0.1,
+       "ramp_on": true,
+       "ramp_rate": 10,
+       "start_time": "09:20",
+       "supply_current": 5,
+       "supply_voltage": 20,
+       "temperature_setpoint": 700,
+       "type": "heating",
+       "uid": "step1",
+       "valve_position": -5,
+       "valve_position_fixed": true
+      },
+      {
+       "actual_current": 4.9,
+       "actual_voltage": 19.8,
+       "atmosphere": "Background gas",
+       "attenuator_position": 60,
+       "drift_compensation": true,
+       "end_time": "10:40",
+       "film_thickness": 20,
+       "film_thickness_unit": "nm",
+       "fix_output": false,
+       "gas_O2": true,
+       "gas_O2_flow_readout": 4.9,
+       "gas_O2_flow_setpoint": 5,
+       "heater_scan_axis": "X",
+       "heater_scan_type": "Polar scan",
+       "heater_size": "25mm / 1\"",
+       "heating_mode": "Laser heating (PID)",
+       "laser_energy": 30,
+       "laser_fluence": 1.5,
+       "laser_frequency": 1,
+       "laser_mode": "HV NGR",
+       "laser_output_limitation": 50,
+       "laser_voltage": 22,
+       "magnification": "5X",
+       "mask_size": "5x18",
+       "max_laser_frequency": 50,
+       "number_of_laser_pulses": 3000,
+       "number_of_scans": 10,
+       "pressure": 0.1,
+       "pulse_spacing": 0.5,
+       "radius_start": 0,
+       "radius_stop": 40,
+       "sample": "new:sub1",
+       "scan_speed_x": 2,
+       "scan_speed_y": 1.5,
+       "scan_width_x": 10,
+       "scan_width_y": 8,
+       "spin": 0,
+       "spot_height": 1,
+       "spot_size": 2,
+       "spot_width": 1,
+       "start_time": "10:10",
+       "start_x_position": 0,
+       "start_y_position": 0,
+       "start_z_position": 5,
+       "substrate_temperature": 700,
+       "supply_current": 5,
+       "supply_voltage": 20,
+       "target": "../uploads/target_db/archive/target1#/data",
+       "target_area": "Square filled",
+       "target_scan_axis": "X",
+       "target_select": 0,
+       "target_size": "25mm / 1\"",
+       "tilt": 0,
+       "type": "deposition",
+       "uid": "step2",
+       "valve_position": 30,
+       "valve_position_fixed": true,
+       "x": 1,
+       "x_offset": 1,
+       "y": 2,
+       "y_offset": 1,
+       "z": 50
+      }
+     ],
+     "targets": [
+      {
+       "material": "SrTiO3",
+       "target": "../uploads/target_db/archive/target1#/data",
+       "target_number": "2",
+       "uid": "t1"
+      }
+     ]
+    },
     "name": "negative number below the minimum",
+    "warnings": []
+   },
+   {
+    "computed": {
+     "laser.transmission_window_1_calculated": 91.30434782608695,
+     "samples.0.name": "Si_SrTiO3-20nm",
+     "samples.0.sample_id": "LA-PLD_2026-10-22_09:15_S01"
+    },
+    "draft_errors": [],
+    "errors": [
+     {
+      "message": "Must be at most 1000.",
+      "path": "steps.0.valve_position"
+     }
+    ],
+    "form": {
+     "chamber": {
+      "base_pressure": 1e-08,
+      "particle_reduction_plate": "in use",
+      "substrate_carrier": "4\" wafer carrier"
+     },
+     "in_situ": [
+      {
+       "la_eds": true,
+       "la_eds_energy_offset": 100,
+       "la_eds_energy_per_channel": 10,
+       "la_eds_sp0_files": [
+        "pld_files/run1/in_situ_1/spectrum.sp0"
+       ],
+       "rheed": true,
+       "rheed_pattern_export_files": [
+        "pld_files/run1/in_situ_1/pattern1.png",
+        "pld_files/run1/in_situ_1/pattern2.png"
+       ],
+       "sample": "new:sub1",
+       "steps": [
+        "step2"
+       ],
+       "uid": "m1"
+      }
+     ],
+     "laser": {
+      "energy_after_chamber": 420,
+      "energy_before_chamber": 500,
+      "transmission_window_1_manual": false,
+      "transmission_window_2": 92
+     },
+     "logfiles": {
+      "system_logfiles": [
+       "pld_files/run1/logfiles/tsst.txt"
+      ]
+     },
+     "run": {
+      "date": "2026-10-22",
+      "name": "STO on Si",
+      "operator_email": "ada@example.org",
+      "operator_name": "Ada Lovelace",
+      "system": "LA-PLD",
+      "time": "09:15",
+      "utc_offset": "+02:00"
+     },
+     "samples": [
+      {
+       "origin": "New sample",
+       "substrate": "../uploads/target_db/archive/substrate_si#/data",
+       "substrate_material": "Si",
+       "uid": "sub1"
+      }
+     ],
+     "steps": [
+      {
+       "actual_current": 4.9,
+       "actual_voltage": 19.8,
+       "atmosphere": "Background gas",
+       "drift_compensation": true,
+       "end_time": "10:05",
+       "fix_output": false,
+       "gas_O2": true,
+       "gas_O2_flow_readout": 4.9,
+       "gas_O2_flow_setpoint": 5,
+       "heater_output": 35,
+       "heating_mode": "Laser heating (PID)",
+       "laser_output_limitation": 50,
+       "pressure": 0.1,
+       "ramp_on": true,
+       "ramp_rate": 10,
+       "start_time": "09:20",
+       "supply_current": 5,
+       "supply_voltage": 20,
+       "temperature_setpoint": 700,
+       "type": "heating",
+       "uid": "step1",
+       "valve_position": 1001,
+       "valve_position_fixed": true
+      },
+      {
+       "actual_current": 4.9,
+       "actual_voltage": 19.8,
+       "atmosphere": "Background gas",
+       "attenuator_position": 60,
+       "drift_compensation": true,
+       "end_time": "10:40",
+       "film_thickness": 20,
+       "film_thickness_unit": "nm",
+       "fix_output": false,
+       "gas_O2": true,
+       "gas_O2_flow_readout": 4.9,
+       "gas_O2_flow_setpoint": 5,
+       "heater_scan_axis": "X",
+       "heater_scan_type": "Polar scan",
+       "heater_size": "25mm / 1\"",
+       "heating_mode": "Laser heating (PID)",
+       "laser_energy": 30,
+       "laser_fluence": 1.5,
+       "laser_frequency": 1,
+       "laser_mode": "HV NGR",
+       "laser_output_limitation": 50,
+       "laser_voltage": 22,
+       "magnification": "5X",
+       "mask_size": "5x18",
+       "max_laser_frequency": 50,
+       "number_of_laser_pulses": 3000,
+       "number_of_scans": 10,
+       "pressure": 0.1,
+       "pulse_spacing": 0.5,
+       "radius_start": 0,
+       "radius_stop": 40,
+       "sample": "new:sub1",
+       "scan_speed_x": 2,
+       "scan_speed_y": 1.5,
+       "scan_width_x": 10,
+       "scan_width_y": 8,
+       "spin": 0,
+       "spot_height": 1,
+       "spot_size": 2,
+       "spot_width": 1,
+       "start_time": "10:10",
+       "start_x_position": 0,
+       "start_y_position": 0,
+       "start_z_position": 5,
+       "substrate_temperature": 700,
+       "supply_current": 5,
+       "supply_voltage": 20,
+       "target": "../uploads/target_db/archive/target1#/data",
+       "target_area": "Square filled",
+       "target_scan_axis": "X",
+       "target_select": 0,
+       "target_size": "25mm / 1\"",
+       "tilt": 0,
+       "type": "deposition",
+       "uid": "step2",
+       "valve_position": 30,
+       "valve_position_fixed": true,
+       "x": 1,
+       "x_offset": 1,
+       "y": 2,
+       "y_offset": 1,
+       "z": 50
+      }
+     ],
+     "targets": [
+      {
+       "material": "SrTiO3",
+       "target": "../uploads/target_db/archive/target1#/data",
+       "target_number": "2",
+       "uid": "t1"
+      }
+     ]
+    },
+    "name": "number above the maximum",
     "warnings": []
    },
    {
@@ -4396,6 +5416,689 @@
      ]
     },
     "name": "whole number with a fraction",
+    "warnings": []
+   },
+   {
+    "computed": {
+     "laser.transmission_window_1_calculated": 91.30434782608695,
+     "samples.0.name": "Si_SrTiO3",
+     "samples.0.sample_id": "LA-PLD_2026-10-22_09:15_S01"
+    },
+    "draft_errors": [],
+    "errors": [
+     {
+      "message": "Write the number without a thousands separator, with a dot or one comma for decimals: 1500 or 1.5.",
+      "path": "steps.1.film_thickness_pulses"
+     }
+    ],
+    "form": {
+     "chamber": {
+      "base_pressure": 1e-08,
+      "particle_reduction_plate": "in use",
+      "substrate_carrier": "4\" wafer carrier"
+     },
+     "in_situ": [
+      {
+       "la_eds": true,
+       "la_eds_energy_offset": 100,
+       "la_eds_energy_per_channel": 10,
+       "la_eds_sp0_files": [
+        "pld_files/run1/in_situ_1/spectrum.sp0"
+       ],
+       "rheed": true,
+       "rheed_pattern_export_files": [
+        "pld_files/run1/in_situ_1/pattern1.png",
+        "pld_files/run1/in_situ_1/pattern2.png"
+       ],
+       "sample": "new:sub1",
+       "steps": [
+        "step2"
+       ],
+       "uid": "m1"
+      }
+     ],
+     "laser": {
+      "energy_after_chamber": 420,
+      "energy_before_chamber": 500,
+      "transmission_window_1_manual": false,
+      "transmission_window_2": 92
+     },
+     "logfiles": {
+      "system_logfiles": [
+       "pld_files/run1/logfiles/tsst.txt"
+      ]
+     },
+     "run": {
+      "date": "2026-10-22",
+      "name": "STO on Si",
+      "operator_email": "ada@example.org",
+      "operator_name": "Ada Lovelace",
+      "system": "LA-PLD",
+      "time": "09:15",
+      "utc_offset": "+02:00"
+     },
+     "samples": [
+      {
+       "origin": "New sample",
+       "substrate": "../uploads/target_db/archive/substrate_si#/data",
+       "substrate_material": "Si",
+       "uid": "sub1"
+      }
+     ],
+     "steps": [
+      {
+       "actual_current": 4.9,
+       "actual_voltage": 19.8,
+       "atmosphere": "Background gas",
+       "drift_compensation": true,
+       "end_time": "10:05",
+       "fix_output": false,
+       "gas_O2": true,
+       "gas_O2_flow_readout": 4.9,
+       "gas_O2_flow_setpoint": 5,
+       "heater_output": 35,
+       "heating_mode": "Laser heating (PID)",
+       "laser_output_limitation": 50,
+       "pressure": 0.1,
+       "ramp_on": true,
+       "ramp_rate": 10,
+       "start_time": "09:20",
+       "supply_current": 5,
+       "supply_voltage": 20,
+       "temperature_setpoint": 700,
+       "type": "heating",
+       "uid": "step1",
+       "valve_position": 30,
+       "valve_position_fixed": true
+      },
+      {
+       "actual_current": 4.9,
+       "actual_voltage": 19.8,
+       "atmosphere": "Background gas",
+       "attenuator_position": 60,
+       "drift_compensation": true,
+       "end_time": "10:40",
+       "film_thickness": 20,
+       "film_thickness_pulses": "1,500",
+       "film_thickness_unit": "pulses",
+       "fix_output": false,
+       "gas_O2": true,
+       "gas_O2_flow_readout": 4.9,
+       "gas_O2_flow_setpoint": 5,
+       "heater_scan_axis": "X",
+       "heater_scan_type": "Polar scan",
+       "heater_size": "25mm / 1\"",
+       "heating_mode": "Laser heating (PID)",
+       "laser_energy": 30,
+       "laser_fluence": 1.5,
+       "laser_frequency": 1,
+       "laser_mode": "HV NGR",
+       "laser_output_limitation": 50,
+       "laser_voltage": 22,
+       "magnification": "5X",
+       "mask_size": "5x18",
+       "max_laser_frequency": 50,
+       "number_of_laser_pulses": 3000,
+       "number_of_scans": 10,
+       "pressure": 0.1,
+       "pulse_spacing": 0.5,
+       "radius_start": 0,
+       "radius_stop": 40,
+       "sample": "new:sub1",
+       "scan_speed_x": 2,
+       "scan_speed_y": 1.5,
+       "scan_width_x": 10,
+       "scan_width_y": 8,
+       "spin": 0,
+       "spot_height": 1,
+       "spot_size": 2,
+       "spot_width": 1,
+       "start_time": "10:10",
+       "start_x_position": 0,
+       "start_y_position": 0,
+       "start_z_position": 5,
+       "substrate_temperature": 700,
+       "supply_current": 5,
+       "supply_voltage": 20,
+       "target": "../uploads/target_db/archive/target1#/data",
+       "target_area": "Square filled",
+       "target_scan_axis": "X",
+       "target_select": 0,
+       "target_size": "25mm / 1\"",
+       "tilt": 0,
+       "type": "deposition",
+       "uid": "step2",
+       "valve_position": 30,
+       "valve_position_fixed": true,
+       "x": 1,
+       "x_offset": 1,
+       "y": 2,
+       "y_offset": 1,
+       "z": 50
+      }
+     ],
+     "targets": [
+      {
+       "material": "SrTiO3",
+       "target": "../uploads/target_db/archive/target1#/data",
+       "target_number": "2",
+       "uid": "t1"
+      }
+     ]
+    },
+    "name": "whole number with a thousands separator",
+    "warnings": []
+   },
+   {
+    "computed": {
+     "laser.transmission_window_1_calculated": 91.30434782608695,
+     "samples.0.name": "Si_SrTiO3-20nm",
+     "samples.0.sample_id": "LA-PLD_2026-10-22_09:15_S01"
+    },
+    "draft_errors": [],
+    "errors": [
+     {
+      "message": "Required.",
+      "path": "run.operator_name"
+     }
+    ],
+    "form": {
+     "chamber": {
+      "base_pressure": 1e-08,
+      "particle_reduction_plate": "in use",
+      "substrate_carrier": "4\" wafer carrier"
+     },
+     "in_situ": [
+      {
+       "la_eds": true,
+       "la_eds_energy_offset": 100,
+       "la_eds_energy_per_channel": 10,
+       "la_eds_sp0_files": [
+        "pld_files/run1/in_situ_1/spectrum.sp0"
+       ],
+       "rheed": true,
+       "rheed_pattern_export_files": [
+        "pld_files/run1/in_situ_1/pattern1.png",
+        "pld_files/run1/in_situ_1/pattern2.png"
+       ],
+       "sample": "new:sub1",
+       "steps": [
+        "step2"
+       ],
+       "uid": "m1"
+      }
+     ],
+     "laser": {
+      "energy_after_chamber": 420,
+      "energy_before_chamber": 500,
+      "transmission_window_1_manual": false,
+      "transmission_window_2": 92
+     },
+     "logfiles": {
+      "system_logfiles": [
+       "pld_files/run1/logfiles/tsst.txt"
+      ]
+     },
+     "run": {
+      "date": "2026-10-22",
+      "name": "STO on Si",
+      "operator_email": "ada@example.org",
+      "operator_name": "   ",
+      "system": "LA-PLD",
+      "time": "09:15",
+      "utc_offset": "+02:00"
+     },
+     "samples": [
+      {
+       "origin": "New sample",
+       "substrate": "../uploads/target_db/archive/substrate_si#/data",
+       "substrate_material": "Si",
+       "uid": "sub1"
+      }
+     ],
+     "steps": [
+      {
+       "actual_current": 4.9,
+       "actual_voltage": 19.8,
+       "atmosphere": "Background gas",
+       "drift_compensation": true,
+       "end_time": "10:05",
+       "fix_output": false,
+       "gas_O2": true,
+       "gas_O2_flow_readout": 4.9,
+       "gas_O2_flow_setpoint": 5,
+       "heater_output": 35,
+       "heating_mode": "Laser heating (PID)",
+       "laser_output_limitation": 50,
+       "pressure": 0.1,
+       "ramp_on": true,
+       "ramp_rate": 10,
+       "start_time": "09:20",
+       "supply_current": 5,
+       "supply_voltage": 20,
+       "temperature_setpoint": 700,
+       "type": "heating",
+       "uid": "step1",
+       "valve_position": 30,
+       "valve_position_fixed": true
+      },
+      {
+       "actual_current": 4.9,
+       "actual_voltage": 19.8,
+       "atmosphere": "Background gas",
+       "attenuator_position": 60,
+       "drift_compensation": true,
+       "end_time": "10:40",
+       "film_thickness": 20,
+       "film_thickness_unit": "nm",
+       "fix_output": false,
+       "gas_O2": true,
+       "gas_O2_flow_readout": 4.9,
+       "gas_O2_flow_setpoint": 5,
+       "heater_scan_axis": "X",
+       "heater_scan_type": "Polar scan",
+       "heater_size": "25mm / 1\"",
+       "heating_mode": "Laser heating (PID)",
+       "laser_energy": 30,
+       "laser_fluence": 1.5,
+       "laser_frequency": 1,
+       "laser_mode": "HV NGR",
+       "laser_output_limitation": 50,
+       "laser_voltage": 22,
+       "magnification": "5X",
+       "mask_size": "5x18",
+       "max_laser_frequency": 50,
+       "number_of_laser_pulses": 3000,
+       "number_of_scans": 10,
+       "pressure": 0.1,
+       "pulse_spacing": 0.5,
+       "radius_start": 0,
+       "radius_stop": 40,
+       "sample": "new:sub1",
+       "scan_speed_x": 2,
+       "scan_speed_y": 1.5,
+       "scan_width_x": 10,
+       "scan_width_y": 8,
+       "spin": 0,
+       "spot_height": 1,
+       "spot_size": 2,
+       "spot_width": 1,
+       "start_time": "10:10",
+       "start_x_position": 0,
+       "start_y_position": 0,
+       "start_z_position": 5,
+       "substrate_temperature": 700,
+       "supply_current": 5,
+       "supply_voltage": 20,
+       "target": "../uploads/target_db/archive/target1#/data",
+       "target_area": "Square filled",
+       "target_scan_axis": "X",
+       "target_select": 0,
+       "target_size": "25mm / 1\"",
+       "tilt": 0,
+       "type": "deposition",
+       "uid": "step2",
+       "valve_position": 30,
+       "valve_position_fixed": true,
+       "x": 1,
+       "x_offset": 1,
+       "y": 2,
+       "y_offset": 1,
+       "z": 50
+      }
+     ],
+     "targets": [
+      {
+       "material": "SrTiO3",
+       "target": "../uploads/target_db/archive/target1#/data",
+       "target_number": "2",
+       "uid": "t1"
+      }
+     ]
+    },
+    "name": "required text of only spaces",
+    "warnings": []
+   },
+   {
+    "computed": {
+     "laser.transmission_window_1_calculated": 91.30434782608695,
+     "samples.0.name": "Si_SrTiO3-20nm",
+     "samples.0.sample_id": "LA-PLD_2026-10-22_09:15_S01"
+    },
+    "draft_errors": [],
+    "errors": [
+     {
+      "message": "Enter text.",
+      "path": "run.operator_name"
+     }
+    ],
+    "form": {
+     "chamber": {
+      "base_pressure": 1e-08,
+      "particle_reduction_plate": "in use",
+      "substrate_carrier": "4\" wafer carrier"
+     },
+     "in_situ": [
+      {
+       "la_eds": true,
+       "la_eds_energy_offset": 100,
+       "la_eds_energy_per_channel": 10,
+       "la_eds_sp0_files": [
+        "pld_files/run1/in_situ_1/spectrum.sp0"
+       ],
+       "rheed": true,
+       "rheed_pattern_export_files": [
+        "pld_files/run1/in_situ_1/pattern1.png",
+        "pld_files/run1/in_situ_1/pattern2.png"
+       ],
+       "sample": "new:sub1",
+       "steps": [
+        "step2"
+       ],
+       "uid": "m1"
+      }
+     ],
+     "laser": {
+      "energy_after_chamber": 420,
+      "energy_before_chamber": 500,
+      "transmission_window_1_manual": false,
+      "transmission_window_2": 92
+     },
+     "logfiles": {
+      "system_logfiles": [
+       "pld_files/run1/logfiles/tsst.txt"
+      ]
+     },
+     "run": {
+      "date": "2026-10-22",
+      "name": "STO on Si",
+      "operator_email": "ada@example.org",
+      "operator_name": [
+       "Ada"
+      ],
+      "system": "LA-PLD",
+      "time": "09:15",
+      "utc_offset": "+02:00"
+     },
+     "samples": [
+      {
+       "origin": "New sample",
+       "substrate": "../uploads/target_db/archive/substrate_si#/data",
+       "substrate_material": "Si",
+       "uid": "sub1"
+      }
+     ],
+     "steps": [
+      {
+       "actual_current": 4.9,
+       "actual_voltage": 19.8,
+       "atmosphere": "Background gas",
+       "drift_compensation": true,
+       "end_time": "10:05",
+       "fix_output": false,
+       "gas_O2": true,
+       "gas_O2_flow_readout": 4.9,
+       "gas_O2_flow_setpoint": 5,
+       "heater_output": 35,
+       "heating_mode": "Laser heating (PID)",
+       "laser_output_limitation": 50,
+       "pressure": 0.1,
+       "ramp_on": true,
+       "ramp_rate": 10,
+       "start_time": "09:20",
+       "supply_current": 5,
+       "supply_voltage": 20,
+       "temperature_setpoint": 700,
+       "type": "heating",
+       "uid": "step1",
+       "valve_position": 30,
+       "valve_position_fixed": true
+      },
+      {
+       "actual_current": 4.9,
+       "actual_voltage": 19.8,
+       "atmosphere": "Background gas",
+       "attenuator_position": 60,
+       "drift_compensation": true,
+       "end_time": "10:40",
+       "film_thickness": 20,
+       "film_thickness_unit": "nm",
+       "fix_output": false,
+       "gas_O2": true,
+       "gas_O2_flow_readout": 4.9,
+       "gas_O2_flow_setpoint": 5,
+       "heater_scan_axis": "X",
+       "heater_scan_type": "Polar scan",
+       "heater_size": "25mm / 1\"",
+       "heating_mode": "Laser heating (PID)",
+       "laser_energy": 30,
+       "laser_fluence": 1.5,
+       "laser_frequency": 1,
+       "laser_mode": "HV NGR",
+       "laser_output_limitation": 50,
+       "laser_voltage": 22,
+       "magnification": "5X",
+       "mask_size": "5x18",
+       "max_laser_frequency": 50,
+       "number_of_laser_pulses": 3000,
+       "number_of_scans": 10,
+       "pressure": 0.1,
+       "pulse_spacing": 0.5,
+       "radius_start": 0,
+       "radius_stop": 40,
+       "sample": "new:sub1",
+       "scan_speed_x": 2,
+       "scan_speed_y": 1.5,
+       "scan_width_x": 10,
+       "scan_width_y": 8,
+       "spin": 0,
+       "spot_height": 1,
+       "spot_size": 2,
+       "spot_width": 1,
+       "start_time": "10:10",
+       "start_x_position": 0,
+       "start_y_position": 0,
+       "start_z_position": 5,
+       "substrate_temperature": 700,
+       "supply_current": 5,
+       "supply_voltage": 20,
+       "target": "../uploads/target_db/archive/target1#/data",
+       "target_area": "Square filled",
+       "target_scan_axis": "X",
+       "target_select": 0,
+       "target_size": "25mm / 1\"",
+       "tilt": 0,
+       "type": "deposition",
+       "uid": "step2",
+       "valve_position": 30,
+       "valve_position_fixed": true,
+       "x": 1,
+       "x_offset": 1,
+       "y": 2,
+       "y_offset": 1,
+       "z": 50
+      }
+     ],
+     "targets": [
+      {
+       "material": "SrTiO3",
+       "target": "../uploads/target_db/archive/target1#/data",
+       "target_number": "2",
+       "uid": "t1"
+      }
+     ]
+    },
+    "name": "text as a list",
+    "warnings": []
+   },
+   {
+    "computed": {
+     "laser.transmission_window_1_calculated": 91.30434782608695,
+     "samples.0.name": "Si_SrTiO3-20nm",
+     "samples.0.sample_id": "LA-PLD_2026-10-22_09:15_S01"
+    },
+    "draft_errors": [],
+    "errors": [
+     {
+      "message": "Tick or untick this box.",
+      "path": "steps.0.valve_position_fixed"
+     }
+    ],
+    "form": {
+     "chamber": {
+      "base_pressure": 1e-08,
+      "particle_reduction_plate": "in use",
+      "substrate_carrier": "4\" wafer carrier"
+     },
+     "in_situ": [
+      {
+       "la_eds": true,
+       "la_eds_energy_offset": 100,
+       "la_eds_energy_per_channel": 10,
+       "la_eds_sp0_files": [
+        "pld_files/run1/in_situ_1/spectrum.sp0"
+       ],
+       "rheed": true,
+       "rheed_pattern_export_files": [
+        "pld_files/run1/in_situ_1/pattern1.png",
+        "pld_files/run1/in_situ_1/pattern2.png"
+       ],
+       "sample": "new:sub1",
+       "steps": [
+        "step2"
+       ],
+       "uid": "m1"
+      }
+     ],
+     "laser": {
+      "energy_after_chamber": 420,
+      "energy_before_chamber": 500,
+      "transmission_window_1_manual": false,
+      "transmission_window_2": 92
+     },
+     "logfiles": {
+      "system_logfiles": [
+       "pld_files/run1/logfiles/tsst.txt"
+      ]
+     },
+     "run": {
+      "date": "2026-10-22",
+      "name": "STO on Si",
+      "operator_email": "ada@example.org",
+      "operator_name": "Ada Lovelace",
+      "system": "LA-PLD",
+      "time": "09:15",
+      "utc_offset": "+02:00"
+     },
+     "samples": [
+      {
+       "origin": "New sample",
+       "substrate": "../uploads/target_db/archive/substrate_si#/data",
+       "substrate_material": "Si",
+       "uid": "sub1"
+      }
+     ],
+     "steps": [
+      {
+       "actual_current": 4.9,
+       "actual_voltage": 19.8,
+       "atmosphere": "Background gas",
+       "drift_compensation": true,
+       "end_time": "10:05",
+       "fix_output": false,
+       "gas_O2": true,
+       "gas_O2_flow_readout": 4.9,
+       "gas_O2_flow_setpoint": 5,
+       "heater_output": 35,
+       "heating_mode": "Laser heating (PID)",
+       "laser_output_limitation": 50,
+       "pressure": 0.1,
+       "ramp_on": true,
+       "ramp_rate": 10,
+       "start_time": "09:20",
+       "supply_current": 5,
+       "supply_voltage": 20,
+       "temperature_setpoint": 700,
+       "type": "heating",
+       "uid": "step1",
+       "valve_position": 30,
+       "valve_position_fixed": "false"
+      },
+      {
+       "actual_current": 4.9,
+       "actual_voltage": 19.8,
+       "atmosphere": "Background gas",
+       "attenuator_position": 60,
+       "drift_compensation": true,
+       "end_time": "10:40",
+       "film_thickness": 20,
+       "film_thickness_unit": "nm",
+       "fix_output": false,
+       "gas_O2": true,
+       "gas_O2_flow_readout": 4.9,
+       "gas_O2_flow_setpoint": 5,
+       "heater_scan_axis": "X",
+       "heater_scan_type": "Polar scan",
+       "heater_size": "25mm / 1\"",
+       "heating_mode": "Laser heating (PID)",
+       "laser_energy": 30,
+       "laser_fluence": 1.5,
+       "laser_frequency": 1,
+       "laser_mode": "HV NGR",
+       "laser_output_limitation": 50,
+       "laser_voltage": 22,
+       "magnification": "5X",
+       "mask_size": "5x18",
+       "max_laser_frequency": 50,
+       "number_of_laser_pulses": 3000,
+       "number_of_scans": 10,
+       "pressure": 0.1,
+       "pulse_spacing": 0.5,
+       "radius_start": 0,
+       "radius_stop": 40,
+       "sample": "new:sub1",
+       "scan_speed_x": 2,
+       "scan_speed_y": 1.5,
+       "scan_width_x": 10,
+       "scan_width_y": 8,
+       "spin": 0,
+       "spot_height": 1,
+       "spot_size": 2,
+       "spot_width": 1,
+       "start_time": "10:10",
+       "start_x_position": 0,
+       "start_y_position": 0,
+       "start_z_position": 5,
+       "substrate_temperature": 700,
+       "supply_current": 5,
+       "supply_voltage": 20,
+       "target": "../uploads/target_db/archive/target1#/data",
+       "target_area": "Square filled",
+       "target_scan_axis": "X",
+       "target_select": 0,
+       "target_size": "25mm / 1\"",
+       "tilt": 0,
+       "type": "deposition",
+       "uid": "step2",
+       "valve_position": 30,
+       "valve_position_fixed": true,
+       "x": 1,
+       "x_offset": 1,
+       "y": 2,
+       "y_offset": 1,
+       "z": 50
+      }
+     ],
+     "targets": [
+      {
+       "material": "SrTiO3",
+       "target": "../uploads/target_db/archive/target1#/data",
+       "target_number": "2",
+       "uid": "t1"
+      }
+     ]
+    },
+    "name": "box ticked as a string",
     "warnings": []
    },
    {
@@ -5850,6 +7553,686 @@
      ]
     },
     "name": "unknown step type",
+    "warnings": []
+   },
+   {
+    "computed": {
+     "laser.transmission_window_1_calculated": 91.30434782608695,
+     "samples.0.name": "Si_SrTiO3-20nm",
+     "samples.0.sample_id": "LA-PLD_2026-10-22_09:15_S01"
+    },
+    "draft_errors": [],
+    "errors": [
+     {
+      "message": "Step 2 is a copy of another step: remove it and add it again.",
+      "path": "steps.1"
+     },
+     {
+      "message": "Choose steps listed under Process steps.",
+      "path": "in_situ.0.steps"
+     }
+    ],
+    "form": {
+     "chamber": {
+      "base_pressure": 1e-08,
+      "particle_reduction_plate": "in use",
+      "substrate_carrier": "4\" wafer carrier"
+     },
+     "in_situ": [
+      {
+       "la_eds": true,
+       "la_eds_energy_offset": 100,
+       "la_eds_energy_per_channel": 10,
+       "la_eds_sp0_files": [
+        "pld_files/run1/in_situ_1/spectrum.sp0"
+       ],
+       "rheed": true,
+       "rheed_pattern_export_files": [
+        "pld_files/run1/in_situ_1/pattern1.png",
+        "pld_files/run1/in_situ_1/pattern2.png"
+       ],
+       "sample": "new:sub1",
+       "steps": [
+        "step2"
+       ],
+       "uid": "m1"
+      }
+     ],
+     "laser": {
+      "energy_after_chamber": 420,
+      "energy_before_chamber": 500,
+      "transmission_window_1_manual": false,
+      "transmission_window_2": 92
+     },
+     "logfiles": {
+      "system_logfiles": [
+       "pld_files/run1/logfiles/tsst.txt"
+      ]
+     },
+     "run": {
+      "date": "2026-10-22",
+      "name": "STO on Si",
+      "operator_email": "ada@example.org",
+      "operator_name": "Ada Lovelace",
+      "system": "LA-PLD",
+      "time": "09:15",
+      "utc_offset": "+02:00"
+     },
+     "samples": [
+      {
+       "origin": "New sample",
+       "substrate": "../uploads/target_db/archive/substrate_si#/data",
+       "substrate_material": "Si",
+       "uid": "sub1"
+      }
+     ],
+     "steps": [
+      {
+       "actual_current": 4.9,
+       "actual_voltage": 19.8,
+       "atmosphere": "Background gas",
+       "drift_compensation": true,
+       "end_time": "10:05",
+       "fix_output": false,
+       "gas_O2": true,
+       "gas_O2_flow_readout": 4.9,
+       "gas_O2_flow_setpoint": 5,
+       "heater_output": 35,
+       "heating_mode": "Laser heating (PID)",
+       "laser_output_limitation": 50,
+       "pressure": 0.1,
+       "ramp_on": true,
+       "ramp_rate": 10,
+       "start_time": "09:20",
+       "supply_current": 5,
+       "supply_voltage": 20,
+       "temperature_setpoint": 700,
+       "type": "heating",
+       "uid": "step1",
+       "valve_position": 30,
+       "valve_position_fixed": true
+      },
+      {
+       "actual_current": 4.9,
+       "actual_voltage": 19.8,
+       "atmosphere": "Background gas",
+       "attenuator_position": 60,
+       "drift_compensation": true,
+       "end_time": "10:40",
+       "film_thickness": 20,
+       "film_thickness_unit": "nm",
+       "fix_output": false,
+       "gas_O2": true,
+       "gas_O2_flow_readout": 4.9,
+       "gas_O2_flow_setpoint": 5,
+       "heater_scan_axis": "X",
+       "heater_scan_type": "Polar scan",
+       "heater_size": "25mm / 1\"",
+       "heating_mode": "Laser heating (PID)",
+       "laser_energy": 30,
+       "laser_fluence": 1.5,
+       "laser_frequency": 1,
+       "laser_mode": "HV NGR",
+       "laser_output_limitation": 50,
+       "laser_voltage": 22,
+       "magnification": "5X",
+       "mask_size": "5x18",
+       "max_laser_frequency": 50,
+       "number_of_laser_pulses": 3000,
+       "number_of_scans": 10,
+       "pressure": 0.1,
+       "pulse_spacing": 0.5,
+       "radius_start": 0,
+       "radius_stop": 40,
+       "sample": "new:sub1",
+       "scan_speed_x": 2,
+       "scan_speed_y": 1.5,
+       "scan_width_x": 10,
+       "scan_width_y": 8,
+       "spin": 0,
+       "spot_height": 1,
+       "spot_size": 2,
+       "spot_width": 1,
+       "start_time": "10:10",
+       "start_x_position": 0,
+       "start_y_position": 0,
+       "start_z_position": 5,
+       "substrate_temperature": 700,
+       "supply_current": 5,
+       "supply_voltage": 20,
+       "target": "../uploads/target_db/archive/target1#/data",
+       "target_area": "Square filled",
+       "target_scan_axis": "X",
+       "target_select": 0,
+       "target_size": "25mm / 1\"",
+       "tilt": 0,
+       "type": "deposition",
+       "uid": "step1",
+       "valve_position": 30,
+       "valve_position_fixed": true,
+       "x": 1,
+       "x_offset": 1,
+       "y": 2,
+       "y_offset": 1,
+       "z": 50
+      }
+     ],
+     "targets": [
+      {
+       "material": "SrTiO3",
+       "target": "../uploads/target_db/archive/target1#/data",
+       "target_number": "2",
+       "uid": "t1"
+      }
+     ]
+    },
+    "name": "two steps with one ID",
+    "warnings": []
+   },
+   {
+    "computed": {
+     "laser.transmission_window_1_calculated": 91.30434782608695,
+     "samples.0.name": "Si_SrTiO3-20nm",
+     "samples.0.sample_id": "LA-PLD_2026-10-22_09:15_S01"
+    },
+    "draft_errors": [],
+    "errors": [
+     {
+      "message": "This item has no ID: remove it and add it again.",
+      "path": "steps.0"
+     }
+    ],
+    "form": {
+     "chamber": {
+      "base_pressure": 1e-08,
+      "particle_reduction_plate": "in use",
+      "substrate_carrier": "4\" wafer carrier"
+     },
+     "in_situ": [
+      {
+       "la_eds": true,
+       "la_eds_energy_offset": 100,
+       "la_eds_energy_per_channel": 10,
+       "la_eds_sp0_files": [
+        "pld_files/run1/in_situ_1/spectrum.sp0"
+       ],
+       "rheed": true,
+       "rheed_pattern_export_files": [
+        "pld_files/run1/in_situ_1/pattern1.png",
+        "pld_files/run1/in_situ_1/pattern2.png"
+       ],
+       "sample": "new:sub1",
+       "steps": [
+        "step2"
+       ],
+       "uid": "m1"
+      }
+     ],
+     "laser": {
+      "energy_after_chamber": 420,
+      "energy_before_chamber": 500,
+      "transmission_window_1_manual": false,
+      "transmission_window_2": 92
+     },
+     "logfiles": {
+      "system_logfiles": [
+       "pld_files/run1/logfiles/tsst.txt"
+      ]
+     },
+     "run": {
+      "date": "2026-10-22",
+      "name": "STO on Si",
+      "operator_email": "ada@example.org",
+      "operator_name": "Ada Lovelace",
+      "system": "LA-PLD",
+      "time": "09:15",
+      "utc_offset": "+02:00"
+     },
+     "samples": [
+      {
+       "origin": "New sample",
+       "substrate": "../uploads/target_db/archive/substrate_si#/data",
+       "substrate_material": "Si",
+       "uid": "sub1"
+      }
+     ],
+     "steps": [
+      {
+       "actual_current": 4.9,
+       "actual_voltage": 19.8,
+       "atmosphere": "Background gas",
+       "drift_compensation": true,
+       "end_time": "10:05",
+       "fix_output": false,
+       "gas_O2": true,
+       "gas_O2_flow_readout": 4.9,
+       "gas_O2_flow_setpoint": 5,
+       "heater_output": 35,
+       "heating_mode": "Laser heating (PID)",
+       "laser_output_limitation": 50,
+       "pressure": 0.1,
+       "ramp_on": true,
+       "ramp_rate": 10,
+       "start_time": "09:20",
+       "supply_current": 5,
+       "supply_voltage": 20,
+       "temperature_setpoint": 700,
+       "type": "heating",
+       "valve_position": 30,
+       "valve_position_fixed": true
+      },
+      {
+       "actual_current": 4.9,
+       "actual_voltage": 19.8,
+       "atmosphere": "Background gas",
+       "attenuator_position": 60,
+       "drift_compensation": true,
+       "end_time": "10:40",
+       "film_thickness": 20,
+       "film_thickness_unit": "nm",
+       "fix_output": false,
+       "gas_O2": true,
+       "gas_O2_flow_readout": 4.9,
+       "gas_O2_flow_setpoint": 5,
+       "heater_scan_axis": "X",
+       "heater_scan_type": "Polar scan",
+       "heater_size": "25mm / 1\"",
+       "heating_mode": "Laser heating (PID)",
+       "laser_energy": 30,
+       "laser_fluence": 1.5,
+       "laser_frequency": 1,
+       "laser_mode": "HV NGR",
+       "laser_output_limitation": 50,
+       "laser_voltage": 22,
+       "magnification": "5X",
+       "mask_size": "5x18",
+       "max_laser_frequency": 50,
+       "number_of_laser_pulses": 3000,
+       "number_of_scans": 10,
+       "pressure": 0.1,
+       "pulse_spacing": 0.5,
+       "radius_start": 0,
+       "radius_stop": 40,
+       "sample": "new:sub1",
+       "scan_speed_x": 2,
+       "scan_speed_y": 1.5,
+       "scan_width_x": 10,
+       "scan_width_y": 8,
+       "spin": 0,
+       "spot_height": 1,
+       "spot_size": 2,
+       "spot_width": 1,
+       "start_time": "10:10",
+       "start_x_position": 0,
+       "start_y_position": 0,
+       "start_z_position": 5,
+       "substrate_temperature": 700,
+       "supply_current": 5,
+       "supply_voltage": 20,
+       "target": "../uploads/target_db/archive/target1#/data",
+       "target_area": "Square filled",
+       "target_scan_axis": "X",
+       "target_select": 0,
+       "target_size": "25mm / 1\"",
+       "tilt": 0,
+       "type": "deposition",
+       "uid": "step2",
+       "valve_position": 30,
+       "valve_position_fixed": true,
+       "x": 1,
+       "x_offset": 1,
+       "y": 2,
+       "y_offset": 1,
+       "z": 50
+      }
+     ],
+     "targets": [
+      {
+       "material": "SrTiO3",
+       "target": "../uploads/target_db/archive/target1#/data",
+       "target_number": "2",
+       "uid": "t1"
+      }
+     ]
+    },
+    "name": "step without an ID",
+    "warnings": []
+   },
+   {
+    "computed": {
+     "laser.transmission_window_1_calculated": 91.30434782608695,
+     "samples.0.name": "Si_SrTiO3-20nm",
+     "samples.0.sample_id": "LA-PLD_2026-10-22_09:15_S01"
+    },
+    "draft_errors": [],
+    "errors": [
+     {
+      "message": "Tick at least one gas, or choose UHV.",
+      "path": "steps.0.atmosphere"
+     }
+    ],
+    "form": {
+     "chamber": {
+      "base_pressure": 1e-08,
+      "particle_reduction_plate": "in use",
+      "substrate_carrier": "4\" wafer carrier"
+     },
+     "in_situ": [
+      {
+       "la_eds": true,
+       "la_eds_energy_offset": 100,
+       "la_eds_energy_per_channel": 10,
+       "la_eds_sp0_files": [
+        "pld_files/run1/in_situ_1/spectrum.sp0"
+       ],
+       "rheed": true,
+       "rheed_pattern_export_files": [
+        "pld_files/run1/in_situ_1/pattern1.png",
+        "pld_files/run1/in_situ_1/pattern2.png"
+       ],
+       "sample": "new:sub1",
+       "steps": [
+        "step2"
+       ],
+       "uid": "m1"
+      }
+     ],
+     "laser": {
+      "energy_after_chamber": 420,
+      "energy_before_chamber": 500,
+      "transmission_window_1_manual": false,
+      "transmission_window_2": 92
+     },
+     "logfiles": {
+      "system_logfiles": [
+       "pld_files/run1/logfiles/tsst.txt"
+      ]
+     },
+     "run": {
+      "date": "2026-10-22",
+      "name": "STO on Si",
+      "operator_email": "ada@example.org",
+      "operator_name": "Ada Lovelace",
+      "system": "LA-PLD",
+      "time": "09:15",
+      "utc_offset": "+02:00"
+     },
+     "samples": [
+      {
+       "origin": "New sample",
+       "substrate": "../uploads/target_db/archive/substrate_si#/data",
+       "substrate_material": "Si",
+       "uid": "sub1"
+      }
+     ],
+     "steps": [
+      {
+       "actual_current": 4.9,
+       "actual_voltage": 19.8,
+       "atmosphere": "Background gas",
+       "drift_compensation": true,
+       "end_time": "10:05",
+       "fix_output": false,
+       "gas_Ar": false,
+       "gas_O2": false,
+       "gas_O2_flow_readout": 4.9,
+       "gas_O2_flow_setpoint": 5,
+       "heater_output": 35,
+       "heating_mode": "Laser heating (PID)",
+       "laser_output_limitation": 50,
+       "pressure": 0.1,
+       "ramp_on": true,
+       "ramp_rate": 10,
+       "start_time": "09:20",
+       "supply_current": 5,
+       "supply_voltage": 20,
+       "temperature_setpoint": 700,
+       "type": "heating",
+       "uid": "step1",
+       "valve_position": 30,
+       "valve_position_fixed": true
+      },
+      {
+       "actual_current": 4.9,
+       "actual_voltage": 19.8,
+       "atmosphere": "Background gas",
+       "attenuator_position": 60,
+       "drift_compensation": true,
+       "end_time": "10:40",
+       "film_thickness": 20,
+       "film_thickness_unit": "nm",
+       "fix_output": false,
+       "gas_O2": true,
+       "gas_O2_flow_readout": 4.9,
+       "gas_O2_flow_setpoint": 5,
+       "heater_scan_axis": "X",
+       "heater_scan_type": "Polar scan",
+       "heater_size": "25mm / 1\"",
+       "heating_mode": "Laser heating (PID)",
+       "laser_energy": 30,
+       "laser_fluence": 1.5,
+       "laser_frequency": 1,
+       "laser_mode": "HV NGR",
+       "laser_output_limitation": 50,
+       "laser_voltage": 22,
+       "magnification": "5X",
+       "mask_size": "5x18",
+       "max_laser_frequency": 50,
+       "number_of_laser_pulses": 3000,
+       "number_of_scans": 10,
+       "pressure": 0.1,
+       "pulse_spacing": 0.5,
+       "radius_start": 0,
+       "radius_stop": 40,
+       "sample": "new:sub1",
+       "scan_speed_x": 2,
+       "scan_speed_y": 1.5,
+       "scan_width_x": 10,
+       "scan_width_y": 8,
+       "spin": 0,
+       "spot_height": 1,
+       "spot_size": 2,
+       "spot_width": 1,
+       "start_time": "10:10",
+       "start_x_position": 0,
+       "start_y_position": 0,
+       "start_z_position": 5,
+       "substrate_temperature": 700,
+       "supply_current": 5,
+       "supply_voltage": 20,
+       "target": "../uploads/target_db/archive/target1#/data",
+       "target_area": "Square filled",
+       "target_scan_axis": "X",
+       "target_select": 0,
+       "target_size": "25mm / 1\"",
+       "tilt": 0,
+       "type": "deposition",
+       "uid": "step2",
+       "valve_position": 30,
+       "valve_position_fixed": true,
+       "x": 1,
+       "x_offset": 1,
+       "y": 2,
+       "y_offset": 1,
+       "z": 50
+      }
+     ],
+     "targets": [
+      {
+       "material": "SrTiO3",
+       "target": "../uploads/target_db/archive/target1#/data",
+       "target_number": "2",
+       "uid": "t1"
+      }
+     ]
+    },
+    "name": "background gas without a gas",
+    "warnings": []
+   },
+   {
+    "computed": {
+     "laser.transmission_window_1_calculated": 91.30434782608695,
+     "samples.0.name": "Si_SrTiO3-20nm",
+     "samples.0.sample_id": "LA-PLD_2026-10-22_09:15_S01"
+    },
+    "draft_errors": [],
+    "errors": [],
+    "form": {
+     "chamber": {
+      "base_pressure": 1e-08,
+      "particle_reduction_plate": "in use",
+      "substrate_carrier": "4\" wafer carrier"
+     },
+     "in_situ": [
+      {
+       "la_eds": true,
+       "la_eds_energy_offset": 100,
+       "la_eds_energy_per_channel": 10,
+       "la_eds_sp0_files": [
+        "pld_files/run1/in_situ_1/spectrum.sp0"
+       ],
+       "rheed": true,
+       "rheed_pattern_export_files": [
+        "pld_files/run1/in_situ_1/pattern1.png",
+        "pld_files/run1/in_situ_1/pattern2.png"
+       ],
+       "sample": "new:sub1",
+       "steps": [
+        "step2"
+       ],
+       "uid": "m1"
+      }
+     ],
+     "laser": {
+      "energy_after_chamber": 420,
+      "energy_before_chamber": 500,
+      "transmission_window_1_manual": false,
+      "transmission_window_2": 92
+     },
+     "logfiles": {
+      "system_logfiles": [
+       "pld_files/run1/logfiles/tsst.txt"
+      ]
+     },
+     "run": {
+      "date": "2026-10-22",
+      "name": "STO on Si",
+      "operator_email": "ada@example.org",
+      "operator_name": "Ada Lovelace",
+      "system": "LA-PLD",
+      "time": "09:15",
+      "utc_offset": "+02:00"
+     },
+     "samples": [
+      {
+       "origin": "New sample",
+       "substrate": "../uploads/target_db/archive/substrate_si#/data",
+       "substrate_material": "Si",
+       "uid": "sub1"
+      }
+     ],
+     "steps": [
+      {
+       "actual_current": 4.9,
+       "actual_voltage": 19.8,
+       "atmosphere": "UHV",
+       "drift_compensation": true,
+       "end_time": "10:05",
+       "fix_output": false,
+       "gas_Ar": false,
+       "gas_O2": false,
+       "gas_O2_flow_readout": 4.9,
+       "gas_O2_flow_setpoint": 5,
+       "heater_output": 35,
+       "heating_mode": "Laser heating (PID)",
+       "laser_output_limitation": 50,
+       "pressure": 0.1,
+       "ramp_on": true,
+       "ramp_rate": 10,
+       "start_time": "09:20",
+       "supply_current": 5,
+       "supply_voltage": 20,
+       "temperature_setpoint": 700,
+       "type": "heating",
+       "uid": "step1",
+       "valve_position": 30,
+       "valve_position_fixed": true
+      },
+      {
+       "actual_current": 4.9,
+       "actual_voltage": 19.8,
+       "atmosphere": "Background gas",
+       "attenuator_position": 60,
+       "drift_compensation": true,
+       "end_time": "10:40",
+       "film_thickness": 20,
+       "film_thickness_unit": "nm",
+       "fix_output": false,
+       "gas_O2": true,
+       "gas_O2_flow_readout": 4.9,
+       "gas_O2_flow_setpoint": 5,
+       "heater_scan_axis": "X",
+       "heater_scan_type": "Polar scan",
+       "heater_size": "25mm / 1\"",
+       "heating_mode": "Laser heating (PID)",
+       "laser_energy": 30,
+       "laser_fluence": 1.5,
+       "laser_frequency": 1,
+       "laser_mode": "HV NGR",
+       "laser_output_limitation": 50,
+       "laser_voltage": 22,
+       "magnification": "5X",
+       "mask_size": "5x18",
+       "max_laser_frequency": 50,
+       "number_of_laser_pulses": 3000,
+       "number_of_scans": 10,
+       "pressure": 0.1,
+       "pulse_spacing": 0.5,
+       "radius_start": 0,
+       "radius_stop": 40,
+       "sample": "new:sub1",
+       "scan_speed_x": 2,
+       "scan_speed_y": 1.5,
+       "scan_width_x": 10,
+       "scan_width_y": 8,
+       "spin": 0,
+       "spot_height": 1,
+       "spot_size": 2,
+       "spot_width": 1,
+       "start_time": "10:10",
+       "start_x_position": 0,
+       "start_y_position": 0,
+       "start_z_position": 5,
+       "substrate_temperature": 700,
+       "supply_current": 5,
+       "supply_voltage": 20,
+       "target": "../uploads/target_db/archive/target1#/data",
+       "target_area": "Square filled",
+       "target_scan_axis": "X",
+       "target_select": 0,
+       "target_size": "25mm / 1\"",
+       "tilt": 0,
+       "type": "deposition",
+       "uid": "step2",
+       "valve_position": 30,
+       "valve_position_fixed": true,
+       "x": 1,
+       "x_offset": 1,
+       "y": 2,
+       "y_offset": 1,
+       "z": 50
+      }
+     ],
+     "targets": [
+      {
+       "material": "SrTiO3",
+       "target": "../uploads/target_db/archive/target1#/data",
+       "target_number": "2",
+       "uid": "t1"
+      }
+     ]
+    },
+    "name": "UHV step without a gas",
     "warnings": []
    },
    {
@@ -13684,7 +16067,7 @@
     "draft_errors": [],
     "errors": [
      {
-      "message": "Enter a number.",
+      "message": "Write the number without a thousands separator, with a dot or one comma for decimals: 1500 or 1.5.",
       "path": "chamber.base_pressure"
      }
     ],
@@ -14912,10 +17295,15 @@
      "samples.0.sample_id": "SPS_2026-10-22_09:15_S01"
     },
     "draft_errors": [],
-    "errors": [],
+    "errors": [
+     {
+      "message": "Write the number without a thousands separator, with a dot or one comma for decimals: 1500 or 1.5.",
+      "path": "chamber.base_pressure"
+     }
+    ],
     "form": {
      "chamber": {
-      "base_pressure": -5,
+      "base_pressure": "12,000",
       "mask_used": false,
       "substrate_carrier": "4\" carrier SPS"
      },
@@ -15048,7 +17436,932 @@
       }
      ]
     },
+    "name": "number with a thousands separator",
+    "warnings": [
+     {
+      "message": "Starts before the previous step ends.",
+      "path": "steps.3.start_time"
+     }
+    ]
+   },
+   {
+    "computed": {
+     "samples.0.name": "Si_Ta-50nm_Ti-10nm",
+     "samples.0.sample_id": "SPS_2026-10-22_09:15_S01"
+    },
+    "draft_errors": [],
+    "errors": [
+     {
+      "message": "Write the number without a thousands separator, with a dot or one comma for decimals: 1500 or 1.5.",
+      "path": "chamber.base_pressure"
+     }
+    ],
+    "form": {
+     "chamber": {
+      "base_pressure": "1.000,5",
+      "mask_used": false,
+      "substrate_carrier": "4\" carrier SPS"
+     },
+     "comments": {
+      "comments": "Ta and Ti from the 2\" positions."
+     },
+     "run": {
+      "date": "2026-10-22",
+      "name": "Ta-Ti multilayer",
+      "operator_email": "ada@example.org",
+      "operator_name": "Ada Lovelace",
+      "system": "SPS",
+      "time": "09:15",
+      "utc_offset": "+02:00"
+     },
+     "samples": [
+      {
+       "origin": "New sample",
+       "substrate": "../uploads/target_db/archive/substrate_si#/data",
+       "substrate_material": "Si",
+       "uid": "sub1"
+      }
+     ],
+     "steps": [
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "end_time": "09:30",
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "plasma_type": "DC",
+       "power": 100,
+       "pre_sputter_time": 10,
+       "pressure": 0.005,
+       "ramp_up_rate": 10,
+       "start_time": "09:20",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "pre_sputtering",
+       "uid": "step1",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": 380
+      },
+      {
+       "atmosphere": "Background gas",
+       "end_time": "10:00",
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_output": 20,
+       "pressure": 0.005,
+       "ramp_rate": 10,
+       "start_time": "09:30",
+       "temperature_setpoint": 300,
+       "type": "heating",
+       "uid": "heat",
+       "valve_position": 40,
+       "valve_position_fixed": false
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "end_time": "10:30",
+       "film_thickness": 50,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "plasma_type": "DC",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "sputtering",
+       "uid": "step2",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": 380,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "dc_bias": 150,
+       "end_time": "10:30",
+       "film_thickness": 10,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "load_capacitance": 1.2,
+       "plasma_type": "RF",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ti#/data",
+       "type": "sputtering",
+       "uid": "step3",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": null,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      }
+     ],
+     "targets": [
+      {
+       "material": "Ta",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "target_number": "1",
+       "uid": "t1"
+      },
+      {
+       "material": "Ti",
+       "target": "../uploads/target_db/archive/ti#/data",
+       "target_number": "2",
+       "uid": "t2"
+      }
+     ]
+    },
+    "name": "number with a comma and a dot",
+    "warnings": [
+     {
+      "message": "Starts before the previous step ends.",
+      "path": "steps.3.start_time"
+     }
+    ]
+   },
+   {
+    "computed": {
+     "samples.0.name": "Si_Ta-50nm_Ti-10nm",
+     "samples.0.sample_id": "SPS_2026-10-22_09:15_S01"
+    },
+    "draft_errors": [],
+    "errors": [],
+    "form": {
+     "chamber": {
+      "base_pressure": "0,125",
+      "mask_used": false,
+      "substrate_carrier": "4\" carrier SPS"
+     },
+     "comments": {
+      "comments": "Ta and Ti from the 2\" positions."
+     },
+     "run": {
+      "date": "2026-10-22",
+      "name": "Ta-Ti multilayer",
+      "operator_email": "ada@example.org",
+      "operator_name": "Ada Lovelace",
+      "system": "SPS",
+      "time": "09:15",
+      "utc_offset": "+02:00"
+     },
+     "samples": [
+      {
+       "origin": "New sample",
+       "substrate": "../uploads/target_db/archive/substrate_si#/data",
+       "substrate_material": "Si",
+       "uid": "sub1"
+      }
+     ],
+     "steps": [
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "end_time": "09:30",
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "plasma_type": "DC",
+       "power": 100,
+       "pre_sputter_time": 10,
+       "pressure": 0.005,
+       "ramp_up_rate": 10,
+       "start_time": "09:20",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "pre_sputtering",
+       "uid": "step1",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": 380
+      },
+      {
+       "atmosphere": "Background gas",
+       "end_time": "10:00",
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_output": 20,
+       "pressure": 0.005,
+       "ramp_rate": 10,
+       "start_time": "09:30",
+       "temperature_setpoint": 300,
+       "type": "heating",
+       "uid": "heat",
+       "valve_position": 40,
+       "valve_position_fixed": false
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "end_time": "10:30",
+       "film_thickness": 50,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "plasma_type": "DC",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "sputtering",
+       "uid": "step2",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": 380,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "dc_bias": 150,
+       "end_time": "10:30",
+       "film_thickness": 10,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "load_capacitance": 1.2,
+       "plasma_type": "RF",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ti#/data",
+       "type": "sputtering",
+       "uid": "step3",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": null,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      }
+     ],
+     "targets": [
+      {
+       "material": "Ta",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "target_number": "1",
+       "uid": "t1"
+      },
+      {
+       "material": "Ti",
+       "target": "../uploads/target_db/archive/ti#/data",
+       "target_number": "2",
+       "uid": "t2"
+      }
+     ]
+    },
+    "name": "decimal comma below one",
+    "warnings": [
+     {
+      "message": "Starts before the previous step ends.",
+      "path": "steps.3.start_time"
+     }
+    ]
+   },
+   {
+    "computed": {
+     "samples.0.name": "Si_Ta-50nm_Ti-10nm",
+     "samples.0.sample_id": "SPS_2026-10-22_09:15_S01"
+    },
+    "draft_errors": [],
+    "errors": [
+     {
+      "message": "Write the number without a thousands separator, with a dot or one comma for decimals: 1500 or 1.5.",
+      "path": "chamber.base_pressure"
+     }
+    ],
+    "form": {
+     "chamber": {
+      "base_pressure": "-1,250",
+      "mask_used": false,
+      "substrate_carrier": "4\" carrier SPS"
+     },
+     "comments": {
+      "comments": "Ta and Ti from the 2\" positions."
+     },
+     "run": {
+      "date": "2026-10-22",
+      "name": "Ta-Ti multilayer",
+      "operator_email": "ada@example.org",
+      "operator_name": "Ada Lovelace",
+      "system": "SPS",
+      "time": "09:15",
+      "utc_offset": "+02:00"
+     },
+     "samples": [
+      {
+       "origin": "New sample",
+       "substrate": "../uploads/target_db/archive/substrate_si#/data",
+       "substrate_material": "Si",
+       "uid": "sub1"
+      }
+     ],
+     "steps": [
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "end_time": "09:30",
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "plasma_type": "DC",
+       "power": 100,
+       "pre_sputter_time": 10,
+       "pressure": 0.005,
+       "ramp_up_rate": 10,
+       "start_time": "09:20",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "pre_sputtering",
+       "uid": "step1",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": 380
+      },
+      {
+       "atmosphere": "Background gas",
+       "end_time": "10:00",
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_output": 20,
+       "pressure": 0.005,
+       "ramp_rate": 10,
+       "start_time": "09:30",
+       "temperature_setpoint": 300,
+       "type": "heating",
+       "uid": "heat",
+       "valve_position": 40,
+       "valve_position_fixed": false
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "end_time": "10:30",
+       "film_thickness": 50,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "plasma_type": "DC",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "sputtering",
+       "uid": "step2",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": 380,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "dc_bias": 150,
+       "end_time": "10:30",
+       "film_thickness": 10,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "load_capacitance": 1.2,
+       "plasma_type": "RF",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ti#/data",
+       "type": "sputtering",
+       "uid": "step3",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": null,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      }
+     ],
+     "targets": [
+      {
+       "material": "Ta",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "target_number": "1",
+       "uid": "t1"
+      },
+      {
+       "material": "Ti",
+       "target": "../uploads/target_db/archive/ti#/data",
+       "target_number": "2",
+       "uid": "t2"
+      }
+     ]
+    },
+    "name": "decimal comma after a minus",
+    "warnings": [
+     {
+      "message": "Starts before the previous step ends.",
+      "path": "steps.3.start_time"
+     }
+    ]
+   },
+   {
+    "computed": {
+     "samples.0.name": "Si_Ta-50nm_Ti-10nm",
+     "samples.0.sample_id": "SPS_2026-10-22_09:15_S01"
+    },
+    "draft_errors": [],
+    "errors": [
+     {
+      "message": "Enter a number.",
+      "path": "chamber.base_pressure"
+     }
+    ],
+    "form": {
+     "chamber": {
+      "base_pressure": 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,
+      "mask_used": false,
+      "substrate_carrier": "4\" carrier SPS"
+     },
+     "comments": {
+      "comments": "Ta and Ti from the 2\" positions."
+     },
+     "run": {
+      "date": "2026-10-22",
+      "name": "Ta-Ti multilayer",
+      "operator_email": "ada@example.org",
+      "operator_name": "Ada Lovelace",
+      "system": "SPS",
+      "time": "09:15",
+      "utc_offset": "+02:00"
+     },
+     "samples": [
+      {
+       "origin": "New sample",
+       "substrate": "../uploads/target_db/archive/substrate_si#/data",
+       "substrate_material": "Si",
+       "uid": "sub1"
+      }
+     ],
+     "steps": [
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "end_time": "09:30",
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "plasma_type": "DC",
+       "power": 100,
+       "pre_sputter_time": 10,
+       "pressure": 0.005,
+       "ramp_up_rate": 10,
+       "start_time": "09:20",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "pre_sputtering",
+       "uid": "step1",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": 380
+      },
+      {
+       "atmosphere": "Background gas",
+       "end_time": "10:00",
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_output": 20,
+       "pressure": 0.005,
+       "ramp_rate": 10,
+       "start_time": "09:30",
+       "temperature_setpoint": 300,
+       "type": "heating",
+       "uid": "heat",
+       "valve_position": 40,
+       "valve_position_fixed": false
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "end_time": "10:30",
+       "film_thickness": 50,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "plasma_type": "DC",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "sputtering",
+       "uid": "step2",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": 380,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "dc_bias": 150,
+       "end_time": "10:30",
+       "film_thickness": 10,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "load_capacitance": 1.2,
+       "plasma_type": "RF",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ti#/data",
+       "type": "sputtering",
+       "uid": "step3",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": null,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      }
+     ],
+     "targets": [
+      {
+       "material": "Ta",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "target_number": "1",
+       "uid": "t1"
+      },
+      {
+       "material": "Ti",
+       "target": "../uploads/target_db/archive/ti#/data",
+       "target_number": "2",
+       "uid": "t2"
+      }
+     ]
+    },
+    "name": "number as a huge JSON integer",
+    "warnings": [
+     {
+      "message": "Starts before the previous step ends.",
+      "path": "steps.3.start_time"
+     }
+    ]
+   },
+   {
+    "computed": {
+     "samples.0.name": "Si_Ta-50nm_Ti-10nm",
+     "samples.0.sample_id": "SPS_2026-10-22_09:15_S01"
+    },
+    "draft_errors": [],
+    "errors": [
+     {
+      "message": "Must be at least 0.",
+      "path": "steps.0.valve_position"
+     }
+    ],
+    "form": {
+     "chamber": {
+      "base_pressure": 1e-07,
+      "mask_used": false,
+      "substrate_carrier": "4\" carrier SPS"
+     },
+     "comments": {
+      "comments": "Ta and Ti from the 2\" positions."
+     },
+     "run": {
+      "date": "2026-10-22",
+      "name": "Ta-Ti multilayer",
+      "operator_email": "ada@example.org",
+      "operator_name": "Ada Lovelace",
+      "system": "SPS",
+      "time": "09:15",
+      "utc_offset": "+02:00"
+     },
+     "samples": [
+      {
+       "origin": "New sample",
+       "substrate": "../uploads/target_db/archive/substrate_si#/data",
+       "substrate_material": "Si",
+       "uid": "sub1"
+      }
+     ],
+     "steps": [
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "end_time": "09:30",
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "plasma_type": "DC",
+       "power": 100,
+       "pre_sputter_time": 10,
+       "pressure": 0.005,
+       "ramp_up_rate": 10,
+       "start_time": "09:20",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "pre_sputtering",
+       "uid": "step1",
+       "valve_position": -5,
+       "valve_position_fixed": false,
+       "voltage": 380
+      },
+      {
+       "atmosphere": "Background gas",
+       "end_time": "10:00",
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_output": 20,
+       "pressure": 0.005,
+       "ramp_rate": 10,
+       "start_time": "09:30",
+       "temperature_setpoint": 300,
+       "type": "heating",
+       "uid": "heat",
+       "valve_position": 40,
+       "valve_position_fixed": false
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "end_time": "10:30",
+       "film_thickness": 50,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "plasma_type": "DC",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "sputtering",
+       "uid": "step2",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": 380,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "dc_bias": 150,
+       "end_time": "10:30",
+       "film_thickness": 10,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "load_capacitance": 1.2,
+       "plasma_type": "RF",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ti#/data",
+       "type": "sputtering",
+       "uid": "step3",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": null,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      }
+     ],
+     "targets": [
+      {
+       "material": "Ta",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "target_number": "1",
+       "uid": "t1"
+      },
+      {
+       "material": "Ti",
+       "target": "../uploads/target_db/archive/ti#/data",
+       "target_number": "2",
+       "uid": "t2"
+      }
+     ]
+    },
     "name": "negative number below the minimum",
+    "warnings": [
+     {
+      "message": "Starts before the previous step ends.",
+      "path": "steps.3.start_time"
+     }
+    ]
+   },
+   {
+    "computed": {
+     "samples.0.name": "Si_Ta-50nm_Ti-10nm",
+     "samples.0.sample_id": "SPS_2026-10-22_09:15_S01"
+    },
+    "draft_errors": [],
+    "errors": [
+     {
+      "message": "Must be at most 1000.",
+      "path": "steps.0.valve_position"
+     }
+    ],
+    "form": {
+     "chamber": {
+      "base_pressure": 1e-07,
+      "mask_used": false,
+      "substrate_carrier": "4\" carrier SPS"
+     },
+     "comments": {
+      "comments": "Ta and Ti from the 2\" positions."
+     },
+     "run": {
+      "date": "2026-10-22",
+      "name": "Ta-Ti multilayer",
+      "operator_email": "ada@example.org",
+      "operator_name": "Ada Lovelace",
+      "system": "SPS",
+      "time": "09:15",
+      "utc_offset": "+02:00"
+     },
+     "samples": [
+      {
+       "origin": "New sample",
+       "substrate": "../uploads/target_db/archive/substrate_si#/data",
+       "substrate_material": "Si",
+       "uid": "sub1"
+      }
+     ],
+     "steps": [
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "end_time": "09:30",
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "plasma_type": "DC",
+       "power": 100,
+       "pre_sputter_time": 10,
+       "pressure": 0.005,
+       "ramp_up_rate": 10,
+       "start_time": "09:20",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "pre_sputtering",
+       "uid": "step1",
+       "valve_position": 1001,
+       "valve_position_fixed": false,
+       "voltage": 380
+      },
+      {
+       "atmosphere": "Background gas",
+       "end_time": "10:00",
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_output": 20,
+       "pressure": 0.005,
+       "ramp_rate": 10,
+       "start_time": "09:30",
+       "temperature_setpoint": 300,
+       "type": "heating",
+       "uid": "heat",
+       "valve_position": 40,
+       "valve_position_fixed": false
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "end_time": "10:30",
+       "film_thickness": 50,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "plasma_type": "DC",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "sputtering",
+       "uid": "step2",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": 380,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "dc_bias": 150,
+       "end_time": "10:30",
+       "film_thickness": 10,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "load_capacitance": 1.2,
+       "plasma_type": "RF",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ti#/data",
+       "type": "sputtering",
+       "uid": "step3",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": null,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      }
+     ],
+     "targets": [
+      {
+       "material": "Ta",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "target_number": "1",
+       "uid": "t1"
+      },
+      {
+       "material": "Ti",
+       "target": "../uploads/target_db/archive/ti#/data",
+       "target_number": "2",
+       "uid": "t2"
+      }
+     ]
+    },
+    "name": "number above the maximum",
     "warnings": [
      {
       "message": "Starts before the previous step ends.",
@@ -15201,6 +18514,625 @@
      ]
     },
     "name": "whole number with a fraction",
+    "warnings": [
+     {
+      "message": "Starts before the previous step ends.",
+      "path": "steps.3.start_time"
+     }
+    ]
+   },
+   {
+    "computed": {
+     "samples.0.name": "Si_Ta-50nm_Ti-10nm",
+     "samples.0.sample_id": "SPS_2026-10-22_09:15_S01"
+    },
+    "draft_errors": [],
+    "errors": [],
+    "form": {
+     "chamber": {
+      "base_pressure": 1e-07,
+      "mask_used": false,
+      "substrate_carrier": "4\" carrier SPS"
+     },
+     "comments": {
+      "comments": "Ta and Ti from the 2\" positions."
+     },
+     "run": {
+      "date": "2026-10-22",
+      "name": "Ta-Ti multilayer",
+      "operator_email": "ada@example.org",
+      "operator_name": "Ada Lovelace",
+      "system": "SPS",
+      "time": "09:15",
+      "utc_offset": "+02:00"
+     },
+     "samples": [
+      {
+       "origin": "New sample",
+       "substrate": "../uploads/target_db/archive/substrate_si#/data",
+       "substrate_material": "Si",
+       "uid": "sub1"
+      }
+     ],
+     "steps": [
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "end_time": "09:30",
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "plasma_type": "DC",
+       "power": 100,
+       "pre_sputter_time": 10,
+       "pressure": 0.005,
+       "ramp_up_rate": 10,
+       "start_time": "09:20",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "pre_sputtering",
+       "uid": "step1",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": 380
+      },
+      {
+       "atmosphere": "Background gas",
+       "end_time": "10:00",
+       "film_thickness_pulses": "1,500",
+       "film_thickness_unit": "pulses",
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_output": 20,
+       "pressure": 0.005,
+       "ramp_rate": 10,
+       "start_time": "09:30",
+       "temperature_setpoint": 300,
+       "type": "heating",
+       "uid": "heat",
+       "valve_position": 40,
+       "valve_position_fixed": false
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "end_time": "10:30",
+       "film_thickness": 50,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "plasma_type": "DC",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "sputtering",
+       "uid": "step2",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": 380,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "dc_bias": 150,
+       "end_time": "10:30",
+       "film_thickness": 10,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "load_capacitance": 1.2,
+       "plasma_type": "RF",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ti#/data",
+       "type": "sputtering",
+       "uid": "step3",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": null,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      }
+     ],
+     "targets": [
+      {
+       "material": "Ta",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "target_number": "1",
+       "uid": "t1"
+      },
+      {
+       "material": "Ti",
+       "target": "../uploads/target_db/archive/ti#/data",
+       "target_number": "2",
+       "uid": "t2"
+      }
+     ]
+    },
+    "name": "whole number with a thousands separator",
+    "warnings": [
+     {
+      "message": "Starts before the previous step ends.",
+      "path": "steps.3.start_time"
+     }
+    ]
+   },
+   {
+    "computed": {
+     "samples.0.name": "Si_Ta-50nm_Ti-10nm",
+     "samples.0.sample_id": "SPS_2026-10-22_09:15_S01"
+    },
+    "draft_errors": [],
+    "errors": [
+     {
+      "message": "Required.",
+      "path": "run.operator_name"
+     }
+    ],
+    "form": {
+     "chamber": {
+      "base_pressure": 1e-07,
+      "mask_used": false,
+      "substrate_carrier": "4\" carrier SPS"
+     },
+     "comments": {
+      "comments": "Ta and Ti from the 2\" positions."
+     },
+     "run": {
+      "date": "2026-10-22",
+      "name": "Ta-Ti multilayer",
+      "operator_email": "ada@example.org",
+      "operator_name": "   ",
+      "system": "SPS",
+      "time": "09:15",
+      "utc_offset": "+02:00"
+     },
+     "samples": [
+      {
+       "origin": "New sample",
+       "substrate": "../uploads/target_db/archive/substrate_si#/data",
+       "substrate_material": "Si",
+       "uid": "sub1"
+      }
+     ],
+     "steps": [
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "end_time": "09:30",
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "plasma_type": "DC",
+       "power": 100,
+       "pre_sputter_time": 10,
+       "pressure": 0.005,
+       "ramp_up_rate": 10,
+       "start_time": "09:20",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "pre_sputtering",
+       "uid": "step1",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": 380
+      },
+      {
+       "atmosphere": "Background gas",
+       "end_time": "10:00",
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_output": 20,
+       "pressure": 0.005,
+       "ramp_rate": 10,
+       "start_time": "09:30",
+       "temperature_setpoint": 300,
+       "type": "heating",
+       "uid": "heat",
+       "valve_position": 40,
+       "valve_position_fixed": false
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "end_time": "10:30",
+       "film_thickness": 50,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "plasma_type": "DC",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "sputtering",
+       "uid": "step2",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": 380,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "dc_bias": 150,
+       "end_time": "10:30",
+       "film_thickness": 10,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "load_capacitance": 1.2,
+       "plasma_type": "RF",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ti#/data",
+       "type": "sputtering",
+       "uid": "step3",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": null,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      }
+     ],
+     "targets": [
+      {
+       "material": "Ta",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "target_number": "1",
+       "uid": "t1"
+      },
+      {
+       "material": "Ti",
+       "target": "../uploads/target_db/archive/ti#/data",
+       "target_number": "2",
+       "uid": "t2"
+      }
+     ]
+    },
+    "name": "required text of only spaces",
+    "warnings": [
+     {
+      "message": "Starts before the previous step ends.",
+      "path": "steps.3.start_time"
+     }
+    ]
+   },
+   {
+    "computed": {
+     "samples.0.name": "Si_Ta-50nm_Ti-10nm",
+     "samples.0.sample_id": "SPS_2026-10-22_09:15_S01"
+    },
+    "draft_errors": [],
+    "errors": [
+     {
+      "message": "Enter text.",
+      "path": "run.operator_name"
+     }
+    ],
+    "form": {
+     "chamber": {
+      "base_pressure": 1e-07,
+      "mask_used": false,
+      "substrate_carrier": "4\" carrier SPS"
+     },
+     "comments": {
+      "comments": "Ta and Ti from the 2\" positions."
+     },
+     "run": {
+      "date": "2026-10-22",
+      "name": "Ta-Ti multilayer",
+      "operator_email": "ada@example.org",
+      "operator_name": [
+       "Ada"
+      ],
+      "system": "SPS",
+      "time": "09:15",
+      "utc_offset": "+02:00"
+     },
+     "samples": [
+      {
+       "origin": "New sample",
+       "substrate": "../uploads/target_db/archive/substrate_si#/data",
+       "substrate_material": "Si",
+       "uid": "sub1"
+      }
+     ],
+     "steps": [
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "end_time": "09:30",
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "plasma_type": "DC",
+       "power": 100,
+       "pre_sputter_time": 10,
+       "pressure": 0.005,
+       "ramp_up_rate": 10,
+       "start_time": "09:20",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "pre_sputtering",
+       "uid": "step1",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": 380
+      },
+      {
+       "atmosphere": "Background gas",
+       "end_time": "10:00",
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_output": 20,
+       "pressure": 0.005,
+       "ramp_rate": 10,
+       "start_time": "09:30",
+       "temperature_setpoint": 300,
+       "type": "heating",
+       "uid": "heat",
+       "valve_position": 40,
+       "valve_position_fixed": false
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "end_time": "10:30",
+       "film_thickness": 50,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "plasma_type": "DC",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "sputtering",
+       "uid": "step2",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": 380,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "dc_bias": 150,
+       "end_time": "10:30",
+       "film_thickness": 10,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "load_capacitance": 1.2,
+       "plasma_type": "RF",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ti#/data",
+       "type": "sputtering",
+       "uid": "step3",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": null,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      }
+     ],
+     "targets": [
+      {
+       "material": "Ta",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "target_number": "1",
+       "uid": "t1"
+      },
+      {
+       "material": "Ti",
+       "target": "../uploads/target_db/archive/ti#/data",
+       "target_number": "2",
+       "uid": "t2"
+      }
+     ]
+    },
+    "name": "text as a list",
+    "warnings": [
+     {
+      "message": "Starts before the previous step ends.",
+      "path": "steps.3.start_time"
+     }
+    ]
+   },
+   {
+    "computed": {
+     "samples.0.name": "Si_Ta-50nm_Ti-10nm",
+     "samples.0.sample_id": "SPS_2026-10-22_09:15_S01"
+    },
+    "draft_errors": [],
+    "errors": [
+     {
+      "message": "Tick or untick this box.",
+      "path": "steps.0.valve_position_fixed"
+     }
+    ],
+    "form": {
+     "chamber": {
+      "base_pressure": 1e-07,
+      "mask_used": false,
+      "substrate_carrier": "4\" carrier SPS"
+     },
+     "comments": {
+      "comments": "Ta and Ti from the 2\" positions."
+     },
+     "run": {
+      "date": "2026-10-22",
+      "name": "Ta-Ti multilayer",
+      "operator_email": "ada@example.org",
+      "operator_name": "Ada Lovelace",
+      "system": "SPS",
+      "time": "09:15",
+      "utc_offset": "+02:00"
+     },
+     "samples": [
+      {
+       "origin": "New sample",
+       "substrate": "../uploads/target_db/archive/substrate_si#/data",
+       "substrate_material": "Si",
+       "uid": "sub1"
+      }
+     ],
+     "steps": [
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "end_time": "09:30",
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "plasma_type": "DC",
+       "power": 100,
+       "pre_sputter_time": 10,
+       "pressure": 0.005,
+       "ramp_up_rate": 10,
+       "start_time": "09:20",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "pre_sputtering",
+       "uid": "step1",
+       "valve_position": 40,
+       "valve_position_fixed": "false",
+       "voltage": 380
+      },
+      {
+       "atmosphere": "Background gas",
+       "end_time": "10:00",
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_output": 20,
+       "pressure": 0.005,
+       "ramp_rate": 10,
+       "start_time": "09:30",
+       "temperature_setpoint": 300,
+       "type": "heating",
+       "uid": "heat",
+       "valve_position": 40,
+       "valve_position_fixed": false
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "end_time": "10:30",
+       "film_thickness": 50,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "plasma_type": "DC",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "sputtering",
+       "uid": "step2",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": 380,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "dc_bias": 150,
+       "end_time": "10:30",
+       "film_thickness": 10,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "load_capacitance": 1.2,
+       "plasma_type": "RF",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ti#/data",
+       "type": "sputtering",
+       "uid": "step3",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": null,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      }
+     ],
+     "targets": [
+      {
+       "material": "Ta",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "target_number": "1",
+       "uid": "t1"
+      },
+      {
+       "material": "Ti",
+       "target": "../uploads/target_db/archive/ti#/data",
+       "target_number": "2",
+       "uid": "t2"
+      }
+     ]
+    },
+    "name": "box ticked as a string",
     "warnings": [
      {
       "message": "Starts before the previous step ends.",
@@ -16136,6 +20068,169 @@
    },
    {
     "computed": {
+     "samples.0.name": "Si_Ta-50nm",
+     "samples.0.sample_id": "SPS_2026-10-22_09:15_S01"
+    },
+    "draft_errors": [],
+    "errors": [
+     {
+      "message": "Target is used more than once.",
+      "path": "targets.1.target"
+     },
+     {
+      "message": "Target number is used more than once.",
+      "path": "targets.1.target_number"
+     },
+     {
+      "message": "Choose one of the targets selected under Targets.",
+      "path": "steps.3.target"
+     }
+    ],
+    "form": {
+     "chamber": {
+      "base_pressure": 1e-07,
+      "mask_used": false,
+      "substrate_carrier": "4\" carrier SPS"
+     },
+     "comments": {
+      "comments": "Ta and Ti from the 2\" positions."
+     },
+     "run": {
+      "date": "2026-10-22",
+      "name": "Ta-Ti multilayer",
+      "operator_email": "ada@example.org",
+      "operator_name": "Ada Lovelace",
+      "system": "SPS",
+      "time": "09:15",
+      "utc_offset": "+02:00"
+     },
+     "samples": [
+      {
+       "origin": "New sample",
+       "substrate": "../uploads/target_db/archive/substrate_si#/data",
+       "substrate_material": "Si",
+       "uid": "sub1"
+      }
+     ],
+     "steps": [
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "end_time": "09:30",
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "plasma_type": "DC",
+       "power": 100,
+       "pre_sputter_time": 10,
+       "pressure": 0.005,
+       "ramp_up_rate": 10,
+       "start_time": "09:20",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "pre_sputtering",
+       "uid": "step1",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": 380
+      },
+      {
+       "atmosphere": "Background gas",
+       "end_time": "10:00",
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_output": 20,
+       "pressure": 0.005,
+       "ramp_rate": 10,
+       "start_time": "09:30",
+       "temperature_setpoint": 300,
+       "type": "heating",
+       "uid": "heat",
+       "valve_position": 40,
+       "valve_position_fixed": false
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "end_time": "10:30",
+       "film_thickness": 50,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "plasma_type": "DC",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "sputtering",
+       "uid": "step2",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": 380,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "dc_bias": 150,
+       "end_time": "10:30",
+       "film_thickness": 10,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "load_capacitance": 1.2,
+       "plasma_type": "RF",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ti#/data",
+       "type": "sputtering",
+       "uid": "step3",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": null,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      }
+     ],
+     "targets": [
+      {
+       "material": "Ta",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "target_number": "1",
+       "uid": "t1"
+      },
+      {
+       "material": "Ti",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "target_number": "1",
+       "uid": "t2"
+      }
+     ]
+    },
+    "name": "the same target twice",
+    "warnings": [
+     {
+      "message": "Starts before the previous step ends.",
+      "path": "steps.3.start_time"
+     }
+    ]
+   },
+   {
+    "computed": {
      "samples.0.name": "Si_Ti-10nm",
      "samples.0.sample_id": "SPS_2026-10-22_09:15_S01"
     },
@@ -16497,6 +20592,622 @@
      ]
     },
     "name": "unknown step type",
+    "warnings": [
+     {
+      "message": "Starts before the previous step ends.",
+      "path": "steps.3.start_time"
+     }
+    ]
+   },
+   {
+    "computed": {
+     "samples.0.name": "Si_Ta-50nm_Ti-10nm",
+     "samples.0.sample_id": "SPS_2026-10-22_09:15_S01"
+    },
+    "draft_errors": [],
+    "errors": [
+     {
+      "message": "Step 2 is a copy of another step: remove it and add it again.",
+      "path": "steps.1"
+     }
+    ],
+    "form": {
+     "chamber": {
+      "base_pressure": 1e-07,
+      "mask_used": false,
+      "substrate_carrier": "4\" carrier SPS"
+     },
+     "comments": {
+      "comments": "Ta and Ti from the 2\" positions."
+     },
+     "run": {
+      "date": "2026-10-22",
+      "name": "Ta-Ti multilayer",
+      "operator_email": "ada@example.org",
+      "operator_name": "Ada Lovelace",
+      "system": "SPS",
+      "time": "09:15",
+      "utc_offset": "+02:00"
+     },
+     "samples": [
+      {
+       "origin": "New sample",
+       "substrate": "../uploads/target_db/archive/substrate_si#/data",
+       "substrate_material": "Si",
+       "uid": "sub1"
+      }
+     ],
+     "steps": [
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "end_time": "09:30",
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "plasma_type": "DC",
+       "power": 100,
+       "pre_sputter_time": 10,
+       "pressure": 0.005,
+       "ramp_up_rate": 10,
+       "start_time": "09:20",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "pre_sputtering",
+       "uid": "step1",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": 380
+      },
+      {
+       "atmosphere": "Background gas",
+       "end_time": "10:00",
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_output": 20,
+       "pressure": 0.005,
+       "ramp_rate": 10,
+       "start_time": "09:30",
+       "temperature_setpoint": 300,
+       "type": "heating",
+       "uid": "step1",
+       "valve_position": 40,
+       "valve_position_fixed": false
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "end_time": "10:30",
+       "film_thickness": 50,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "plasma_type": "DC",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "sputtering",
+       "uid": "step2",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": 380,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "dc_bias": 150,
+       "end_time": "10:30",
+       "film_thickness": 10,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "load_capacitance": 1.2,
+       "plasma_type": "RF",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ti#/data",
+       "type": "sputtering",
+       "uid": "step3",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": null,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      }
+     ],
+     "targets": [
+      {
+       "material": "Ta",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "target_number": "1",
+       "uid": "t1"
+      },
+      {
+       "material": "Ti",
+       "target": "../uploads/target_db/archive/ti#/data",
+       "target_number": "2",
+       "uid": "t2"
+      }
+     ]
+    },
+    "name": "two steps with one ID",
+    "warnings": [
+     {
+      "message": "Starts before the previous step ends.",
+      "path": "steps.3.start_time"
+     }
+    ]
+   },
+   {
+    "computed": {
+     "samples.0.name": "Si_Ta-50nm_Ti-10nm",
+     "samples.0.sample_id": "SPS_2026-10-22_09:15_S01"
+    },
+    "draft_errors": [],
+    "errors": [
+     {
+      "message": "This item has no ID: remove it and add it again.",
+      "path": "steps.0"
+     }
+    ],
+    "form": {
+     "chamber": {
+      "base_pressure": 1e-07,
+      "mask_used": false,
+      "substrate_carrier": "4\" carrier SPS"
+     },
+     "comments": {
+      "comments": "Ta and Ti from the 2\" positions."
+     },
+     "run": {
+      "date": "2026-10-22",
+      "name": "Ta-Ti multilayer",
+      "operator_email": "ada@example.org",
+      "operator_name": "Ada Lovelace",
+      "system": "SPS",
+      "time": "09:15",
+      "utc_offset": "+02:00"
+     },
+     "samples": [
+      {
+       "origin": "New sample",
+       "substrate": "../uploads/target_db/archive/substrate_si#/data",
+       "substrate_material": "Si",
+       "uid": "sub1"
+      }
+     ],
+     "steps": [
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "end_time": "09:30",
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "plasma_type": "DC",
+       "power": 100,
+       "pre_sputter_time": 10,
+       "pressure": 0.005,
+       "ramp_up_rate": 10,
+       "start_time": "09:20",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "pre_sputtering",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": 380
+      },
+      {
+       "atmosphere": "Background gas",
+       "end_time": "10:00",
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_output": 20,
+       "pressure": 0.005,
+       "ramp_rate": 10,
+       "start_time": "09:30",
+       "temperature_setpoint": 300,
+       "type": "heating",
+       "uid": "heat",
+       "valve_position": 40,
+       "valve_position_fixed": false
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "end_time": "10:30",
+       "film_thickness": 50,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "plasma_type": "DC",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "sputtering",
+       "uid": "step2",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": 380,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "dc_bias": 150,
+       "end_time": "10:30",
+       "film_thickness": 10,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "load_capacitance": 1.2,
+       "plasma_type": "RF",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ti#/data",
+       "type": "sputtering",
+       "uid": "step3",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": null,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      }
+     ],
+     "targets": [
+      {
+       "material": "Ta",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "target_number": "1",
+       "uid": "t1"
+      },
+      {
+       "material": "Ti",
+       "target": "../uploads/target_db/archive/ti#/data",
+       "target_number": "2",
+       "uid": "t2"
+      }
+     ]
+    },
+    "name": "step without an ID",
+    "warnings": [
+     {
+      "message": "Starts before the previous step ends.",
+      "path": "steps.3.start_time"
+     }
+    ]
+   },
+   {
+    "computed": {
+     "samples.0.name": "Si_Ta-50nm_Ti-10nm",
+     "samples.0.sample_id": "SPS_2026-10-22_09:15_S01"
+    },
+    "draft_errors": [],
+    "errors": [
+     {
+      "message": "Tick at least one gas, or choose UHV.",
+      "path": "steps.0.atmosphere"
+     }
+    ],
+    "form": {
+     "chamber": {
+      "base_pressure": 1e-07,
+      "mask_used": false,
+      "substrate_carrier": "4\" carrier SPS"
+     },
+     "comments": {
+      "comments": "Ta and Ti from the 2\" positions."
+     },
+     "run": {
+      "date": "2026-10-22",
+      "name": "Ta-Ti multilayer",
+      "operator_email": "ada@example.org",
+      "operator_name": "Ada Lovelace",
+      "system": "SPS",
+      "time": "09:15",
+      "utc_offset": "+02:00"
+     },
+     "samples": [
+      {
+       "origin": "New sample",
+       "substrate": "../uploads/target_db/archive/substrate_si#/data",
+       "substrate_material": "Si",
+       "uid": "sub1"
+      }
+     ],
+     "steps": [
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "end_time": "09:30",
+       "gas_Ar": false,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "gas_O2": false,
+       "plasma_type": "DC",
+       "power": 100,
+       "pre_sputter_time": 10,
+       "pressure": 0.005,
+       "ramp_up_rate": 10,
+       "start_time": "09:20",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "pre_sputtering",
+       "uid": "step1",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": 380
+      },
+      {
+       "atmosphere": "Background gas",
+       "end_time": "10:00",
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_output": 20,
+       "pressure": 0.005,
+       "ramp_rate": 10,
+       "start_time": "09:30",
+       "temperature_setpoint": 300,
+       "type": "heating",
+       "uid": "heat",
+       "valve_position": 40,
+       "valve_position_fixed": false
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "end_time": "10:30",
+       "film_thickness": 50,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "plasma_type": "DC",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "sputtering",
+       "uid": "step2",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": 380,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "dc_bias": 150,
+       "end_time": "10:30",
+       "film_thickness": 10,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "load_capacitance": 1.2,
+       "plasma_type": "RF",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ti#/data",
+       "type": "sputtering",
+       "uid": "step3",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": null,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      }
+     ],
+     "targets": [
+      {
+       "material": "Ta",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "target_number": "1",
+       "uid": "t1"
+      },
+      {
+       "material": "Ti",
+       "target": "../uploads/target_db/archive/ti#/data",
+       "target_number": "2",
+       "uid": "t2"
+      }
+     ]
+    },
+    "name": "background gas without a gas",
+    "warnings": [
+     {
+      "message": "Starts before the previous step ends.",
+      "path": "steps.3.start_time"
+     }
+    ]
+   },
+   {
+    "computed": {
+     "samples.0.name": "Si_Ta-50nm_Ti-10nm",
+     "samples.0.sample_id": "SPS_2026-10-22_09:15_S01"
+    },
+    "draft_errors": [],
+    "errors": [],
+    "form": {
+     "chamber": {
+      "base_pressure": 1e-07,
+      "mask_used": false,
+      "substrate_carrier": "4\" carrier SPS"
+     },
+     "comments": {
+      "comments": "Ta and Ti from the 2\" positions."
+     },
+     "run": {
+      "date": "2026-10-22",
+      "name": "Ta-Ti multilayer",
+      "operator_email": "ada@example.org",
+      "operator_name": "Ada Lovelace",
+      "system": "SPS",
+      "time": "09:15",
+      "utc_offset": "+02:00"
+     },
+     "samples": [
+      {
+       "origin": "New sample",
+       "substrate": "../uploads/target_db/archive/substrate_si#/data",
+       "substrate_material": "Si",
+       "uid": "sub1"
+      }
+     ],
+     "steps": [
+      {
+       "atmosphere": "UHV",
+       "current": 260,
+       "end_time": "09:30",
+       "gas_Ar": false,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "gas_O2": false,
+       "plasma_type": "DC",
+       "power": 100,
+       "pre_sputter_time": 10,
+       "pressure": 0.005,
+       "ramp_up_rate": 10,
+       "start_time": "09:20",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "pre_sputtering",
+       "uid": "step1",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": 380
+      },
+      {
+       "atmosphere": "Background gas",
+       "end_time": "10:00",
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_output": 20,
+       "pressure": 0.005,
+       "ramp_rate": 10,
+       "start_time": "09:30",
+       "temperature_setpoint": 300,
+       "type": "heating",
+       "uid": "heat",
+       "valve_position": 40,
+       "valve_position_fixed": false
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "end_time": "10:30",
+       "film_thickness": 50,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "plasma_type": "DC",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "type": "sputtering",
+       "uid": "step2",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": 380,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      },
+      {
+       "atmosphere": "Background gas",
+       "current": 260,
+       "dc_bias": 150,
+       "end_time": "10:30",
+       "film_thickness": 10,
+       "gas_Ar": true,
+       "gas_Ar_flow_readout": 19.8,
+       "gas_Ar_flow_setpoint": 20,
+       "heater_rotation": 10,
+       "load_capacitance": 1.2,
+       "plasma_type": "RF",
+       "power": 100,
+       "pressure": 0.005,
+       "ramp_down_rate": 10,
+       "shutter": "open",
+       "spin": 0,
+       "sputter_time": 20,
+       "start_time": "10:00",
+       "target": "../uploads/target_db/archive/ti#/data",
+       "type": "sputtering",
+       "uid": "step3",
+       "valve_position": 40,
+       "valve_position_fixed": false,
+       "voltage": null,
+       "x": 0,
+       "y": 0,
+       "z": 100
+      }
+     ],
+     "targets": [
+      {
+       "material": "Ta",
+       "target": "../uploads/target_db/archive/ta#/data",
+       "target_number": "1",
+       "uid": "t1"
+      },
+      {
+       "material": "Ti",
+       "target": "../uploads/target_db/archive/ti#/data",
+       "target_number": "2",
+       "uid": "t2"
+      }
+     ]
+    },
+    "name": "UHV step without a gas",
     "warnings": [
      {
       "message": "Starts before the previous step ends.",

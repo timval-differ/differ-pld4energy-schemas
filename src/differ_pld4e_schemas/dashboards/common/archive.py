@@ -70,14 +70,35 @@ def get_path(source: dict, path: str):
     return source
 
 
+class SpecError(RuntimeError):
+    """
+    The form definition does not fit the schema, e.g. a field's unit cannot be
+    converted to its quantity's unit. A bug in the plugin, not a bad request:
+    the value would be stored wrongly scaled.
+    """
+
+
+def _convert(number, source, target, field):
+    """`number` in unit `source` converted to `target`; both or neither set."""
+    if bool(source) != (target is not None):
+        raise SpecError(
+            f'{field.get("key")}: field unit {source!r}, schema unit {target}'
+        )
+    if not source:
+        return number
+    try:
+        return ureg.Quantity(number, source).to(target).magnitude
+    except Exception as error:  # pint's errors, e.g. DimensionalityError
+        raise SpecError(f'{field.get("key")}: {source} -> {target}: {error}') from error
+
+
 def to_archive_value(value, field: dict, quantity):
     kind = field['kind']
     if kind == 'bool':
         return bool(value)
     if kind in ('number', 'integer'):
         number = to_number(value) * field.get('scale', 1)
-        if field.get('unit') and quantity.unit is not None:
-            number = ureg.Quantity(number, field['unit']).to(quantity.unit).magnitude
+        number = _convert(number, field.get('unit'), quantity.unit, field)
         if not math.isfinite(number):
             # JSON has no infinity, so the archive could not be written.
             raise ValueError(f'{field.get("key", "A number")} is too large.')
@@ -95,8 +116,8 @@ def to_archive_value(value, field: dict, quantity):
 def to_form_value(value, field: dict, quantity):
     kind = field['kind']
     if kind in ('number', 'integer') and value is not None:
-        if field.get('unit') and quantity.unit is not None:
-            value = ureg.Quantity(value, quantity.unit).to(field['unit']).magnitude
+        unit = None if quantity.unit is None else str(quantity.unit)
+        value = _convert(value, unit, field.get('unit'), field)
         value /= field.get('scale', 1)
         value = int(round(value)) if kind == 'integer' else float(f'{value:.12g}')
     if kind == 'target_choice':

@@ -54,17 +54,33 @@ export function createRules(ctx) {
     return field.options || [];
   }
 
+  const NUMBER = /^[-+]?([0-9]+\.?[0-9]*|\.[0-9]+)([eE][-+]?[0-9]+)?$/;
+  // A comma that may group thousands ('12,000'), mirror values.THOUSANDS.
+  const THOUSANDS = /^[-+]?[1-9][0-9]{0,2},[0-9]{3}([eE][-+]?[0-9]+)?$/;
+
+  /* A decimal comma made a '.', or null if the comma is ambiguous (mirror values.decimal_comma). */
+  function decimalComma(text) {
+    if (!text.includes(',')) return text;
+    if (text.split(',').length > 2 || text.includes('.') || THOUSANDS.test(text)) return null;
+    return text.replace(',', '.');
+  }
+
   /* A number as typed in the form (mirror values.to_number and its NUMBER). */
   function toNumber(value) {
     if (typeof value === 'boolean' || value === null || value === undefined) return null;
     if (typeof value === 'number') return Number.isFinite(value) ? value : null;
     if (typeof value === 'string') {
-      const text = value.trim().replace(',', '.');
-      if (!/^[-+]?([0-9]+\.?[0-9]*|\.[0-9]+)([eE][-+]?[0-9]+)?$/.test(text)) return null;
+      const text = decimalComma(value.trim());
+      if (text === null || !NUMBER.test(text)) return null;
       const number = Number(text);
       return Number.isFinite(number) ? number : null;
     }
     return null;
+  }
+
+  /* A number but for its commas, e.g. '12,000' (mirror values.is_grouped_number). */
+  function isGroupedNumber(value) {
+    return typeof value === 'string' && value.includes(',') && NUMBER.test(value.trim().replaceAll(',', ''));
   }
 
   /* A real date as yyyy-mm-dd, not 2026-02-30 (mirror values.parse_date). */
@@ -209,9 +225,21 @@ export function createRules(ctx) {
     return field.kind === 'computed' ? compute(field.compute, local, root) : local[field.key];
   }
 
+  /* Nothing entered: also a text of only spaces (mirror values.is_empty). */
   function isEmpty(value) {
-    return value === null || value === undefined || value === '' || (Array.isArray(value) && !value.length);
+    if (typeof value === 'string') return !value.trim();
+    return value === null || value === undefined || (Array.isArray(value) && !value.length);
   }
+
+  const isTextList = (value) => Array.isArray(value) && value.every((v) => typeof v === 'string');
+  /* What a value of these kinds must be (mirror rules.TYPE_ERRORS). */
+  const TYPE_ERRORS = {
+    bool: [(value) => typeof value === 'boolean', 'Tick or untick this box.'],
+    text: [(value) => typeof value === 'string', 'Enter text.'],
+    textarea: [(value) => typeof value === 'string', 'Enter text.'],
+    step_choice: [isTextList, 'Choose steps listed under Process steps.'],
+    files: [isTextList, 'Add the files again.'],
+  };
 
   function targetChoices(root) {
     return (root.targets || []).filter((t) => t.target).map((t) => t.target);
@@ -254,8 +282,15 @@ export function createRules(ctx) {
 
   function fieldError(field, value, local, root) {
     const kind = field.kind;
+    if (Object.hasOwn(TYPE_ERRORS, kind)) {
+      const [isType, message] = TYPE_ERRORS[kind];
+      if (!isType(value)) return message;
+    }
     if (kind === 'number' || kind === 'integer') {
       const number = toNumber(value);
+      if (number === null && isGroupedNumber(value)) {
+        return 'Write the number without a thousands separator, with a dot or one comma for decimals: 1500 or 1.5.';
+      }
       if (number === null) return 'Enter a number.';
       if (kind === 'integer' && !Number.isInteger(number)) return 'Enter a whole number.';
       if ('min' in field && number < field.min) return `Must be at least ${field.min}.`;
@@ -303,6 +338,33 @@ export function createRules(ctx) {
     }
   }
 
+  /* Every item of a list has its own ID (mirror rules._validate_uids). */
+  function uidErrors(section, items) {
+    const errors = [];
+    const seen = new Set();
+    const label = section.item_label || 'item';
+    items.forEach((item, index) => {
+      const uid = item && typeof item === 'object' ? item.uid : undefined;
+      const path = `${section.key}.${index}`;
+      if (typeof uid !== 'string' || !uid) {
+        errors.push({path, message: 'This item has no ID: remove it and add it again.'});
+      } else if (seen.has(uid)) {
+        errors.push({path, message: `${label} ${index + 1} is a copy of another ${label.toLowerCase()}: remove it and add it again.`});
+      }
+      seen.add(uid);
+    });
+    return errors;
+  }
+
+  /* A step in a background gas names at least one gas (mirror rules._validate_gas_choice). */
+  function gasChoiceErrors(fields, item, path, root) {
+    const toggles = fields.filter((f) => f.gas && f.kind === 'bool' && evaluate(f.visible_if, item, root));
+    if (toggles.length && !toggles.some((f) => item[f.key] === true)) {
+      return [{path: `${path}.atmosphere`, message: 'Tick at least one gas, or choose UHV.'}];
+    }
+    return [];
+  }
+
   function validate(data, spec) {
     const errors = [];
     for (const section of spec.sections) {
@@ -315,6 +377,7 @@ export function createRules(ctx) {
         continue;
       }
       const items = data[key] || [];
+      errors.push(...uidErrors(section, items));
       if (required && items.length < (section.min_items || 0)) {
         errors.push({path: key, message: `Add at least one ${section.item_label.toLowerCase()}.`});
       }
@@ -329,6 +392,9 @@ export function createRules(ctx) {
           fields = variant.fields;
         }
         validateFields(fields, item, `${key}.${index}`, data, errors, required);
+        if (required && section.kind === 'variant_list') {
+          errors.push(...gasChoiceErrors(fields, item, `${key}.${index}`, data));
+        }
       });
       if (section.kind === 'list') {
         for (const uniqueKey of section.unique || []) {
@@ -425,6 +491,7 @@ export function createRules(ctx) {
     evaluate,
     fieldOptions,
     toNumber,
+    isGroupedNumber,
     isDate,
     isTime,
     COMPUTED,

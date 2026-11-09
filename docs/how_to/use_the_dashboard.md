@@ -110,8 +110,8 @@ leave a section with **Next**, or straight away for fields you have edited.
       ends gets a warning, but can still be saved. A prefilled step or a
       recipe does not copy the times.
     - **Background gases:** choose *UHV* to record only the chamber pressure, or
-      *Background gas* and tick each gas to fill in its set and read-out flow.
-      All gases share one valve, so its position (0 closed to 1000 open) is
+      *Background gas* and tick each gas to fill in its set and read-out flow
+      (at least one gas must be ticked). All gases share one valve, so its position (0 closed to 1000 open) is
       entered once per step.
     - **Target stage:** start x, y and z position, offsets, scan width and scan
       speed in x and y.
@@ -250,7 +250,11 @@ There is no laser and no in-situ section.
 
 ## Good to know
 
-- Required fields are marked with `*`. Comments are optional.
+- Required fields are marked with `*`. Comments are optional. A field with
+  only spaces counts as empty.
+- Numbers take a dot or one comma for decimals: `1.5` and `1,5` are the same.
+  A comma that may separate thousands, as in `12,000` or `1,500`, is refused:
+  write `12000`, or `12` if twelve was meant.
 - The dashboard checks the form again on the server before anything is saved.
 - Targets and substrates come only from the target and substrate database
   upload; *View the database in NOMAD* (*Edit* for maintainers) opens it.

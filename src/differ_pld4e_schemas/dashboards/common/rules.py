@@ -30,6 +30,7 @@ from .samples import (
 from .values import (
     evaluate,
     is_empty,
+    is_grouped_number,
     options,
     parse_date,
     parse_time,
@@ -95,8 +96,36 @@ def target_choices(root: dict) -> list:
     return [t['target'] for t in root.get('targets') or [] if t.get('target')]
 
 
+GROUPED_NUMBER = (
+    'Write the number without a thousands separator, with a dot or one comma '
+    'for decimals: 1500 or 1.5.'
+)
+# What a value of these kinds must be in the form, as JSON gives it.
+TYPE_ERRORS = {
+    'bool': (lambda value: isinstance(value, bool), 'Tick or untick this box.'),
+    'text': (lambda value: isinstance(value, str), 'Enter text.'),
+    'textarea': (lambda value: isinstance(value, str), 'Enter text.'),
+    'step_choice': (
+        lambda value: (
+            isinstance(value, list) and all(isinstance(v, str) for v in value)
+        ),
+        'Choose steps listed under Process steps.',
+    ),
+    'files': (
+        lambda value: (
+            isinstance(value, list) and all(isinstance(v, str) for v in value)
+        ),
+        'Add the files again.',
+    ),
+}
+MISSING_UID = 'This item has no ID: remove it and add it again.'
+GAS_NEEDED = 'Tick at least one gas, or choose UHV.'
+
+
 def _number_error(field: dict, value) -> str | None:
     number = to_number(value)
+    if number is None and is_grouped_number(value):
+        return GROUPED_NUMBER
     if number is None:
         return 'Enter a number.'
     if field['kind'] == 'integer' and number != int(number):
@@ -117,6 +146,10 @@ def _field_error(
     field: dict, value, local: dict, root: dict, database: str | None = None
 ) -> str | None:
     kind = field['kind']
+    if kind in TYPE_ERRORS:
+        is_type, message = TYPE_ERRORS[kind]
+        if not is_type(value):
+            return message
     if kind in ('number', 'integer'):
         return _number_error(field, value)
     if kind == 'reference' and field.get('database'):
@@ -147,6 +180,42 @@ def _field_error(
     return None
 
 
+def _validate_uids(section: dict, items: list) -> list[dict]:
+    """
+    Every item of a list has its own ID: steps, samples and measurements refer
+    to each other by it, so a copy would make them refer to the wrong item.
+    """
+    errors, seen = [], set()
+    label = section.get('item_label', 'item')
+    for index, item in enumerate(items):
+        uid = item.get('uid') if isinstance(item, dict) else None
+        path = f'{section["key"]}.{index}'
+        if not isinstance(uid, str) or not uid:
+            errors.append({'path': path, 'message': MISSING_UID})
+        elif uid in seen:
+            errors.append(
+                {
+                    'path': path,
+                    'message': f'{label} {index + 1} is a copy of another '
+                    f'{label.lower()}: remove it and add it again.',
+                }
+            )
+        seen.add(uid)
+    return errors
+
+
+def _validate_gas_choice(fields, item, path, root) -> list[dict]:
+    """A step in a background gas names at least one gas."""
+    toggles = [
+        f
+        for f in visible_fields(fields, item, root)
+        if f.get('gas') and f['kind'] == 'bool'
+    ]
+    if toggles and not any(item.get(f['key']) is True for f in toggles):
+        return [{'path': f'{path}.atmosphere', 'message': GAS_NEEDED}]
+    return []
+
+
 def _validate_step_times(root: dict) -> list[dict]:
     steps = root.get('steps') or []
     return [
@@ -171,7 +240,8 @@ def step_time_warnings(root: dict) -> list[dict]:
             'message': 'Starts before the previous step ends.',
         }
         for index in range(1, len(times))
-        if times[index][0] and times[index - 1][1]
+        if times[index][0]
+        and times[index - 1][1]
         and times[index][0] < times[index - 1][1]
     ]
 
@@ -315,6 +385,7 @@ class LogbookRules:
                 )
                 continue
             items = data.get(key) or []
+            errors += _validate_uids(section, items)
             if required and len(items) < section.get('min_items', 0):
                 errors.append(
                     {
@@ -338,6 +409,8 @@ class LogbookRules:
                 errors += _validate_fields(
                     fields, item, f'{key}.{index}', data, required, database=database
                 )
+                if required and section['kind'] == 'variant_list':
+                    errors += _validate_gas_choice(fields, item, f'{key}.{index}', data)
             if section['kind'] == 'list':
                 self._validate_unique(section, items, data, errors)
         errors += _validate_step_times(data)

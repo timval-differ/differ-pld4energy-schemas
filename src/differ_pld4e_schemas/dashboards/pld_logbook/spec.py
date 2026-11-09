@@ -59,6 +59,7 @@ from differ_pld4e_schemas.stages import (
     TARGET_SIZES,
 )
 from differ_pld4e_schemas.target import PLDTarget
+from differ_pld4e_schemas.time_zone import lab_time_zone_name
 
 from ..common.fields import comments, field, number, step_comments
 from ..common.samples import sample_section
@@ -771,6 +772,8 @@ def form_spec() -> dict:
         },
         # Targets and substrates are chosen from this upload only.
         'database_upload_id': database_upload_id(),
+        # The lab's clock, on which run and step times are entered.
+        'lab_time_zone': lab_time_zone_name(),
         'reference_sections': {
             'target': PLDTarget.m_def.qualified_name(),
             'sample': Sample.m_def.qualified_name(),

@@ -2,7 +2,10 @@
 
 import copy
 
-from differ_pld4e_schemas.dashboards.pld_logbook.convert import form_to_files
+from differ_pld4e_schemas.dashboards.pld_logbook.convert import (  # noqa: F401
+    archive_to_form,
+    form_to_files,
+)
 from differ_pld4e_schemas.dashboards.pld_logbook.spec import form_spec
 
 SPEC = form_spec()
@@ -109,7 +112,6 @@ FORM = {
         'name': 'STO on Si',
         'date': '2026-10-22',
         'time': '09:15',
-        'utc_offset': '+02:00',
     },
     'samples': [
         {

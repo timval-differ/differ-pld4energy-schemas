@@ -12,9 +12,10 @@ from __future__ import annotations
 
 import re
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from differ_pld4e_schemas.gas import BACKGROUND_GAS, GASES, BackgroundGas
+from differ_pld4e_schemas.time_zone import lab_instant, lab_wall_time
 
 from .archive import (
     file_name_for,
@@ -27,7 +28,14 @@ from .archive import (
 )
 from .rules import section_requirement
 from .samples import samples_to_archive, samples_to_form
-from .values import is_empty, step_times, to_number, visible_fields
+from .values import (
+    is_empty,
+    parse_date,
+    parse_time,
+    step_times,
+    to_number,
+    visible_fields,
+)
 
 DRAFT_SUFFIX = '.draft.json'
 
@@ -72,10 +80,9 @@ def sections_of(spec: dict) -> dict:
 
 
 def run_datetime(run: dict) -> str:
-    offset = run.get('utc_offset')
-    if not isinstance(offset, str) or not re.fullmatch(r'[+-]\d{2}:\d{2}', offset):
-        offset = '+00:00'
-    return f'{run["date"]}T{run["time"]}:00{offset}'
+    """The start of the run, its date and time on the lab's clock. A browser's
+    `utc_offset` (sent by older pages and drafts) is ignored."""
+    return lab_instant(parse_date(run['date']), parse_time(run['time'])).isoformat()
 
 
 def parse_datetime(value) -> datetime | None:
@@ -85,17 +92,23 @@ def parse_datetime(value) -> datetime | None:
         return None
 
 
-def step_clock_times(step: dict, zone) -> dict:
-    """The hh:mm start and end of an archived step, in the run's time zone."""
+def step_clock_times(step: dict) -> dict:
+    """The hh:mm start and end of an archived step, on the lab's clock."""
     form = {}
     for key in ('start_time', 'end_time'):
         moment = parse_datetime(step.get(key)) if step.get(key) else None
         if moment is None:
             continue
-        if zone is not None and moment.tzinfo is not None:
-            moment = moment.astimezone(zone)
-        form[key] = moment.strftime('%H:%M')
+        form[key] = lab_wall_time(moment).strftime('%H:%M')
     return form
+
+
+def seconds_between(start: datetime, end: datetime) -> float:
+    """Real elapsed time: datetimes of one time zone subtract as wall-clock
+    times, which is an hour off over a clock change."""
+    return (
+        end.astimezone(timezone.utc) - start.astimezone(timezone.utc)
+    ).total_seconds()
 
 
 def new_uid() -> str:
@@ -238,7 +251,7 @@ class LogbookConverter:
             if end:
                 step['end_time'] = end.isoformat()
             if start and end:
-                step['duration'] = (end - start).total_seconds()
+                step['duration'] = seconds_between(start, end)
             if 'samples' in step_cls.m_def.all_quantities:
                 samples = self.step_samples(item, system, references)
                 if samples:
@@ -340,8 +353,6 @@ class LogbookConverter:
         """
         steps = []
         variants = sections_of(spec)['steps']['variants']
-        zone = parse_datetime(data.get('datetime'))
-        zone = zone.tzinfo if zone else None
         for index, item in enumerate(data.get('steps') or []):
             variant_key = self.variant_of(variants, item.get('m_def'), system)
             if variant_key is None:
@@ -351,7 +362,7 @@ class LogbookConverter:
             form_item.update(
                 gases_to_form(variant['fields'], item.get('background_gases'))
             )
-            form_item.update(step_clock_times(item, zone))
+            form_item.update(step_clock_times(item))
             form_item.update(uid=new_uid(), type=variant_key, archive_index=index)
             step_samples = item.get('samples') or []
             if system not in self.rules.all_samples and step_samples:
@@ -372,12 +383,14 @@ class LogbookConverter:
     def run_to_form(self, data: dict, run_fields: list, system: str) -> dict:
         run = read(data, self.logbook_sections[system], run_fields)
         run['system'] = system
-        start = str(data.get('datetime') or '')
-        match = re.match(r'(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})', start)
-        if match:
-            run['date'], run['time'] = match.groups()
-            # The browser shows the start in local time.
-            run['start'] = start
+        start = parse_datetime(data.get('datetime')) if data.get('datetime') else None
+        if start is not None:
+            # NOMAD gives the start back in UTC; the form is on the lab's clock.
+            start = lab_wall_time(start)
+            run['date'], run['time'] = (
+                start.strftime('%Y-%m-%d'),
+                start.strftime('%H:%M'),
+            )
         return run
 
     def archive_to_form(self, data: dict, spec: dict) -> dict:

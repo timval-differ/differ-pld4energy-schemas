@@ -52,8 +52,10 @@ leave a section with **Next**, or straight away for fields you have edited.
 
 1. **Run.** Your name and email are filled in from your NOMAD login; change
    them if someone else does the run. Choose the PVD system: it decides which
-   carriers, scan options and fields are offered. The date and start time are
-   today and now unless you change them. The run name is optional.
+   carriers, scan options and fields are offered. Enter the date and start
+   time of the run, or press **Now** when you start it. They are on the lab
+   clock (Europe/Amsterdam), whatever time zone your computer is set to, and
+   make up the sample IDs. The run name is optional.
 2. **Samples.** List the samples you make or process in this run. Set *Number
    of new and external samples* to add or remove samples in one go. For each
    sample choose:

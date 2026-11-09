@@ -434,9 +434,14 @@ The Sample and logbook archives are written with `wait_for_processing=true`,
 so NOMAD's processing errors and warnings are shown in the log. Data files and
 drafts are written without waiting: NOMAD does not make entries of them.
 
-The start of the run is saved with the browser's UTC offset. NOMAD stores it in
-UTC, so the dashboard shows it in local time again when a logbook is opened. The
-sample IDs use the local time and are kept once their entries exist.
+Run and step times are on the lab's clock: its time zone (`lab_time_zone`,
+default Europe/Amsterdam) turns a date and hh:mm into an instant, with the
+offset of that date (+01:00 in winter, +02:00 in summer). NOMAD stores the
+instants in UTC; opening a logbook turns them back into the lab's clock, so a
+logbook reads and saves the same wherever it is opened. Durations are real
+elapsed times, also over a clock change. A run time the clock skipped (02:00 to
+03:00 on the last Sunday of March) is refused. The sample IDs use the lab's
+clock and are kept once their entries exist.
 
 ### Conditional fields
 

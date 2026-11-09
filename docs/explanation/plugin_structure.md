@@ -234,12 +234,13 @@ no parser reads them, so they are never entries (see
 | Setting | Where | What |
 | --- | --- | --- |
 | `database_upload_id` | `nomad.yaml` at the distribution root (or of the Oasis), under the options of `differ_pld4e_schemas.schema_packages:schema_package_entry_point` | The upload that holds the target and substrate database. Without it the dashboards cannot offer targets or substrates. See [Set up the target and substrate database](../how_to/use_this_plugin.md#set-up-the-target-and-substrate-database). The tests set a placeholder (`tests/conftest.py`). |
+| `lab_time_zone` | Same place as `database_upload_id` | The IANA time zone of the lab (default `Europe/Amsterdam`). Run and step times are entered and shown on its clock, and sample IDs use it (`time_zone.py`). |
 | `dashboards.enabled` | NOMAD's `nomad.yaml` | Dashboards are on by default; with `false` NOMAD serves none. |
 | `dashboards.frame_ancestors` | NOMAD's `nomad.yaml` | Origins allowed to show the dashboards in a frame (default: NOMAD itself). Add the origin of another GUI, e.g. the GUI development server, to embed them there. |
 
-The option `database_upload_id` is defined on the schema entry point
-(`schema_packages/__init__.py`) and read by `database.py`, which passes it into
-the form definition of both dashboards.
+The options `database_upload_id` and `lab_time_zone` are defined on the schema
+entry point (`schema_packages/__init__.py`) and read by `database.py` and
+`time_zone.py`, which pass them into the form definition of both dashboards.
 
 ### When the dashboard does not load
 

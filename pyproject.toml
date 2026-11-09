@@ -28,6 +28,8 @@ dependencies = [
     "nomad-lab>=2.0",
     "nomad-material-processing>=1.0",
     "fastapi>=0.100",
+    # Time zone data for zoneinfo where the system has none (Windows, slim images).
+    "tzdata",
 ]
 
 [project.urls]

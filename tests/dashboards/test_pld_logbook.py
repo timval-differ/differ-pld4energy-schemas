@@ -797,10 +797,7 @@ def test_saved_samples_are_updated_but_existing_never():
 
 def test_round_trip():
     loaded = archive_to_form(_logbook(), SPEC)
-    run = loaded['run']
-    assert run.pop('start') == '2026-10-22T09:15:00+02:00'
-    expected = {k: v for k, v in FORM['run'].items() if k != 'utc_offset'}
-    assert run == expected
+    assert loaded['run'] == FORM['run']
     assert loaded['chamber']['base_pressure'] == pytest.approx(1e-8)
     step = loaded['steps'][1]
     assert step['type'] == 'deposition'
@@ -823,7 +820,6 @@ def test_round_trip():
         == (FORM['in_situ'][0]['rheed_pattern_export_files'])
     )
     assert 'archive_index' not in step
-    loaded['run']['utc_offset'] = '+02:00'
     assert validate(loaded, SPEC) == []
 
 

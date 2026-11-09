@@ -18,7 +18,7 @@ import {API, GUI} from './config.js';
 import {el} from './dom.js';
 import {api, dashboard, putArchive, rawFileText, readNomadDraft} from './nomad-api.js';
 import {renderFileCharts} from './charts.js';
-import {uid, localDate, localTime, utcOffset, localizeRun, fileNameFor, entryRef, uploadPath, validUploadId, formatNumber} from './util.js';
+import {uid, clockIn, fileNameFor, entryRef, uploadPath, validUploadId, formatNumber} from './util.js';
 
 const DRAFT_VERSION = 1;
 const INCH = 0.0254;
@@ -184,10 +184,8 @@ function newForm() {
     else if (s.kind === 'list' && s.min_items !== 0) form[s.key] = [newItem(s)];
     else form[s.key] = [];
   }
-  const now = new Date();
-  form.run.date = localDate(now);
-  form.run.time = localTime(now);
-  form.run.utc_offset = utcOffset(now);
+  // The start of the run is not filled in: it makes the sample IDs, so the
+  // operator enters it (or presses Now when starting the run).
   fillOperator(form);
   return form;
 }
@@ -198,6 +196,8 @@ function newForm() {
  * measurement, and a file field that took one file now takes a list.
  */
 function upgradeForm(form) {
+  // The browser's UTC offset, kept by older pages: times are on the lab's clock.
+  if (form.run && typeof form.run === 'object') delete form.run.utc_offset;
   for (const s of app.spec.sections) {
     const value = form[s.key];
     if (s.kind === 'object') {
@@ -624,6 +624,20 @@ function control(field, local, path) {
         oninput: (e) => set(e.target.value || null),
         onchange: (e) => { e.target.value = normalTime(e.target.value); set(e.target.value || null); },
       });
+      if (path === 'run.time') {
+        // The start of the run: today and now on the lab's clock.
+        const now = el('button', {
+          type: 'button', class: 'btn btn-outlined', title: `Now, on the lab clock (${app.spec.lab_time_zone})`,
+          onclick: () => {
+            Object.assign(local, clockIn(app.spec.lab_time_zone));
+            app.touched.add('run.date');
+            app.touched.add(path);
+            changed();
+            render();
+          },
+        }, 'Now');
+        return {body: el('div', {class: 'input-wrap'}, input, now), input};
+      }
       return {body: el('div', {class: 'input-wrap'}, input), input};
     default: {
       const numeric = field.kind === 'number' || field.kind === 'integer';
@@ -1239,8 +1253,8 @@ async function openLogbook(picked) {
   if (!(await confirmReplace())) return;
   try {
     const data = await fetchLogbook(picked.entry);
+    // Run and step times come on the lab's clock (see time_zone.py).
     const form = await dashboard('api/form-from-archive', {data, mode: 'edit'});
-    localizeRun(form.run);
     app.form = {recipe: null, ...form};
     // A logbook not made by this dashboard (e.g. a hand-written .archive.yaml)
     // is saved as a new file instead of being overwritten.

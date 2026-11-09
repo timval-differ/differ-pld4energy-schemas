@@ -19,6 +19,7 @@ Conditions are described in `dashboards.common.values`.
 from __future__ import annotations
 
 from differ_pld4e_schemas.database import database_reference_error
+from differ_pld4e_schemas.time_zone import is_skipped
 
 from .samples import (
     MADE_HERE,
@@ -213,6 +214,25 @@ def _validate_gas_choice(fields, item, path, root) -> list[dict]:
     ]
     if toggles and not any(item.get(f['key']) is True for f in toggles):
         return [{'path': f'{path}.atmosphere', 'message': GAS_NEEDED}]
+    return []
+
+
+SKIPPED_TIME = (
+    'The lab clock skipped this time (the change to summer time). '
+    'Enter the time the clock showed.'
+)
+
+
+def _validate_run_start(root: dict) -> list[dict]:
+    """
+    The run starts at a time the lab clock showed. Checked only here: the
+    browser does not know the lab's clock changes, so the page reports it when
+    the server checks the form.
+    """
+    run = root.get('run') if isinstance(root.get('run'), dict) else {}
+    day, clock = parse_date(run.get('date')), parse_time(run.get('time'))
+    if day is not None and clock is not None and is_skipped(day, clock):
+        return [{'path': 'run.time', 'message': SKIPPED_TIME}]
     return []
 
 
@@ -414,6 +434,7 @@ class LogbookRules:
             if section['kind'] == 'list':
                 self._validate_unique(section, items, data, errors)
         errors += _validate_step_times(data)
+        errors += _validate_run_start(data)
         return errors
 
     @staticmethod

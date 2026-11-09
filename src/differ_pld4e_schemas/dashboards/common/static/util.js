@@ -7,31 +7,18 @@ export function uid() {
 
 export const pad = (n) => String(n).padStart(2, '0');
 
-export function localDate(d) {
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
-export function localTime(d) {
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-/* The browser's UTC offset at a moment, e.g. '+01:00'. */
-export function utcOffset(d) {
-  const minutes = -d.getTimezoneOffset();
-  const sign = minutes < 0 ? '-' : '+';
-  return `${sign}${pad(Math.floor(Math.abs(minutes) / 60))}:${pad(Math.abs(minutes) % 60)}`;
-}
-
-/* NOMAD returns the start of the run in UTC; show it in local time. */
-export function localizeRun(run) {
-  if (!run || !run.start) return;
-  const start = new Date(run.start);
-  if (!Number.isNaN(start.getTime())) {
-    run.date = localDate(start);
-    run.time = localTime(start);
-    run.utc_offset = utcOffset(start);
-  }
-  delete run.start;
+/*
+ * The date (yyyy-mm-dd) and time (hh:mm) the clock of `timeZone`, an IANA
+ * name such as the lab's 'Europe/Amsterdam', shows at moment `d`: run times
+ * are on the lab's clock, whatever time zone this computer is set to.
+ */
+export function clockIn(timeZone, d = new Date()) {
+  const format = new Intl.DateTimeFormat('en-CA', {
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  });
+  const parts = Object.fromEntries(format.formatToParts(d).map((p) => [p.type, p.value]));
+  return {date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}`};
 }
 
 export function fileNameFor(text) {

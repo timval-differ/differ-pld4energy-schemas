@@ -67,7 +67,11 @@ def _measurement_to_archive(item: dict, data: dict, fields: list, references):
         # The native measured samples; a measurement has one.
         sample = references.get(item['sample'], item['sample'])
         measurement['samples'] = [{'reference': sample}]
-    positions = {step.get('uid'): i for i, step in enumerate(data.get('steps') or [])}
+    # The first step with an ID counts (validation refuses copies), as for
+    # samples in rules.sample_choice.
+    positions = {}
+    for i, step in enumerate(data.get('steps') or []):
+        positions.setdefault(step.get('uid'), i)
     steps = [
         f'#/data/steps/{positions[uid]}'
         for uid in item.get('steps') or []

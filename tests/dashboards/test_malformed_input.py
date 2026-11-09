@@ -10,6 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 from helpers import pld_forms as pld
 from helpers import sputter_forms as sputter
+from nomad.units import ureg
 
 from differ_pld4e_schemas.dashboards import (
     pld_logbook_dashboard_entry_point,
@@ -20,6 +21,7 @@ from differ_pld4e_schemas.dashboards.common.archive import to_archive_value
 HTTP_OK = 200
 HTTP_BAD_REQUEST = 400
 HTTP_UNPROCESSABLE = 422
+HTTP_SERVER_ERROR = 500
 
 DASHBOARDS = {
     'pld': (pld_logbook_dashboard_entry_point, pld.FORM),
@@ -64,6 +66,9 @@ MALFORMED = [
     ('chamber a list', {'chamber': []}),
     ('number an object', {'chamber.base_pressure': {'value': 1}}),
     ('number huge', {'chamber.base_pressure': '1e308'}),
+    ('number a huge JSON integer', {'chamber.base_pressure': 10**400}),
+    ('box ticked as a string', {'steps.0.valve_position_fixed': 'false'}),
+    ('text an object', {'run.operator_name': {'first': 'Ada'}}),
     ('targets not a list', {'targets': 'x'}),
     ('target not an object', {'targets': [1]}),
     ('recipe an object', {'recipe': {'a': 1}}),
@@ -165,3 +170,36 @@ def test_complete_forms_are_still_saved(clients):
         body = clients[name].post('/api/archive', json={'form': form}).json()
         assert body['errors'] == []
         assert body['files']
+
+
+def test_unit_mismatch_between_spec_and_schema_is_a_server_error(caplog):
+    """A plugin bug is not answered as a malformed form (400), but as a 500."""
+    from differ_pld4e_schemas.dashboards.common.archive import SpecError
+
+    field = {'key': 'base_pressure', 'kind': 'number', 'unit': 'K'}
+
+    class Quantity:
+        unit = ureg.mbar
+
+    with pytest.raises(SpecError):
+        to_archive_value('1', field, Quantity)
+    with pytest.raises(SpecError):
+        to_archive_value('1', {**field, 'unit': None}, Quantity)
+
+
+def test_spec_error_gives_a_500_with_a_logged_traceback(monkeypatch, caplog):
+    from differ_pld4e_schemas.dashboards.common import archive
+
+    original = archive._convert
+
+    def wrong_unit(number, source, target, field):
+        return original(number, 'K' if source == 'mbar' else source, target, field)
+
+    monkeypatch.setattr(archive, '_convert', wrong_unit)
+    entry_point, data = DASHBOARDS['pld']
+    client = TestClient(entry_point.load(), raise_server_exceptions=False)
+    response = client.post('/api/archive', json={'form': data})
+    assert response.status_code == HTTP_SERVER_ERROR
+    assert any(
+        record.levelname == 'ERROR' and record.exc_info for record in caplog.records
+    )

@@ -71,10 +71,27 @@ def visible_fields(fields: list, local: dict, root: dict) -> list:
     return [f for f in fields if evaluate(f.get('visible_if'), local, root)]
 
 
-# A number as typed in the form, after its first ',' became '.'. The same
-# pattern is in static/rules.js (toNumber); the parity tests check they agree.
+# A number as typed in the form, after a decimal comma became '.'. The same
+# patterns are in static/rules.js (toNumber); the parity tests check they agree.
 NUMBER = re.compile(r'[-+]?([0-9]+\.?[0-9]*|\.[0-9]+)([eE][-+]?[0-9]+)?')
+# '12,000' or '1,500': a comma that may group thousands rather than mark
+# decimals. Read as a decimal comma it would silently store 12 or 1.5.
+THOUSANDS = re.compile(r'[-+]?[1-9][0-9]{0,2},[0-9]{3}([eE][-+]?[0-9]+)?')
 DATE = re.compile(r'[0-9]{4}-[0-9]{2}-[0-9]{2}')
+
+
+def decimal_comma(text: str) -> str | None:
+    """
+    `text` with a decimal comma (as typed on many keyboards) made a '.', or
+    None if its comma is ambiguous: more than one, a comma and a dot, or what
+    may be a thousands separator ('12,000'). '12,5', '0,125' and '1,5e-8' are
+    decimals.
+    """
+    if ',' not in text:
+        return text
+    if text.count(',') > 1 or '.' in text or THOUSANDS.fullmatch(text):
+        return None
+    return text.replace(',', '.')
 
 
 def to_number(value):
@@ -82,15 +99,25 @@ def to_number(value):
     if isinstance(value, bool):
         return None
     if isinstance(value, (int, float)):
-        return float(value) if math.isfinite(value) else None
+        try:
+            number = float(value)
+        except OverflowError:  # a JSON integer beyond the range of a float
+            return None
+        return number if math.isfinite(number) else None
     if isinstance(value, str):
-        # A decimal comma, as typed on many keyboards; not '1_000' or '1e5,0'.
-        text = value.strip().replace(',', '.', 1)
-        if not NUMBER.fullmatch(text):
+        text = decimal_comma(value.strip())
+        if text is None or not NUMBER.fullmatch(text):
             return None
         number = float(text)
         return number if math.isfinite(number) else None
     return None
+
+
+def is_grouped_number(value) -> bool:
+    """A text that is a number but for its commas, e.g. '12,000' or '1.000,5'."""
+    if not isinstance(value, str) or ',' not in value:
+        return False
+    return bool(NUMBER.fullmatch(value.strip().replace(',', '')))
 
 
 def parse_date(value):
@@ -156,4 +183,7 @@ def step_times(run: dict, steps: list) -> list[tuple]:
 
 
 def is_empty(value) -> bool:
-    return value is None or value in ('', [])
+    """Nothing entered: also a text of only spaces."""
+    if isinstance(value, str):
+        return not value.strip()
+    return value is None or value == []

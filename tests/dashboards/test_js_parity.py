@@ -58,11 +58,25 @@ CHANGES = {
     'number as a word': {'chamber.base_pressure': 'abc'},
     'number infinity': {'chamber.base_pressure': 'Infinity'},
     'number as JSON number': {'chamber.base_pressure': 0.002},
-    'negative number below the minimum': {'chamber.base_pressure': -5},
+    'number with a thousands separator': {'chamber.base_pressure': '12,000'},
+    'number with a comma and a dot': {'chamber.base_pressure': '1.000,5'},
+    'decimal comma below one': {'chamber.base_pressure': '0,125'},
+    'decimal comma after a minus': {'chamber.base_pressure': '-1,250'},
+    'number as a huge JSON integer': {'chamber.base_pressure': 10**400},
+    'negative number below the minimum': {'steps.0.valve_position': -5},
+    'number above the maximum': {'steps.0.valve_position': 1001},
     'whole number with a fraction': {
         'steps.1.film_thickness_pulses': '10.5',
         'steps.1.film_thickness_unit': 'pulses',
     },
+    'whole number with a thousands separator': {
+        'steps.1.film_thickness_pulses': '1,500',
+        'steps.1.film_thickness_unit': 'pulses',
+    },
+    # Types and empty values
+    'required text of only spaces': {'run.operator_name': '   '},
+    'text as a list': {'run.operator_name': ['Ada']},
+    'box ticked as a string': {'steps.0.valve_position_fixed': 'false'},
     # Samples
     'no samples': {'samples': []},
     'external sample with films': {
@@ -86,12 +100,27 @@ CHANGES = {
     # Targets
     'target without material': {'targets.0.material': DELETE},
     'target not chosen': {'targets.0.target': DELETE},
+    'the same target twice': {
+        'targets.1.target': '../uploads/target_db/archive/ta#/data',
+        'targets.1.target_number': '1',
+    },
     'target outside the database': {
         'targets.0.target': '../uploads/elsewhere/archive/t#/data'
     },
     # Steps
     'no steps': {'steps': []},
     'unknown step type': {'steps.0.type': 'no-such-step'},
+    'two steps with one ID': {'steps.1.uid': 'step1'},
+    'step without an ID': {'steps.0.uid': DELETE},
+    'background gas without a gas': {
+        'steps.0.gas_O2': False,
+        'steps.0.gas_Ar': False,
+    },
+    'UHV step without a gas': {
+        'steps.0.atmosphere': 'UHV',
+        'steps.0.gas_O2': False,
+        'steps.0.gas_Ar': False,
+    },
     'step across midnight': {
         'steps.0.start_time': '23:30',
         'steps.0.end_time': '00:10',

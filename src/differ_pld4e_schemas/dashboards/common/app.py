@@ -23,6 +23,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from .archive import SpecError
 from .convert import NotALogbook, UnsafeLogbookFile
 from .rules import step_time_warnings
 
@@ -47,8 +48,13 @@ def malformed_request(endpoint: str):
     """Answer a form or archive of the wrong shape with a 400, not a 500."""
     try:
         yield
+    except SpecError:
+        # A bug in the plugin: answered with a 500, and logged in full.
+        logger.exception('%s: the form definition does not fit the schema', endpoint)
+        raise
     except MALFORMED as error:
-        logger.warning('%s: malformed request: %r', endpoint, error)
+        # With the traceback: a bug that raises one of these looks the same.
+        logger.warning('%s: malformed request: %r', endpoint, error, exc_info=True)
         raise HTTPException(
             status_code=400,
             detail=f'Malformed form: {type(error).__name__}: {error}',

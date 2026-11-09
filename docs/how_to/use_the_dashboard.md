@@ -78,7 +78,8 @@ leave a section with **Next**, or straight away for fields you have edited.
     chemical formula (e.g. `SrTiO3`), which makes the samples searchable by
     element, and saves it in the database upload. New and external samples get
     a **sample ID** `system_yyyy-mm-dd_hh:mm_S##` (S01, S02, ... in the order of
-    the list) and a **sample name** made from the substrate and the films grown
+    the list, after the samples already saved: a removed sample's number is not
+    given again) and a **sample name** made from the substrate and the films grown
     on it, e.g. `SrTiO3_YSZ-20nm_SrRuO3-50nm`. The films come from the
     deposition steps (see below), so the sample name changes once the (desired)
     film thickness is entered under *Process steps*. Existing

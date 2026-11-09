@@ -297,12 +297,17 @@ class LogbookConverter:
         logbook['datetime'] = start
         # The schema only has it as a default, which NOMAD does not show as a value.
         logbook['pvd_system'] = system
+        # Only an opened logbook (with its file name given) may be overwritten.
+        overwrite = logbook_file is not None
+        if logbook_file is None:
+            logbook_file = file_name_for(run_file_stem(data))
         logbook['samples'], files, references, warnings = samples_to_archive(
             data,
             sections['samples']['fields'],
             start,
             lambda item: self.rules.sample_films(item, data),
             spec.get('systems'),
+            made_in=logbook_file,
         )
         if section_requirement(sections['targets'], spec, data) != 'none':
             targets = targets_to_archive(data)
@@ -313,10 +318,6 @@ class LogbookConverter:
         if data.get('recipe') and 'load_recipe' in logbook_cls.m_def.all_sub_sections:
             logbook['load_recipe'] = {'recipe': data['recipe']}
 
-        # Only an opened logbook (with its file name given) may be overwritten.
-        overwrite = logbook_file is not None
-        if logbook_file is None:
-            logbook_file = file_name_for(run_file_stem(data))
         files.append(
             {
                 'file_name': logbook_file,

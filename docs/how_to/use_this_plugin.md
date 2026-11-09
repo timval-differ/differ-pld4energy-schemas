@@ -157,14 +157,22 @@ its name and in its Sample entry. The substrate's material and size are copied
 in as well. On save, for new and external samples:
 
 - **sample ID** becomes `<system>_<yyyy-mm-dd>_<hh:mm>_S<nn>`, from the logbook's
-  start; the new and external samples of the run are numbered S01, S02, ... in
-  order. A sample ID that is already filled in is kept.
+  start on the lab clock (Europe/Amsterdam); the new and external samples of the
+  run are numbered in order after the highest number already filled in, so a
+  removed sample's number is not given again. A sample ID that is already
+  filled in is kept. Without a start (**datetime**), the time the entry was
+  created is used, with a warning.
 - **name** becomes `Substrate_Film-<t>nm_Film-<t>nm`, e.g.
   `SrTiO3_YSZ-20nm_SrRuO3-50nm`, unless you entered one. The name describes the
   sample; the ID identifies it.
-- **sample UUID** is generated once and never changes.
+- **sample UUID** is derived from the sample ID, so it is the same every time
+  the entry is processed, and kept once filled in. An existing sample takes
+  the UUID of its Sample entry.
 - a **Sample** entry is created in the same upload (file
-  `<sample ID>.archive.json`) and linked in **sample**.
+  `<sample ID>.archive.json`) and linked in **sample**. The entry records the
+  logbook that made it (**made in**). If a file of that name was made by
+  another logbook, it is not linked and an error says so: check the start of
+  the run, or enter the sample ID.
 
 For an existing sample, its ID and name are copied from its entry; the entry
 itself is not changed. Two samples with the same ID give a warning.

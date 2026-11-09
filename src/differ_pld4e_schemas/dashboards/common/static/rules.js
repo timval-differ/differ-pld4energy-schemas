@@ -125,12 +125,29 @@ export function createRules(ctx) {
     return MADE_HERE.includes(item.origin || NEW_SAMPLE);
   }
 
+  /* The nn of a sample ID ending in _S{nn} (mirror sample.number_of). */
+  function numberOf(id) {
+    const match = typeof id === 'string' ? /_S(\d+)$/.exec(id) : null;
+    return match ? Number(match[1]) : null;
+  }
+
+  /*
+   * The S-number of a new or external sample not saved yet: after the highest
+   * number of the run's saved samples, in list order, so a removed sample's
+   * number is never given again (mirror samples.sample_number and
+   * sample.assign_sample_numbers).
+   */
   function sampleNumber(item, root) {
-    let number = 0;
-    for (const other of root.samples || []) {
-      if (!madeHere(other)) continue;
-      number += 1;
-      if (other === item || (item.uid && other.uid === item.uid)) return number;
+    const samples = root.samples || [];
+    const stored = (other) => (other.ref ? other.sample_id : null);
+    let highest = 0;
+    for (const other of samples) {
+      if (madeHere(other) && stored(other)) highest = Math.max(highest, numberOf(stored(other)) || 0);
+    }
+    for (const other of samples) {
+      if (!madeHere(other) || stored(other)) continue;
+      highest += 1;
+      if (other === item || (item.uid && other.uid === item.uid)) return highest;
     }
     return null;
   }

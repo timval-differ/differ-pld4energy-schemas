@@ -6,6 +6,7 @@ run NOMAD's full normalization and check what ends up in `results`.
 from datetime import datetime, timezone
 
 import pytest
+from helpers import ENTRY_CREATE_TIME
 from nomad.client import normalize_all
 from nomad.datamodel import EntryArchive, EntryMetadata
 
@@ -33,7 +34,8 @@ from differ_pld4e_schemas.sps_deposition import (
 )
 from differ_pld4e_schemas.target import PLDTarget, SputterTarget
 
-START = datetime(2026, 11, 5, 9, 15, tzinfo=timezone.utc)
+# 09:15 on the lab clock (Europe/Amsterdam, +01:00 in November).
+START = datetime(2026, 11, 5, 8, 15, tzinfo=timezone.utc)
 PULSES = 3000
 SUBSTRATE_TEMPERATURE = 973.0
 PRESSURE = 10.0
@@ -41,7 +43,9 @@ POWER = 100.0
 
 
 def normalized(data):
-    archive = EntryArchive(data=data, metadata=EntryMetadata())
+    archive = EntryArchive(
+        data=data, metadata=EntryMetadata(entry_create_time=ENTRY_CREATE_TIME)
+    )
     normalize_all(archive)
     return archive
 

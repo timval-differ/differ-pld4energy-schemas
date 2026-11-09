@@ -7,7 +7,6 @@ sputtering and cool-down, repeated as needed for multilayers.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 from nomad.datamodel.data import ArchiveSection, EntryData
@@ -319,8 +318,7 @@ class SPSLogbook(SampleRun, RunDetails, SputterDeposition, EntryData):
     steps = SubSection(section_def=SPSStep, repeats=True)
 
     def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
-        if self.datetime is None:
-            self.datetime = datetime.now(timezone.utc)
+        self.default_datetime(archive, logger)
         # Store the system: NOMAD does not show a default as a value.
         if not self.m_is_set(self.m_def.all_quantities['pvd_system']):
             self.pvd_system = SPS

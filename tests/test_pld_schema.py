@@ -4,6 +4,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from helpers import ENTRY_CREATE_TIME
 from helpers.nomad_harness import assert_no_errors, process_copy, warnings
 from helpers.schema import enum_values
 from nomad.datamodel import EntryArchive, EntryMetadata
@@ -77,7 +78,9 @@ ALL_PLD_STEPS = SA_STEPS + LA_STEPS
 
 
 def _normalize(data):
-    archive = EntryArchive(data=data, metadata=EntryMetadata())
+    archive = EntryArchive(
+        data=data, metadata=EntryMetadata(entry_create_time=ENTRY_CREATE_TIME)
+    )
     logger = CapturingLogger()
     data.normalize(archive, logger)
     return archive, [(call[0], call[1][0]) for call in logger.calls]
@@ -91,7 +94,10 @@ def _calibration(**kwargs):
 
 def _normalize_section(section):
     logger = CapturingLogger()
-    section.normalize(EntryArchive(metadata=EntryMetadata()), logger)
+    section.normalize(
+        EntryArchive(metadata=EntryMetadata(entry_create_time=ENTRY_CREATE_TIME)),
+        logger,
+    )
     return [(call[0], call[1][0]) for call in logger.calls]
 
 
@@ -388,7 +394,7 @@ YSZ = PLDTarget(material='YSZ')
 
 def test_new_samples_get_id_name_and_uuid():
     logbook = LAPLDLogbook(
-        datetime='2026-10-22T09:15:00+00:00',
+        datetime='2026-10-22T09:15:00+02:00',
         samples=[
             SampleInRun(
                 origin='New sample',
@@ -419,7 +425,7 @@ def test_external_sample_films_come_first():
         prior_layers=[Layer(material='SrRuO3', thickness=1e-8)],
         layers=[Layer(target=YSZ, thickness=2e-8)],
     )
-    logbook = LAPLDLogbook(datetime='2026-10-22T09:15:00+00:00', samples=[item])
+    logbook = LAPLDLogbook(datetime='2026-10-22T09:15:00+02:00', samples=[item])
     _normalize(logbook)
     assert item.name == 'MgO_SrRuO3-10nm_YSZ-20nm'
     sample = item.to_sample('LA-PLD', None)
@@ -450,7 +456,7 @@ def test_film_material_comes_from_its_target():
 
 def test_given_sample_id_is_kept():
     logbook = SAPLDLogbook(
-        datetime='2026-10-22T09:15:00+00:00',
+        datetime='2026-10-22T09:15:00+02:00',
         samples=[SampleInRun(origin='New sample', sample_id='SA-PLD_x_S01')],
     )
     _normalize(logbook)
@@ -657,7 +663,7 @@ def _normalize_with_files(data, local_dir=EXPORTS):
     """
     archive = EntryArchive(
         data=data,
-        metadata=EntryMetadata(),
+        metadata=EntryMetadata(entry_create_time=ENTRY_CREATE_TIME),
         m_context=_LinuxContext(local_dir=local_dir),
     )
     records = _LogRecords()

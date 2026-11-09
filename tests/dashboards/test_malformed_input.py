@@ -7,9 +7,9 @@ form.
 import copy
 
 import pytest
-import test_pld_logbook as pld
-import test_sputter_logbook as sputter
 from fastapi.testclient import TestClient
+from helpers import pld_forms as pld
+from helpers import sputter_forms as sputter
 
 from differ_pld4e_schemas.dashboards import (
     pld_logbook_dashboard_entry_point,

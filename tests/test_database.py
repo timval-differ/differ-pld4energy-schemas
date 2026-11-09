@@ -4,7 +4,7 @@ database, which only maintainers can edit (see `differ_pld4e_schemas.database`).
 """
 
 import pytest
-from conftest import DATABASE_UPLOAD
+from helpers import DATABASE_UPLOAD
 from nomad.datamodel import EntryArchive, EntryMetadata
 from structlog.testing import CapturingLogger
 
@@ -106,7 +106,7 @@ def test_dashboard_spec_names_the_database():
 
 
 def test_dashboard_rejects_targets_and_substrates_from_elsewhere():
-    from dashboards.test_pld_logbook import FORM, form, messages
+    from helpers.pld_forms import FORM, form, messages
 
     spec = form_spec()
     assert validate(FORM, spec) == []

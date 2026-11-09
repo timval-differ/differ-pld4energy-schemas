@@ -217,3 +217,122 @@ def test_misspelt_keys_are_found():
     assert _condition_problems({'key': 'x', 'equal': 1})
     assert _condition_problems({'all': {'key': 'x', 'equals': 1}})
     assert _condition_problems({'key': 'x', 'in': 'abc'})
+
+
+# Units: the dashboard converts each number from the field's unit to the unit
+# of the schema quantity it is written to. A field without a unit written to a
+# quantity with one (or the other way round) is stored unconverted, so the
+# value would be silently wrong by the factor between the units.
+
+
+def _unit_classes():
+    from differ_pld4e_schemas import pld_deposition, sps_deposition
+    from differ_pld4e_schemas.gas import BackgroundGas
+    from differ_pld4e_schemas.in_situ import InSituTechniques
+    from differ_pld4e_schemas.laser import LaserCalibration
+    from differ_pld4e_schemas.sample import SampleInRun
+
+    pld_logbooks = [pld_deposition.SAPLDLogbook, pld_deposition.LAPLDLogbook]
+    common = {'samples': [SampleInRun], 'gas': [BackgroundGas]}
+    return [
+        pytest.param(
+            pld_spec(),
+            pld_deposition,
+            {
+                **common,
+                'run': pld_logbooks,
+                'chamber': pld_logbooks,
+                'targets': [pld_deposition.SelectedTarget],
+                'laser': [LaserCalibration],
+                'in_situ': [InSituTechniques],
+                'logfiles': pld_logbooks,
+            },
+            id='pld',
+        ),
+        pytest.param(
+            sputter_spec(),
+            sps_deposition,
+            {
+                **common,
+                'run': [sps_deposition.SPSLogbook],
+                'chamber': [sps_deposition.SPSLogbook],
+                'targets': [sps_deposition.SelectedSputterTarget],
+                'comments': [sps_deposition.SPSLogbook],
+            },
+            id='sputter',
+        ),
+    ]
+
+
+def _number_fields(spec, module, classes):
+    """(where, field, candidate classes) of every number written to the archive."""
+    from differ_pld4e_schemas.dashboards.common.archive import sub_section_class
+
+    def walk(where, fields, candidates):
+        for field in fields:
+            if field.get('archive') is None:
+                continue
+            here = f'{where}.{field["key"]}'
+            if field['kind'] == 'rows':
+                rows = [sub_section_class(c, field['archive']) for c in candidates]
+                yield from walk(here, field['columns'], rows)
+            elif field['kind'] in ('number', 'integer'):
+                yield here, field, classes['gas'] if 'gas' in field else candidates
+
+    for section in spec['sections']:
+        key = section['key']
+        if section['kind'] == 'variant_list':
+            for name, variant in section['variants'].items():
+                candidates = [getattr(module, c) for c in variant['sections'].values()]
+                yield from walk(f'{key}[{name}]', variant['fields'], candidates)
+        else:
+            yield from walk(key, section['fields'], classes[key])
+
+
+@pytest.mark.parametrize('spec, module, classes', _unit_classes())
+def test_field_units_match_schema_units(spec, module, classes):
+    from nomad.units import ureg
+
+    from differ_pld4e_schemas.dashboards.common.archive import quantity_of
+
+    problems, checked = [], 0
+    for where, field, candidates in _number_fields(spec, module, classes):
+        quantities = []
+        for section_cls in candidates:
+            try:
+                quantities.append(
+                    (section_cls, quantity_of(section_cls, field['archive']))
+                )
+            except KeyError:
+                pass
+        if not quantities:
+            problems.append(f'{where}: {field["archive"]} is in none of {candidates}')
+        for section_cls, quantity in quantities:
+            checked += 1
+            unit = field.get('unit')
+            name = f'{where} -> {section_cls.__name__}.{field["archive"]}'
+            if bool(unit) != (quantity.unit is not None):
+                problems.append(
+                    f'{name}: field unit {unit!r}, quantity {quantity.unit}'
+                )
+            elif unit and not ureg.Unit(unit).is_compatible_with(quantity.unit):
+                problems.append(
+                    f'{name}: {unit} cannot be converted to {quantity.unit}'
+                )
+    assert problems == []
+    assert checked > 0
+
+
+def test_target_entry_fields_are_target_quantities():
+    from differ_pld4e_schemas.target import SputterTarget
+
+    problems = []
+    for field in sputter_spec()['client']['target_entry']['fields']:
+        quantity = SputterTarget.m_def.all_quantities.get(field['key'])
+        if quantity is None:
+            problems.append(f'{field["key"]} is not a SputterTarget quantity')
+        elif 'scale' in field and str(quantity.unit) != 'meter':
+            problems.append(
+                f'{field["key"]}: scale to metres, but unit {quantity.unit}'
+            )
+    assert problems == []

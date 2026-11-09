@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import pytest
-import yaml
+from helpers.nomad_harness import assert_no_errors, process_copy, warnings
 from nomad.datamodel import EntryArchive, EntryMetadata
 from structlog.testing import CapturingLogger
 
@@ -194,14 +194,13 @@ def test_new_samples_get_sps_ids_and_names():
 # Example entry
 
 
-def test_example_logbook():
-    with open(Path(__file__).resolve().parent / 'data' / 'example_sps.archive.yaml') as file:
-        archive = EntryArchive.m_from_dict(yaml.safe_load(file))
-    archive.metadata = EntryMetadata()
+def test_example_logbook(tmp_path):
+    example = Path(__file__).resolve().parent / 'data' / 'example_sps.archive.yaml'
+    archive, logs, upload = process_copy(example, tmp_path)
+    assert_no_errors(logs)
+    assert warnings(logs) == []
+    assert upload.created == ['SPS_2026-10-22_09_00_S01.archive.json']
     logbook = archive.data
-    # Like NOMAD processing: normalize sub-sections before their parents.
-    for section in reversed(list(logbook.m_all_contents(include_self=True))):
-        section.normalize(archive, CapturingLogger())
     assert isinstance(logbook, SPSLogbook)
     assert logbook.pvd_system == 'SPS'
     assert [type(step) for step in logbook.steps] == [

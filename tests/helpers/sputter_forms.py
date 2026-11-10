@@ -5,6 +5,7 @@ import copy
 from differ_pld4e_schemas.dashboards.sputter_logbook.convert import (  # noqa: F401
     archive_to_form,
     form_to_files,
+    recipe_to_form,
 )
 from differ_pld4e_schemas.dashboards.sputter_logbook.spec import form_spec
 

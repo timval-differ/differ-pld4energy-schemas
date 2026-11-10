@@ -28,6 +28,7 @@ from differ_pld4e_schemas.database import check_database_reference
 from differ_pld4e_schemas.in_situ import InSituTechniques
 from differ_pld4e_schemas.laser import LaserCalibration, LaserParameters
 from differ_pld4e_schemas.process_steps import (
+    RUN_SPECIFIC,
     CoolDownStep,
     GasProcessStep,
     HeatingStep,
@@ -46,7 +47,15 @@ from differ_pld4e_schemas.process_steps import (
 )
 from differ_pld4e_schemas.references import copy_section as _copy
 from differ_pld4e_schemas.references import reference_key as _reference_key
-from differ_pld4e_schemas.sample import Sample, SampleInRun, SampleRun, resolved
+from differ_pld4e_schemas.references import reference_text as _reference_text
+from differ_pld4e_schemas.references import upload_id_of as _upload_id
+from differ_pld4e_schemas.sample import (
+    Sample,
+    SampleInRun,
+    SampleRun,
+    _resolvable,
+    resolved,
+)
 from differ_pld4e_schemas.stages import (
     HEATER_SIZES,
     SCAN_AXES,
@@ -496,7 +505,7 @@ class PLDLogbook(SampleRun, RunDetails, PulsedLaserDeposition, PlotSection, Entr
         self._normalize_targets(archive, logger)
         self._normalize_samples(archive, logger, self.pvd_system, self.datetime)
         self._apply_recipe(logger)
-        self._normalize_step_targets(logger)
+        self._normalize_step_targets(logger, _upload_id(archive))
         super().normalize(archive, logger)
         # The figures of the in-situ measurements (normalized before the
         # logbook), so that they show on the entry's overview.
@@ -511,17 +520,33 @@ class PLDLogbook(SampleRun, RunDetails, PulsedLaserDeposition, PlotSection, Entr
 
     def _normalize_targets(self, archive: EntryArchive, logger: BoundLogger) -> None:
         seen_targets, seen_numbers = set(), set()
+        upload_id = _upload_id(archive)
         for selected in self.targets or []:
             target = selected.target
-            if target is not None:
+            if target is None:
+                # Nothing is copied from a target that is no longer selected.
+                selected.material = selected.manufacturer = None
+                selected.purchase_date = None
+            else:
                 check_database_reference(target, archive, logger, 'target')
-                key = _reference_key(target)
+                key = _reference_key(target, upload_id)
+                name, material, manufacturer, purchase_date = resolved(
+                    target, 'name', 'material', 'manufacturer', 'purchase_date'
+                )
                 if key in seen_targets:
-                    logger.error(f'Target {target.name} is selected more than once.')
+                    label = name or material or _reference_text(target)
+                    logger.error(f'Target {label} is selected more than once.')
                 seen_targets.add(key)
-                selected.material = target.material
-                selected.manufacturer = target.manufacturer
-                selected.purchase_date = target.purchase_date
+                if _resolvable(target):
+                    selected.material = material
+                    selected.manufacturer = manufacturer
+                    selected.purchase_date = purchase_date
+                else:
+                    # The copies made before are kept, so the record is not lost.
+                    logger.error(
+                        f'The target {_reference_text(target)} cannot be read: '
+                        'check that its entry exists and that you can see it.'
+                    )
             if selected.target_number is not None:
                 if selected.target_number not in TARGET_NUMBERS:
                     logger.warning(
@@ -545,6 +570,9 @@ class PLDLogbook(SampleRun, RunDetails, PulsedLaserDeposition, PlotSection, Entr
         if recipe is None:
             logger.error('Select a recipe before applying it.')
             return
+        if not _resolvable(recipe):
+            logger.error('The recipe cannot be read: check that its entry exists.')
+            return
         if not isinstance(recipe, type(self)):
             logger.error(
                 f'The recipe is from {recipe.m_def.name}, not from {self.m_def.name}.'
@@ -559,13 +587,18 @@ class PLDLogbook(SampleRun, RunDetails, PulsedLaserDeposition, PlotSection, Entr
             for selected in recipe.targets or []:
                 self.m_add_sub_section(sub_sections['targets'], _copy(selected))
         for step in recipe.steps or []:
-            copied = _copy(step)
+            # Not what happened in that run: its times, comments and read-outs.
+            copied = _copy(step, RUN_SPECIFIC)
+            # A duration from the run's start and end time goes with them; one
+            # entered without times (a planned duration) is part of the recipe.
+            if step.start_time is not None and step.end_time is not None:
+                copied.duration = None
             if isinstance(copied, PLDDepositionStep):
                 copied.samples = samples or None
             self.m_add_sub_section(sub_sections['steps'], copied)
         loader.applied_recipe = recipe.name or recipe.lab_id or 'unnamed recipe'
 
-    def _normalize_step_targets(self, logger: BoundLogger) -> None:
+    def _normalize_step_targets(self, logger: BoundLogger, upload_id=None) -> None:
         selected = [t for t in self.targets or [] if t.target is not None]
         for step in getattr(self, 'steps', None) or []:
             if not isinstance(step, TargetedStep):
@@ -575,8 +608,11 @@ class PLDLogbook(SampleRun, RunDetails, PulsedLaserDeposition, PlotSection, Entr
             if step.target is None:
                 step.target_number = None
                 continue
-            key = _reference_key(step.target)
-            match = next((t for t in selected if _reference_key(t.target) == key), None)
+            key = _reference_key(step.target, upload_id)
+            match = next(
+                (t for t in selected if _reference_key(t.target, upload_id) == key),
+                None,
+            )
             if match is None:
                 logger.warning(
                     f'Step "{step.name or step.m_def.label}" uses a target that is '

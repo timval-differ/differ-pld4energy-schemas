@@ -146,6 +146,8 @@ def _in_situ_to_form(data: dict, sections: dict, form: dict, by_reference) -> li
 
 
 class PLDConverter(LogbookConverter):
+    extra_logbook_keys = frozenset({'laser_details', 'in_situ_measurements'})
+
     def extra_to_archive(
         self, data: dict, spec: dict, logbook: dict, references: dict
     ) -> None:

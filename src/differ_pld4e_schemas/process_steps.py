@@ -98,6 +98,20 @@ def substrate_temperature_parameters(temperature) -> list:
     ]
 
 
+# What a step records of the run it was in, not of how to run it: a recipe
+# does not copy these (pld_deposition._apply_recipe, convert.recipe_to_form).
+RUN_SPECIFIC = frozenset(
+    {
+        'start_time',
+        'end_time',
+        'comment',
+        'flow_readout',
+        'actual_voltage',
+        'actual_current',
+    }
+)
+
+
 class GasProcessStep(PVDStep):
     """
     A process step with its chamber pressure and background gases. Use

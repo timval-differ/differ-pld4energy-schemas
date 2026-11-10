@@ -274,6 +274,31 @@ def own_sample_file(reference, sample_id, systems) -> str | None:
     return file_name if file_name == file_name_for(sample_id) else None
 
 
+# Keys of a Sample file that come from the form only (see `_sample_file`);
+# the others, e.g. tags or a lab ID added in NOMAD, are kept on save.
+SAMPLE_KEYS = frozenset(
+    {
+        'm_def',
+        'datetime',
+        'system',
+        'made_in',
+        'name',
+        'sample_id',
+        'sample_uuid',
+        'origin',
+        'substrate',
+        'substrate_details',
+        'substrate_material',
+        'substrate_batch_number',
+        'layers',
+        'description',
+        # Copied from the substrate by the Sample normalizer, so not kept from
+        # an earlier version when the substrate changed.
+        'substrate_size',
+    }
+)
+
+
 def _sample_file(
     entry: dict, item: dict, system: str, start_text: str, file_name: str | None
 ) -> dict:

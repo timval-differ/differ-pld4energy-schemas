@@ -17,7 +17,8 @@ import {createRules} from './rules.js';
 import {API, GUI} from './config.js';
 import {el} from './dom.js';
 import {
-  api, dashboard, folderFileNames, putArchive, putRawFiles, rawExists, rawFileText, readNomadDraft,
+  api, dashboard, entryHash, folderFileNames, putArchive, putRawFiles, rawExists, rawFileText,
+  readArchiveData, readNomadDraft,
 } from './nomad-api.js';
 import {renderFileCharts} from './charts.js';
 import {displayName, fileFieldsOf, parsePending, pendingToken, planUploads, stripPending, uniqueName} from './files.js';
@@ -111,7 +112,9 @@ function checkedEdit(edit, uploadId) {
   if (uploadId !== undefined && edit.upload_id !== uploadId) return null;
   if (!isLogbookFile(edit.mainfile)) return null;
   const entryId = typeof edit.entry_id === 'string' ? edit.entry_id : null;
-  return {upload_id: edit.upload_id, entry_id: entryId, mainfile: edit.mainfile};
+  // The entry's hash when it was opened: a save checks it was not changed since.
+  const hash = typeof edit.entry_hash === 'string' && /^[\w-]+$/.test(edit.entry_hash) ? edit.entry_hash : null;
+  return {upload_id: edit.upload_id, entry_id: entryId, mainfile: edit.mainfile, entry_hash: hash};
 }
 
 const UNVERIFIED_EDIT = 'It referred to a logbook that could not be verified, '
@@ -1303,6 +1306,17 @@ async function fetchLogbook(entry) {
   return response.data.archive.data;
 }
 
+/* The hash of the entry, kept to notice a change made elsewhere; null if not found. */
+async function currentEntryHash(entryId) {
+  if (!entryId) return null;
+  try {
+    return await entryHash(entryId);
+  } catch (e) {
+    logLine(`Could not read the state of the saved logbook: ${e.message}`, 'warn');
+    return null;
+  }
+}
+
 async function openLogbook(picked) {
   if (!(await confirmReplace())) return;
   try {
@@ -1312,7 +1326,10 @@ async function openLogbook(picked) {
     app.form = {recipe: null, ...form};
     // A logbook not made by this dashboard (e.g. a hand-written .archive.yaml)
     // is saved as a new file instead of being overwritten.
-    app.edit = checkedEdit({upload_id: picked.entry.upload_id, entry_id: picked.entry.entry_id, mainfile: picked.entry.mainfile});
+    app.edit = checkedEdit({
+      upload_id: picked.entry.upload_id, entry_id: picked.entry.entry_id, mainfile: picked.entry.mainfile,
+      entry_hash: await currentEntryHash(picked.entry.entry_id),
+    });
     app.source = validUploadId(picked.entry.upload_id);
     app.draft = null;
     app.upload = picked.entry.upload_id;
@@ -1703,8 +1720,13 @@ async function saveLogbook() {
       logLine('The logbook to overwrite could not be verified, so it is saved as a new logbook.', 'warn');
     }
     const logbookFile = app.edit ? app.edit.mainfile : null;
+    // The opened logbook as it is now: the server refuses to overwrite one with
+    // steps the form cannot hold, before anything is uploaded.
+    const opened = logbookFile ? await readArchiveData(app.edit.upload_id, logbookFile) : null;
     // Checked without the files still to upload: only the uploaded ones count.
-    let result = await dashboard('api/archive', {form: formWithoutPending(form), logbook_file: logbookFile});
+    let result = await dashboard('api/archive', {
+      form: formWithoutPending(form), logbook_file: logbookFile, existing: {logbook: opened, samples: {}},
+    });
     const fileError = result.errors.find((e) => e.path === 'logbook_file');
     if (fileError) {
       app.edit = null;
@@ -1722,21 +1744,75 @@ async function saveLogbook() {
       throw new Error(`${logbook.file_name} already exists in this upload. `
         + 'Change the run name or time, or open the existing logbook.');
     }
+    // An opened logbook changed elsewhere since (e.g. in NOMAD's editor): ask first.
+    let hash = logbook && logbook.overwrite && app.edit ? app.edit.entry_hash : null;
+    if (logbook && logbook.overwrite && !hash) {
+      logLine('Whether the logbook was changed in NOMAD since it was opened could not be checked.', 'warn');
+    }
+    if (hash) {
+      const now = await currentEntryHash(app.edit.entry_id);
+      if (now && now !== hash) {
+        const choice = await askChoice('Logbook changed elsewhere',
+          `${logbook.file_name} (or a file next to it in the upload) was changed in NOMAD after you `
+          + 'opened it here. Overwrite it with this form '
+          + '(what the form holds replaces those changes; values the form does not hold are kept), '
+          + 'or save this form as a new logbook?',
+          {overwrite: 'Overwrite it', new: 'Save as a new logbook'});
+        if (choice === 'new') {
+          app.edit = null;
+          rerender = true;
+          showBanner('Save again to store the form as a new logbook.');
+          return;
+        }
+        if (choice !== 'overwrite') {
+          showBanner('Not saved: the form is kept. Open the logbook again to see what changed.');
+          return;
+        }
+        hash = now;
+      }
+    }
     // Uploads nothing when no file is waiting (files of removed items are left out).
     const directory = `${client().file_dir}/${result.logbook_file.replace(/\.archive\.json$/, '')}`;
     await uploadPendingFiles(uploadId, directory, form);
     if (current()) saveDraft();
+    // The files the save overwrites, as they are now: what the form does not
+    // hold is kept from them (convert.form_to_files).
+    const existing = {logbook: null, samples: {}};
+    for (const file of result.files.filter((f) => f.overwrite)) {
+      const data = await readArchiveData(uploadId, file.file_name);
+      if (file.kind === 'logbook') existing.logbook = data;
+      else if (data) existing.samples[file.file_name] = data;
+    }
     // Built again with the uploaded file names. Checked like the first time:
     // with errors there are no files, and an unchecked result would be
     // reported as saved and the draft deleted.
-    result = await dashboard('api/archive', {form, logbook_file: logbookFile});
+    result = await dashboard('api/archive', {form, logbook_file: logbookFile, existing});
+    const keptError = (result.errors || []).find((e) => e.path === 'logbook_file');
+    if (keptError) {
+      app.edit = null;
+      rerender = true;
+      throw new Error(`${keptError.message} Save again to store it as a new logbook.`);
+    }
     checkArchiveResult(result);
+    // Checked again right before the first write: the uploads above take time.
+    if (hash) {
+      const now = await currentEntryHash(app.edit.entry_id);
+      if (now && now !== hash) {
+        throw new Error(`${logbook.file_name} was changed in NOMAD during this save; nothing of it `
+          + 'was written but the data files. Save again to decide whether to overwrite it.');
+      }
+    }
     let logbookEntry = null;
     for (const file of result.files) {
       let response;
       try {
-        response = await putArchive(uploadId, file.file_name, file.archive, file.overwrite);
+        response = await putArchive(uploadId, file.file_name, file.archive, file.overwrite,
+          file.kind === 'logbook' ? hash : null);
       } catch (e) {
+        if (e.status === 409 && /hash/i.test(e.message)) {
+          throw new Error(`${file.file_name} was changed in NOMAD during this save. Save again to decide `
+            + 'whether to overwrite it.');
+        }
         if (e.status === 409 || /exist/i.test(e.message)) {
           throw new Error(`${file.file_name} already exists in this upload. `
             + (file.kind === 'sample'
@@ -1772,7 +1848,10 @@ async function saveLogbook() {
       return;
     }
     await deleteNomadDraft();
-    app.edit = {upload_id: uploadId, entry_id: logbookEntry, mainfile: result.logbook_file};
+    app.edit = {
+      upload_id: uploadId, entry_id: logbookEntry, mainfile: result.logbook_file,
+      entry_hash: await currentEntryHash(logbookEntry),
+    };
     app.source = uploadId;
     app.upload = uploadId;
     if (logbookEntry) {

@@ -31,7 +31,15 @@ from differ_pld4e_schemas.process_steps import (
     HeatingStep,
 )
 from differ_pld4e_schemas.references import reference_key
-from differ_pld4e_schemas.sample import Sample, SampleInRun, SampleRun, resolved
+from differ_pld4e_schemas.references import reference_text as _reference_text
+from differ_pld4e_schemas.references import upload_id_of as _upload_id
+from differ_pld4e_schemas.sample import (
+    Sample,
+    SampleInRun,
+    SampleRun,
+    _resolvable,
+    resolved,
+)
 from differ_pld4e_schemas.stages import HeaterStagePosition
 from differ_pld4e_schemas.target import SputterTarget
 
@@ -327,21 +335,35 @@ class SPSLogbook(SampleRun, RunDetails, SputterDeposition, EntryData):
             logger.warning('A mask is only used with the fixed stage.')
         self._normalize_targets(archive, logger)
         self._normalize_samples(archive, logger, self.pvd_system, self.datetime)
-        self._normalize_step_targets(logger)
+        self._normalize_step_targets(logger, _upload_id(archive))
         super().normalize(archive, logger)
 
     def _normalize_targets(self, archive: EntryArchive, logger: BoundLogger) -> None:
         seen_targets, seen_numbers = set(), set()
+        upload_id = _upload_id(archive)
         for selected in self.targets or []:
             target = selected.target
-            if target is not None:
+            if target is None:
+                # Nothing is copied from a target that is no longer selected.
+                selected.material = selected.diameter = None
+            else:
                 check_database_reference(target, archive, logger, 'target')
-                key = reference_key(target)
+                key = reference_key(target, upload_id)
+                name, material, diameter = resolved(
+                    target, 'name', 'material', 'diameter'
+                )
                 if key in seen_targets:
-                    logger.error(f'Target {target.name} is selected more than once.')
+                    label = name or material or _reference_text(target)
+                    logger.error(f'Target {label} is selected more than once.')
                 seen_targets.add(key)
-                selected.material = target.material
-                selected.diameter = target.diameter
+                if _resolvable(target):
+                    selected.material, selected.diameter = material, diameter
+                else:
+                    # The copies made before are kept, so the record is not lost.
+                    logger.error(
+                        f'The target {_reference_text(target)} cannot be read: '
+                        'check that its entry exists and that you can see it.'
+                    )
             number = selected.target_number
             if number is None:
                 continue
@@ -364,7 +386,7 @@ class SPSLogbook(SampleRun, RunDetails, SputterDeposition, EntryData):
                 logger.warning(f'Target number {number} is used twice.')
             seen_numbers.add(number)
 
-    def _normalize_step_targets(self, logger: BoundLogger) -> None:
+    def _normalize_step_targets(self, logger: BoundLogger, upload_id=None) -> None:
         selected = [t for t in self.targets or [] if t.target is not None]
         for step in self.steps or []:
             if not isinstance(step, SputterTargetedStep):
@@ -374,8 +396,11 @@ class SPSLogbook(SampleRun, RunDetails, SputterDeposition, EntryData):
             if step.target is None:
                 step.target_number = None
                 continue
-            key = reference_key(step.target)
-            match = next((t for t in selected if reference_key(t.target) == key), None)
+            key = reference_key(step.target, upload_id)
+            match = next(
+                (t for t in selected if reference_key(t.target, upload_id) == key),
+                None,
+            )
             if match is None:
                 logger.warning(
                     f'Step "{step.name or step.m_def.label}" uses a target that is '

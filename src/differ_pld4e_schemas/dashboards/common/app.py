@@ -110,6 +110,8 @@ class RevalidatedStaticFiles(StaticFiles):
 class FormRequest(BaseModel):
     form: dict
     logbook_file: str | None = Field(None, max_length=255)
+    # The files a save overwrites, as they are in the upload (convert.form_to_files).
+    existing: dict | None = None
 
 
 class ArchiveRequest(BaseModel):
@@ -156,7 +158,7 @@ def create_app(form_spec: dict, rules, converter) -> FastAPI:
                 return {'errors': errors, 'files': []}
             try:
                 result = converter.form_to_files(
-                    request.form, spec, request.logbook_file
+                    request.form, spec, request.logbook_file, request.existing
                 )
             except UnsafeLogbookFile as error:
                 return {

@@ -145,3 +145,27 @@ describe('raw files', () => {
     assert.equal(await rawExists('u1', 'a'), true);
   });
 });
+
+describe('changes made elsewhere', () => {
+  test('a logbook is written with the hash it was read with', async () => {
+    answer(200, '{}');
+    await putArchive('u1', 'a.archive.json', {data: {}}, true, 'h1');
+    assert.match(requests[0].url, /overwrite_if_exists=true&wait_for_processing=true&entry_hash=h1$/);
+    await putArchive('u1', 'a.archive.json', {data: {}}, false);
+    assert.doesNotMatch(requests[1].url, /entry_hash/);
+  });
+
+  test('the hash of an entry and the data of a file', async () => {
+    const {entryHash, readArchiveData} = await import('../../src/differ_pld4e_schemas/dashboards/common/static/nomad-api.js');
+    answer(200, JSON.stringify({data: {archive: {metadata: {entry_hash: 'abc'}}}}));
+    assert.equal(await entryHash('e1'), 'abc');
+    assert.match(requests[0].url, /\/entries\/e1\/archive\/query$/);
+    assert.deepEqual(JSON.parse(requests[0].options.body), {required: {metadata: {entry_hash: '*'}}});
+    answer(200, JSON.stringify({data: {name: 'x'}}));
+    assert.deepEqual(await readArchiveData('u1', 'a.archive.json'), {name: 'x'});
+    answer(404, '{"detail": "gone"}');
+    assert.equal(await readArchiveData('u1', 'a.archive.json'), null);
+    answer(200, '"not an archive"');
+    await assert.rejects(readArchiveData('u1', 'a.archive.json'), /not an archive/);
+  });
+});

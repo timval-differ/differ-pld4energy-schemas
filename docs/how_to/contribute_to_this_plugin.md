@@ -153,11 +153,11 @@ Most changes only touch `spec.py`:
 
 ```python
 number(
-    'spot_size',               # key in the form data
-    'Spot size',               # label
-    'mm^2',                    # unit the user types in (pint)
-    unit_label='mm²',          # how the unit is shown
-    archive='laser.spot_size', # quantity path in the schema section
+    'spot_size',  # key in the form data
+    'Spot size',  # label
+    'mm^2',  # unit the user types in (pint)
+    unit_label='mm²',  # how the unit is shown
+    archive='laser.spot_size',  # quantity path in the schema section
     visible_if={'key': '/run/system', 'equals': 'LA-PLD'},  # optional
 )
 ```

@@ -33,4 +33,4 @@ jobs:
 
       - name: Build and Deploy
         run: |
-          uv run --extra dev mkdocs gh-deploy --force --remote-branch gh-pages
+          uv run --extra dev mkdocs gh-deploy --strict --force --remote-branch gh-pages

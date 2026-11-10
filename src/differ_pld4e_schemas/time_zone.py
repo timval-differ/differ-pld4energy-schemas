@@ -20,7 +20,7 @@ The zone is set in nomad.yaml (default Europe/Amsterdam)::
 
 from __future__ import annotations
 
-from datetime import date, datetime, time, timezone
+from datetime import UTC, date, datetime, time
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 DEFAULT_LAB_TIME_ZONE = 'Europe/Amsterdam'
@@ -50,7 +50,7 @@ def lab_wall_time(moment: datetime) -> datetime:
     """`moment` on the lab's clock. A naive datetime is taken as UTC, as NOMAD
     stores it."""
     if moment.tzinfo is None:
-        moment = moment.replace(tzinfo=timezone.utc)
+        moment = moment.replace(tzinfo=UTC)
     return moment.astimezone(lab_zone())
 
 
@@ -68,5 +68,5 @@ def is_skipped(day: date, clock: time) -> bool:
     """Whether the lab's clock never showed `clock` on `day` (the hour skipped
     when it goes forward, e.g. 02:30 on the last Sunday of March)."""
     moment = lab_instant(day, clock)
-    back = moment.astimezone(timezone.utc).astimezone(lab_zone())
+    back = moment.astimezone(UTC).astimezone(lab_zone())
     return (back.hour, back.minute) != (clock.hour, clock.minute)

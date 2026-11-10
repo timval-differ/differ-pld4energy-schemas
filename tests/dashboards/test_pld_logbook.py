@@ -27,6 +27,7 @@ from helpers.pld_forms import (
     sa_form,
 )
 from helpers.schema import enum_values
+from helpers.scripts import blocked_dialog_calls
 from nomad.datamodel import EntryArchive, EntryMetadata
 from structlog.testing import CapturingLogger
 
@@ -960,7 +961,7 @@ def test_page_offers_pdf_export(client):
     script = client.get('/static/app.js').text
     assert "import {makePdf} from './pdf.js';" in script
     assert 'export function makePdf(' in client.get('/static/pdf.js').text
-    assert not re.search(r'window\.(print|confirm|alert|prompt)\([^)]', script)
+    assert blocked_dialog_calls(script) == []
 
 
 def test_page_and_server_report_the_same_script_version(client):

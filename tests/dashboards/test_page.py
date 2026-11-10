@@ -9,6 +9,7 @@ import shutil
 
 import pytest
 from fastapi.testclient import TestClient
+from helpers.scripts import blocked_dialog_calls
 
 from differ_pld4e_schemas.dashboards import (
     pld_logbook_dashboard_entry_point,
@@ -78,4 +79,13 @@ def test_scripts_do_not_use_dialogs_the_frame_blocks(name):
     confirm(), alert() and prompt() are ignored.
     """
     script = (STATIC / name).read_text(encoding='utf-8')
-    assert not re.search(r'window\.(print|confirm|alert|prompt)\([^)]', script)
+    assert blocked_dialog_calls(script) == []
+
+
+def test_blocked_dialog_check_finds_real_calls_not_comments():
+    assert blocked_dialog_calls('window.print();') == ['window.print(']
+    assert blocked_dialog_calls('if (confirm("x")) go();') == ['confirm(']
+    assert blocked_dialog_calls('// window.confirm() does nothing here') == []
+    assert blocked_dialog_calls('/* alert() */ askConfirm(a); confirmReplace();') == []
+    assert blocked_dialog_calls('globalThis.alert(1)') == ['globalThis.alert(']
+    assert blocked_dialog_calls('function confirm(a) {}') == []

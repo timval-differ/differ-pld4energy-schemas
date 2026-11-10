@@ -83,9 +83,8 @@ differ-pld4energy-schemas/
 ├── .gitattributes               test exports are kept byte for byte
 ├── .devcontainer/               a Python and Node container for the plugin alone
 │                                (no NOMAD services), see "Tests and CI"
-└── nomad.yaml, .cruft.json,     left from the plugin template: not used by the
-    move_template_files.sh,      distribution (its configuration is the nomad.yaml
-    MANIFEST.in                  at the distribution root)
+└── .cruft.json                 left from the plugin template (its configuration
+                                 is the nomad.yaml at the distribution root)
 ```
 
 ## Part 1: the schemas
@@ -252,10 +251,11 @@ entry point (`schema_packages/__init__.py`) and read by `database.py` and
   (an exception in its `spec.py`, `rules.py` or `convert.py`), NOMAD logs an
   error that names the entry point, skips that dashboard, and its URL answers
   404. Look for that error in NOMAD's log.
-- The page compares a version of its files with the version the running server
-  took at its start. After any change to `static/` or to Python, restart NOMAD
-  (`uv run poe start`); until then the page shows "The dashboard was updated,
-  but NOMAD still runs the previous version of it".
+- The page compares a version of its files (a hash of `static/`) with the
+  version the running server took at its start: after a change to `static/`
+  it shows "The dashboard was updated, but NOMAD still runs the previous
+  version of it" until NOMAD is restarted (`uv run poe start`). A change to
+  Python is not detected: restart NOMAD after it as well.
 
 ### What is trusted, and what is checked
 

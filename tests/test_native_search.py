@@ -3,7 +3,7 @@ The entries are native NOMAD sections, so NOMAD's search finds them: these tests
 run NOMAD's full normalization and check what ends up in `results`.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 from helpers import ENTRY_CREATE_TIME
@@ -35,7 +35,7 @@ from differ_pld4e_schemas.sps_deposition import (
 from differ_pld4e_schemas.target import PLDTarget, SputterTarget
 
 # 09:15 on the lab clock (Europe/Amsterdam, +01:00 in November).
-START = datetime(2026, 11, 5, 8, 15, tzinfo=timezone.utc)
+START = datetime(2026, 11, 5, 8, 15, tzinfo=UTC)
 PULSES = 3000
 SUBSTRATE_TEMPERATURE = 973.0
 PRESSURE = 10.0

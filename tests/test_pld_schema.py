@@ -23,9 +23,9 @@ from differ_pld4e_schemas.in_situ import (
     InSituTechniquesEntry,
     block_mean,
     block_size,
+    decode_export,
     energy_axis,
     read_columns,
-    text_lines,
 )
 from differ_pld4e_schemas.laser import LaserCalibration, LaserParameters
 from differ_pld4e_schemas.pld_deposition import (
@@ -700,13 +700,14 @@ def test_read_columns():
         read_columns(['only a header'])
 
 
-def test_text_lines_read_any_encoding_and_line_ending():
-    lines = [
-        'Bow (µm);x\r\n'.encode('latin-1'),
-        'Bow (µm);y\n'.encode(),
-        b'1;2\r3;4\r\n',
-    ]
-    assert list(text_lines(lines)) == ['Bow (µm);x', 'Bow (µm);y', '1;2', '3;4']
+def test_exports_are_read_in_any_encoding_and_line_ending():
+    text = 'Bow (µm);x\r\n1;2\r3;4\r\n'
+    assert decode_export(text.encode('cp1252')) == ['Bow (µm);x', '1;2', '3;4']
+    assert decode_export('Bow (µm);y\n'.encode()) == ['Bow (µm);y']
+    # A byte order mark (UTF-8, UTF-16) is not part of the first column name.
+    assert decode_export('Time (s);x\n'.encode('utf-8-sig')) == ['Time (s);x']
+    utf16 = 'Time (s);x\r\n1;2'.encode('utf-16')
+    assert decode_export(utf16) == ['Time (s);x', '1;2']
 
 
 def test_mic_export_is_read_on_linux():
@@ -756,7 +757,10 @@ def test_mic_reads_curvature_export(mic_dir):
         pytest.approx(0.870112194638309)
     )
     assert data.sagittal_stress_thickness_rate is not None
-    assert data.tangential_bow[0] == pytest.approx(-0.0287423133850098)
+    # The export gives the bow in µm, now stored with that unit.
+    assert data.tangential_bow[0].to('um').magnitude == pytest.approx(
+        -0.0287423133850098
+    )
     assert [f.label.split(':')[0] for f in mic.figures] == [
         'MIC stress x thickness',
         'MIC curvature',

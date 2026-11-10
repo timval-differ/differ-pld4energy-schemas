@@ -109,7 +109,7 @@ method, elements and lab ID; see [Search](explanation.md#search).
   that logbook; shared content lives in base classes and `process_steps.py`.
 - **Exported data files** (RHEED, MIC) are read in `in_situ.py`. Instrument
   exports come in several encodings (the MIC export has a Latin-1 header), so
-  they are read as bytes and decoded per line (`text_lines`).
+  they are read as bytes and decoded as a whole (`decode_export`).
 
 ## Part 2: the dashboards
 

@@ -59,6 +59,14 @@ export async function dashboard(path, body) {
   return json;
 }
 
+/* The bytes of a raw file in an upload, e.g. an export to decode (charts.decodeExport). */
+export async function rawFileBytes(uploadId, path) {
+  const url = API + uploadPath(uploadId, 'raw', path);
+  const response = await fetch(url, {credentials: 'same-origin'});
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  return response.arrayBuffer();
+}
+
 export async function rawFileText(uploadId, path) {
   const url = API + uploadPath(uploadId, 'raw', path);
   const response = await fetch(url, {credentials: 'same-origin'});

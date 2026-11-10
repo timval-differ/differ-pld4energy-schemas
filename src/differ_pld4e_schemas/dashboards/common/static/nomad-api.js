@@ -83,3 +83,41 @@ export async function readNomadDraft(uploadId, path) {
     throw e;
   }
 }
+
+/**
+ * Upload files into one folder of an upload in one request, never replacing
+ * a file that is there (NOMAD then refuses the request). Waits for NOMAD to
+ * process the upload, so the next write does not find it busy.
+ * @param {string} uploadId
+ * @param {string} folder
+ * @param {{name: string, file: Blob}[]} files
+ */
+export async function putRawFiles(uploadId, folder, files) {
+  const body = new FormData();
+  for (const {name, file} of files) body.append('file', file, name);
+  return api(`${uploadPath(uploadId, 'raw', folder)}?overwrite_if_exists=false&wait_for_processing=true`, {
+    method: 'PUT', body,
+  });
+}
+
+/** The names of the files in a folder of an upload; none if it does not exist. */
+export async function folderFileNames(uploadId, folder) {
+  try {
+    const listing = await api(`${uploadPath(uploadId, 'rawdir', folder)}?page_size=1000`);
+    return ((listing.directory_metadata || {}).content || []).filter((f) => f.is_file).map((f) => f.name);
+  } catch (e) {
+    if (e.status === 404) return [];
+    throw e;
+  }
+}
+
+/** Whether a file exists in an upload. */
+export async function rawExists(uploadId, path) {
+  try {
+    await api(uploadPath(uploadId, 'rawdir', path));
+    return true;
+  } catch (e) {
+    if (e.status === 404) return false;
+    throw e;
+  }
+}

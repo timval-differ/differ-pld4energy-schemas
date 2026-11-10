@@ -119,6 +119,9 @@ TYPE_ERRORS = {
     ),
 }
 MISSING_UID = 'This item has no ID: remove it and add it again.'
+# A file chosen in the page is named `pending:<id>/<name>` until it is uploaded
+# (static/files.js); one left in a saved form was never uploaded.
+NOT_UPLOADED = 'A file was not uploaded: remove it and add it again.'
 GAS_NEEDED = 'Tick at least one gas, or choose UHV.'
 
 
@@ -150,6 +153,8 @@ def _field_error(
         is_type, message = TYPE_ERRORS[kind]
         if not is_type(value):
             return message
+    if kind == 'files' and any(v.startswith('pending:') for v in value):
+        return NOT_UPLOADED
     if kind in ('number', 'integer'):
         return _number_error(field, value)
     if kind == 'reference' and field.get('database'):

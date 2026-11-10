@@ -11,6 +11,7 @@
  */
 
 import {LEVELS, MADE_HERE, NEW_SAMPLE} from './constants.js';
+import {parsePending} from './files.js';
 import {pad, uploadOfRef} from './util.js';
 
 /**
@@ -18,6 +19,8 @@ import {pad, uploadOfRef} from './util.js';
  * @property {any} spec the form definition served by api/spec
  * @property {{target: any[], sample: any[]}} refs entries found in NOMAD,
  *   as {ref, material} (targets) and {ref, sampleId, sampleName} (samples)
+ * @property {Object<string, any>} [pendingFiles] files chosen in the page and
+ *   not uploaded yet, by id (see files.js)
  */
 
 /**
@@ -302,6 +305,15 @@ export function createRules(ctx) {
     if (Object.hasOwn(TYPE_ERRORS, kind)) {
       const [isType, message] = TYPE_ERRORS[kind];
       if (!isType(value)) return message;
+    }
+    // A chosen file is `pending:<id>/<name>` until uploaded (files.js; mirror
+    // rules.NOT_UPLOADED). In the page it is fine while the file is at hand.
+    const atHand = (v) => {
+      const pending = parsePending(v);
+      return pending && ctx.pendingFiles && Object.hasOwn(ctx.pendingFiles, pending.id);
+    };
+    if (kind === 'files' && value.some((v) => v.startsWith('pending:') && !atHand(v))) {
+      return 'A file was not uploaded: remove it and add it again.';
     }
     if (kind === 'number' || kind === 'integer') {
       const number = toNumber(value);

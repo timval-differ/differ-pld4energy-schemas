@@ -147,7 +147,8 @@ leave a section with **Next**, or straight away for fields you have edited.
    during, then switch on each technique you used and add its data files. A file
    field takes several files of its format, e.g. a series of RHEED `.png`
    images. Files can also be added later: a technique without files is saved as
-   *awaiting data*.
+   *awaiting data*. A file never replaces another one: a name used twice gets
+   a number, e.g. `step1 (2).txt`.
 8. **System logfiles.** Optional: add the `.txt` logfiles exported from the
    TSST software.
 9. **Review and save.** Lists everything that is still missing; click an item
@@ -170,12 +171,14 @@ save*). It needs the system, date and start time, and an upload.
 - On another computer, the start page lists the drafts in your unpublished
   uploads; pick one to carry on.
 - If someone saved the same draft elsewhere after you opened it, you are asked
-  whether to overwrite it or to load their version.
+  whether to overwrite it or to load their version. *Cancel* keeps your form
+  and does not save the draft.
 - Saving the complete logbook deletes the draft.
 
 Independently of drafts, the form is kept in your browser while you work, so
-you can close the page and continue later on the same computer. Files you chose
-but did not save yet are not kept: choose them again. *New logbook* on the
+you can close the page and continue later on the same computer. It is kept per
+NOMAD user: on a shared computer, the next user does not get your form. Files
+you chose but did not save yet are not kept: choose them again. *New logbook* on the
 start page clears the form.
 
 ## Export as PDF

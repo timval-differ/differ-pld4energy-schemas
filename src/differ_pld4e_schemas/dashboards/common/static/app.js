@@ -16,8 +16,11 @@ import {makePdf} from './pdf.js';
 import {createRules} from './rules.js';
 import {API, GUI} from './config.js';
 import {el} from './dom.js';
-import {api, dashboard, putArchive, rawFileText, readNomadDraft} from './nomad-api.js';
+import {
+  api, dashboard, folderFileNames, putArchive, putRawFiles, rawExists, rawFileText, readNomadDraft,
+} from './nomad-api.js';
 import {renderFileCharts} from './charts.js';
+import {displayName, fileFieldsOf, parsePending, pendingToken, planUploads, stripPending, uniqueName} from './files.js';
 import {uid, clockIn, fileNameFor, entryRef, uploadPath, validUploadId, formatNumber} from './util.js';
 
 const DRAFT_VERSION = 1;
@@ -39,7 +42,11 @@ const app = {
   uploads: [],
   refs: {target: [], sample: [], substrate: []},
   maintainer: false, // whether the user can edit the target and substrate database
-  pendingFiles: {}, // form path -> File, uploaded on save
+  pendingFiles: {}, // id -> File chosen but not uploaded yet (see files.js)
+  // Counts the logbooks put in the form: a save that ends after another
+  // logbook was opened does not change the new one.
+  generation: 0,
+  changedSinceDraft: false, // the form was changed since its draft was saved or opened
   touched: new Set(),
   shown: new Set(), // sections whose problems are all shown
   collapsed: new Set(), // collapsed step uids
@@ -235,18 +242,32 @@ function errorsFor(prefix) {
 let draftTimer = null;
 function changed() {
   app.started = true;
+  app.changedSinceDraft = true;
   app.errors = validate(app.form, app.spec);
   refresh();
   clearTimeout(draftTimer);
   draftTimer = setTimeout(saveDraft, 400);
 }
 
+/*
+ * The key of the form kept in this browser: one per NOMAD user, so on a shared
+ * computer one user's logbook is not offered to the next. None when logged out.
+ */
+function localDraftKey() {
+  return app.user && app.user.user_id ? `${client().draft_key}:${app.user.user_id}` : null;
+}
+
 /* Kept in this browser as a safeguard; see saveDraftToNomad for drafts on NOMAD. */
 function saveDraft() {
+  const key = localDraftKey();
+  if (!key) {
+    document.getElementById('draft-status').textContent = 'Not kept in this browser: log in to NOMAD first.';
+    return;
+  }
   try {
-    localStorage.setItem(client().draft_key, JSON.stringify({
+    localStorage.setItem(key, JSON.stringify({
       form: app.form, edit: app.edit, draft: app.draft, source: app.source, upload: app.upload,
-      pending: Object.keys(app.pendingFiles), savedAt: new Date().toISOString(),
+      userId: app.user.user_id, savedAt: new Date().toISOString(),
     }));
     document.getElementById('draft-status').textContent = 'Kept in this browser at '
       + new Date().toLocaleTimeString();
@@ -255,19 +276,37 @@ function saveDraft() {
   }
 }
 
-function loadDraft() {
+function readLocal(key) {
   try {
-    const draft = JSON.parse(localStorage.getItem(client().draft_key) || 'null');
-    if (!draft || !draft.form || !draft.form.run) return null;
-    return draft;
+    const draft = JSON.parse(localStorage.getItem(key) || 'null');
+    return draft && draft.form && draft.form.run ? draft : null;
   } catch (e) {
     return null;
   }
 }
 
+function loadDraft() {
+  const key = localDraftKey();
+  if (!key) return null;
+  // Kept by older versions under one key for everyone: taken over by the user
+  // who kept it (or, when that is not recorded, by the first to log in).
+  const legacy = readLocal(client().draft_key);
+  if (legacy && !readLocal(key) && (!legacy.userId || legacy.userId === app.user.user_id)) {
+    try {
+      localStorage.setItem(key, JSON.stringify(legacy));
+      localStorage.removeItem(client().draft_key);
+    } catch (e) {
+      /* storage unavailable: the legacy form stays where it is */
+    }
+  }
+  return readLocal(key);
+}
+
 function clearDraft() {
+  const key = localDraftKey();
+  if (!key) return;
   try {
-    localStorage.removeItem(client().draft_key);
+    localStorage.removeItem(key);
   } catch (e) {
     /* storage unavailable */
   }
@@ -276,8 +315,14 @@ function clearDraft() {
 /*
  * Files chosen but not uploaded yet are lost on reload; ask for them again.
  * Files already in the upload (also those added in the NOMAD GUI) are kept.
+ * Older versions kept the chosen files by form path (`pendingPaths`); now they
+ * are tokens in the form (files.js).
  */
 function dropPendingFiles(form, pendingPaths) {
+  return dropLegacyPendingFiles(form, pendingPaths) + stripPending(form, fileFieldsOf(app.spec), app.pendingFiles);
+}
+
+function dropLegacyPendingFiles(form, pendingPaths) {
   let dropped = 0;
   // From the end, so the positions of the files still to drop stay valid.
   const paths = [...(pendingPaths || [])].sort((a, b) => {
@@ -593,8 +638,11 @@ function control(field, local, path) {
         onchange: (e) => {
           const values = local[field.key] || (local[field.key] = []);
           for (const file of e.target.files) {
-            app.pendingFiles[`${path}.${values.length}`] = file;
-            values.push(file.name);
+            // A token that moves with its item (files.js); a name given twice
+            // in this field gets a number, so neither replaces the other.
+            const id = uid();
+            app.pendingFiles[id] = file;
+            values.push(pendingToken(id, uniqueName(file.name, values.map(displayName))));
           }
           input.value = '';
           app.touched.add(path);
@@ -709,19 +757,11 @@ function renderFields(container, fields, local, path) {
 }
 
 
-/* Remove one file of a `files` field; files still to upload keep their place. */
+/* Remove one file of a `files` field. */
 function removeFile(local, key, path, index) {
-  local[key].splice(index, 1);
-  const pending = {};
-  for (const [pendingPath, file] of Object.entries(app.pendingFiles)) {
-    if (!pendingPath.startsWith(`${path}.`)) {
-      pending[pendingPath] = file;
-      continue;
-    }
-    const position = Number(pendingPath.slice(path.length + 1));
-    if (position !== index) pending[`${path}.${position > index ? position - 1 : position}`] = file;
-  }
-  app.pendingFiles = pending;
+  const [removed] = local[key].splice(index, 1);
+  const pending = parsePending(removed);
+  if (pending) delete app.pendingFiles[pending.id];
   app.touched.add(path);
   changed();
 }
@@ -796,8 +836,8 @@ function refresh() {
     }
     if (kind === 'files') {
       r.fileList.replaceChildren(...(value || []).map((name, index) => el('div', {class: 'file-row'},
-        el('span', {class: 'file-name'}, String(name).split('/').pop()),
-        el('span', {class: 'file-pending'}, app.pendingFiles[`${r.path}.${index}`] ? 'uploaded on save' : ''),
+        el('span', {class: 'file-name'}, displayName(name)),
+        el('span', {class: 'file-pending'}, parsePending(name) ? 'uploaded on save' : ''),
         el('button', {
           type: 'button', class: 'btn btn-text btn-icon btn-danger', title: 'Remove file',
           onclick: () => removeFile(r.local, r.field.key, r.path, index),
@@ -972,6 +1012,10 @@ function runLabel(form) {
 
 /* Starting or opening another logbook replaces the one in the form. */
 async function confirmReplace() {
+  if (app.saving) {
+    showBanner('Wait until the save is finished.', 'error');
+    return false;
+  }
   return !app.started || askConfirm('Replace the logbook in the form?',
     `Replace the logbook you are working on (${runLabel(app.form)})? `
     + 'What is not saved as a draft or logbook is lost.', 'Replace');
@@ -1202,6 +1246,15 @@ function closeDialog() {
  * (window.confirm() does nothing in the sandboxed frame NOMAD shows us in.)
  */
 function askConfirm(title, question, yes, no = 'Cancel') {
+  return askChoice(title, question, {yes}, no).then((choice) => choice === 'yes');
+}
+
+/*
+ * A question with one button per choice ({key: label}), resolving to the key
+ * chosen, or null when the dialog is cancelled or closed: closing it never
+ * picks one of the choices.
+ */
+function askChoice(title, question, choices, cancel = 'Cancel') {
   return new Promise((resolve) => {
     const answer = (value) => {
       app.dialogCancelled = null;
@@ -1210,11 +1263,12 @@ function askConfirm(title, question, yes, no = 'Cancel') {
     };
     openDialog(title, [
       el('p', {}, question),
-      el('div', {class: 'btn-row'},
-        el('button', {type: 'button', class: 'btn btn-contained', onclick: () => answer(true)}, yes)),
+      el('div', {class: 'btn-row'}, ...Object.entries(choices).map(([key, label], index) => el('button', {
+        type: 'button', class: index ? 'btn btn-outlined' : 'btn btn-contained', onclick: () => answer(key),
+      }, label))),
     ]);
-    document.getElementById('dialog-cancel').textContent = no;
-    app.dialogCancelled = () => resolve(false);
+    document.getElementById('dialog-cancel').textContent = cancel;
+    app.dialogCancelled = () => resolve(null);
   });
 }
 
@@ -1263,6 +1317,7 @@ async function openLogbook(picked) {
     app.draft = null;
     app.upload = picked.entry.upload_id;
     app.pendingFiles = {};
+    app.generation += 1;
     app.touched.clear();
     app.shown.clear();
     closeDialog();
@@ -1573,20 +1628,42 @@ function processingMessages(response, label) {
  * a folder of their own (`in_situ_1`), so equal file names of two
  * measurements do not overwrite each other.
  */
-async function uploadPendingFiles(uploadId, directory) {
-  for (const [path, file] of Object.entries(app.pendingFiles)) {
-    const parts = path.split('.');
-    const position = Number(parts.pop());
-    const list = formAt(app.form, parts);
-    const folder = parts.length > 2 ? `${directory}/${parts[0]}_${Number(parts[1]) + 1}` : `${directory}/${parts[0]}`;
-    const body = new FormData();
-    body.append('file', file, file.name);
-    await api(`${uploadPath(uploadId, 'raw', folder)}?wait_for_processing=false&overwrite_if_exists=true`, {
-      method: 'PUT', body,
-    });
-    if (Array.isArray(list)) list[position] = `${folder}/${file.name}`;
-    delete app.pendingFiles[path];
-    logLine(`Uploaded ${file.name}`, 'ok');
+async function uploadPendingFiles(uploadId, directory, form = app.form) {
+  const fields = fileFieldsOf(app.spec);
+  // The files at hand when the save started: opening another logbook meanwhile
+  // resets app.pendingFiles, but not what this save uploads for its form.
+  const files = {...app.pendingFiles};
+  const folders = planUploads(form, fields, files, directory).map((g) => g.folder);
+  // The names already in each folder, so none is replaced (files.planUploads).
+  const existing = {};
+  for (const folder of folders) existing[folder] = await folderFileNames(uploadId, folder);
+  for (const group of planUploads(form, fields, files, directory, existing)) {
+    await putRawFiles(uploadId, group.folder, group.files);
+    for (const f of group.files) {
+      f.target(`${group.folder}/${f.name}`);
+      delete app.pendingFiles[f.id];
+      logLine(`Uploaded ${group.folder}/${f.name}`, 'ok');
+    }
+  }
+}
+
+/* A copy of the form without the files not uploaded yet: what the server checks first. */
+function formWithoutPending(form) {
+  const copy = JSON.parse(JSON.stringify(form));
+  stripPending(copy, fileFieldsOf(app.spec), {});
+  return copy;
+}
+
+/* Saving needs the NOMAD session; checked before anything is written. */
+async function checkSession() {
+  try {
+    await api('/users/me');
+  } catch (e) {
+    if (e.status === 401) {
+      throw new Error('Your NOMAD session has expired. Log in to NOMAD again in another tab, then save '
+        + 'again: the form is kept.');
+    }
+    throw e;
   }
 }
 
@@ -1612,7 +1689,12 @@ async function saveLogbook() {
   app.saving = true;
   app.log = [];
   updateSaveState();
+  // The form being saved; another logbook may be opened when the save ends.
+  const generation = app.generation;
+  const form = app.form;
+  const current = () => app.generation === generation;
   try {
+    await checkSession();
     // Checked again here, whichever way the logbook was opened: the save goes
     // to the upload of `app.edit` and overwrites its file.
     if (app.edit && !checkedEdit(app.edit, app.draft ? app.draft.upload_id : undefined)) {
@@ -1621,7 +1703,8 @@ async function saveLogbook() {
       logLine('The logbook to overwrite could not be verified, so it is saved as a new logbook.', 'warn');
     }
     const logbookFile = app.edit ? app.edit.mainfile : null;
-    let result = await dashboard('api/archive', {form: app.form, logbook_file: logbookFile});
+    // Checked without the files still to upload: only the uploaded ones count.
+    let result = await dashboard('api/archive', {form: formWithoutPending(form), logbook_file: logbookFile});
     const fileError = result.errors.find((e) => e.path === 'logbook_file');
     if (fileError) {
       app.edit = null;
@@ -1633,15 +1716,21 @@ async function saveLogbook() {
     checkArchiveResult(result);
     const uploadId = await ensureUpload();
     logLine(`Saving to upload ${uploadId}`);
-    if (Object.keys(app.pendingFiles).length) {
-      const directory = `${client().file_dir}/${result.logbook_file.replace(/\.archive\.json$/, '')}`;
-      await uploadPendingFiles(uploadId, directory);
-      // Built again with the uploaded file names. Checked like the first time:
-      // with errors there are no files, and an unchecked result would be
-      // reported as saved and the draft deleted.
-      result = await dashboard('api/archive', {form: app.form, logbook_file: logbookFile});
-      checkArchiveResult(result);
+    // A new logbook never overwrites a file: stop before uploading anything.
+    const logbook = result.files.find((f) => f.kind === 'logbook');
+    if (logbook && !logbook.overwrite && await rawExists(uploadId, logbook.file_name)) {
+      throw new Error(`${logbook.file_name} already exists in this upload. `
+        + 'Change the run name or time, or open the existing logbook.');
     }
+    // Uploads nothing when no file is waiting (files of removed items are left out).
+    const directory = `${client().file_dir}/${result.logbook_file.replace(/\.archive\.json$/, '')}`;
+    await uploadPendingFiles(uploadId, directory, form);
+    if (current()) saveDraft();
+    // Built again with the uploaded file names. Checked like the first time:
+    // with errors there are no files, and an unchecked result would be
+    // reported as saved and the draft deleted.
+    result = await dashboard('api/archive', {form, logbook_file: logbookFile});
+    checkArchiveResult(result);
     let logbookEntry = null;
     for (const file of result.files) {
       let response;
@@ -1660,12 +1749,14 @@ async function saveLogbook() {
       logLine(`${label} saved`, 'ok');
       processingMessages(response, label);
       if (file.kind === 'sample') {
-        const item = app.form.samples.find((s) => s.uid === file.uid);
+        const item = form.samples.find((s) => s.uid === file.uid);
         if (item) {
           // From now on the sample keeps this ID and its entry is updated on save.
           item.ref = file.reference;
           item.sample_id = file.archive.data.sample_id;
           item.sample_uuid = file.archive.data.sample_uuid;
+          // Kept at once: a save that fails later must not make the sample again.
+          if (current()) saveDraft();
         }
       } else {
         logbookEntry = response.processing && response.processing.entry_id;
@@ -1674,6 +1765,11 @@ async function saveLogbook() {
     for (const warning of result.warnings || []) {
       const sample = /^samples\.(\d+)$/.exec(warning.path || '');
       logLine((sample ? `Sample ${Number(sample[1]) + 1}: ` : '') + warning.message, 'warn');
+    }
+    if (!current()) {
+      // Another logbook was opened meanwhile: it is left as it is.
+      logLine(`Saved ${result.logbook_file}; the form now holds another logbook.`, 'ok');
+      return;
     }
     await deleteNomadDraft();
     app.edit = {upload_id: uploadId, entry_id: logbookEntry, mainfile: result.logbook_file};
@@ -1728,7 +1824,7 @@ function displayValue(field, local) {
     const option = choiceOptions(field, local).find((o) => o.value === value);
     return option ? option.label : value;
   }
-  if (field.kind === 'files') return value.map((name) => String(name).split('/').pop()).join(', ');
+  if (field.kind === 'files') return value.map(displayName).join(', ');
   if (field.kind === 'step_choice') {
     return value.map((stepUid) => {
       const index = (root.steps || []).findIndex((s) => s.uid === stepUid);
@@ -1827,11 +1923,14 @@ async function saveDraftToNomad() {
   app.saving = true;
   app.log = [];
   updateSaveState();
+  const generation = app.generation;
+  const form = app.form;
   try {
+    await checkSession();
     const uploadId = app.draft ? app.draft.upload_id : await ensureUpload();
     let path = app.draft && app.draft.upload_id === uploadId ? app.draft.path : null;
     if (!path) {
-      const named = await dashboard('api/draft-name', {form: app.form});
+      const named = await dashboard('api/draft-name', {form});
       if (named.errors.length) throw new Error(named.errors.map((e) => e.message).join(' '));
       path = named.path;
     }
@@ -1839,21 +1938,26 @@ async function saveDraftToNomad() {
     const stored = await readNomadDraft(uploadId, path);
     if (stored && (!app.draft || stored.savedAt !== app.draft.savedAt)) {
       const by = stored.savedBy ? ` by ${stored.savedBy}` : '';
-      const overwrite = await askConfirm('Draft changed elsewhere',
+      const choice = await askChoice('Draft changed elsewhere',
         `This draft was saved${by} on ${new Date(stored.savedAt).toLocaleString()}, after you opened it here. `
-        + 'Overwrite it with this form, or load that version instead?', 'Overwrite', 'Load that version');
-      if (!overwrite) {
+        + 'Overwrite it with this form, or load that version instead (this form is then lost)?',
+        {overwrite: 'Overwrite', load: 'Load that version'});
+      if (choice === 'load') {
         openNomadDraft(uploadId, path, stored, true);
+        return;
+      }
+      if (choice !== 'overwrite') {
+        showBanner('The draft was not saved: the form is kept as it is.');
         return;
       }
     }
     const directory = path.slice(0, path.lastIndexOf('/'));
     const fileName = path.slice(path.lastIndexOf('/') + 1);
     const stem = fileName.replace(/\.draft\.json$/, '');
-    if (Object.keys(app.pendingFiles).length) await uploadPendingFiles(uploadId, `${client().file_dir}/${stem}`);
+    await uploadPendingFiles(uploadId, `${client().file_dir}/${stem}`, form);
     const draft = {
       version: DRAFT_VERSION,
-      form: app.form,
+      form,
       edit: app.edit,
       savedAt: new Date().toISOString(),
       savedBy: app.user.name || app.user.username || '',
@@ -1862,11 +1966,13 @@ async function saveDraftToNomad() {
       + '&overwrite_if_exists=true&wait_for_processing=false', {
       method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(draft),
     });
+    logLine(`Draft saved as ${path}`, 'ok');
+    if (app.generation !== generation) return; // another logbook was opened meanwhile
     app.draft = {upload_id: uploadId, path, savedAt: draft.savedAt};
+    app.changedSinceDraft = false;
     // Files added to the form were just uploaded here.
     app.source = uploadId;
     app.upload = uploadId;
-    logLine(`Draft saved as ${path}`, 'ok');
     saveDraft();
     showBanner(`Draft saved in the upload at ${new Date(draft.savedAt).toLocaleTimeString()}. Continue it on any `
       + 'computer from the start page. It only counts as logged once the logbook is saved.', 'success');
@@ -1890,10 +1996,22 @@ async function deleteNomadDraft() {
   app.draft = null;
 }
 
-async function openNomadDraft(uploadId, path, stored, force) {
+async function openNomadDraft(uploadId, path, listed, force) {
   const same = app.draft && app.draft.upload_id === uploadId && app.draft.path === path;
-  if (!force && !same && !(await confirmReplace())) return;
+  // The form's own draft only replaces it without asking when nothing changed since.
+  if (!force && !(same && !app.changedSinceDraft) && !(await confirmReplace())) return;
+  // As it is now, not as it was when the start page listed it.
+  let stored;
+  try {
+    stored = await readNomadDraft(uploadId, path);
+  } catch (e) {
+    return showBanner(`The draft could not be read: ${e.message}`, 'error');
+  }
+  if (!stored || !stored.form) return showBanner('The draft was not found or is not a draft of this dashboard.', 'error');
   app.form = upgradeForm(stored.form);
+  // Files a draft names are uploaded; a left-over token (e.g. a draft written
+  // by hand) has no file here.
+  const dropped = stripPending(app.form, fileFieldsOf(app.spec), {});
   // The draft is a file others in the upload can change: only a logbook of
   // this upload, made by this dashboard, may be overwritten by the save.
   app.edit = checkedEdit(stored.edit, uploadId);
@@ -1902,13 +2020,16 @@ async function openNomadDraft(uploadId, path, stored, force) {
   app.draft = {upload_id: uploadId, path, savedAt: stored.savedAt};
   app.upload = uploadId;
   app.pendingFiles = {};
+  app.generation += 1;
   app.touched.clear();
   app.shown.clear();
   closeDialog();
   changed();
+  app.changedSinceDraft = false; // the form is the draft as saved
   go('run');
   showBanner(`Continuing the draft ${path}, saved ${new Date(stored.savedAt).toLocaleString()}`
     + (stored.savedBy ? ` by ${stored.savedBy}` : '') + '.'
+    + (dropped ? ` ${dropped} file(s) in it were never uploaded: add them again.` : '')
     + (unverified ? ` ${UNVERIFIED_EDIT}` : ''), unverified ? 'error' : undefined);
 }
 
@@ -1930,13 +2051,15 @@ async function findDrafts() {
       if (!stored || !stored.form) return null;
       return {
         title: f.name.replace(/\.draft\.json$/, ''),
-        sub: `${upload.upload_name || upload.upload_id} · saved ${new Date(stored.savedAt).toLocaleString()}`
+        sub: `${upload.upload_name || upload.upload_id} · saved `
+          + (stored.savedAt ? new Date(stored.savedAt).toLocaleString() : 'at an unknown time')
           + (stored.savedBy ? ` by ${stored.savedBy}` : ''),
         uploadId: upload.upload_id, path, stored,
       };
     }));
   }));
-  return found.flat().filter(Boolean).sort((a, b) => b.stored.savedAt.localeCompare(a.stored.savedAt));
+  const savedAt = (e) => String(e.stored.savedAt || '');
+  return found.flat().filter(Boolean).sort((a, b) => savedAt(b).localeCompare(savedAt(a)));
 }
 
 /* ----------------------------------------------------------- lifecycle */
@@ -1948,6 +2071,7 @@ async function newLogbook(force) {
   app.draft = null;
   app.source = null;
   app.pendingFiles = {};
+  app.generation += 1;
   app.touched.clear();
   app.shown.clear();
   app.log = [];
@@ -1987,37 +2111,47 @@ async function init() {
   }
   checkServerVersion();
   app.newUploadName = client().upload_name;
-  // The logbook last worked on in this browser is offered on the start page,
-  // or opened straight away when the page is reloaded inside the form.
-  const draft = loadDraft();
-  const linked = window.location.hash.slice(1);
-  if (draft) {
-    app.form = draft.form;
-    app.draft = draft.draft || null;
-    app.edit = checkedEdit(draft.edit, app.draft ? app.draft.upload_id : undefined);
-    // Kept by older versions only as the upload of `edit` or `draft`.
-    app.source = validUploadId(draft.source)
-      || (app.draft ? validUploadId(app.draft.upload_id) : null)
-      || (app.edit ? app.edit.upload_id : null);
-    app.upload = draft.upload || '';
-    app.started = true;
-    const dropped = dropPendingFiles(app.form, draft.pending);
-    upgradeForm(app.form);
-    if (dropped) {
-      showBanner(`Choose the ${dropped} file(s) of the current logbook again: `
-        + 'files are only kept until the page is closed.');
-    }
-    if (navSections().some((s) => s.key === linked)) app.current = linked;
-  } else {
-    app.form = newForm();
-  }
+  app.form = newForm();
   app.errors = validate(app.form, app.spec);
   render();
+  // The logbook last worked on in this browser by this user is offered on the
+  // start page, or opened straight away when the page is reloaded inside the form.
   await loadUser();
+  restoreLocalDraft();
+  app.errors = validate(app.form, app.spec);
   app.referencesLoadedAt = Date.now();
+  render();
   await Promise.all([loadDatabaseAccess(), loadReferences(), loadUploads()]);
   // Render again: the operator is filled in from the login.
   render();
+}
+
+function restoreLocalDraft() {
+  // Something was started while the login was looked up: it is kept.
+  if (app.started) return;
+  const draft = loadDraft();
+  if (!draft) return;
+  const linked = window.location.hash.slice(1);
+  app.form = draft.form;
+  app.draft = draft.draft || null;
+  app.edit = checkedEdit(draft.edit, app.draft ? app.draft.upload_id : undefined);
+  // Kept by older versions only as the upload of `edit` or `draft`.
+  app.source = validUploadId(draft.source)
+    || (app.draft ? validUploadId(app.draft.upload_id) : null)
+    || (app.edit ? app.edit.upload_id : null);
+  app.upload = draft.upload || '';
+  app.started = true;
+  // The browser keeps every edit, the draft in NOMAD only what was saved: so
+  // opening that draft asks first.
+  app.changedSinceDraft = true;
+  upgradeForm(app.form);
+  fillOperator(app.form);
+  const dropped = dropPendingFiles(app.form, draft.pending);
+  if (dropped) {
+    showBanner(`Choose the ${dropped} file(s) of the current logbook again: `
+      + 'files are only kept until the page is closed.');
+  }
+  if (navSections().some((s) => s.key === linked)) app.current = linked;
 }
 
 init();

@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 from helpers import ENTRY_CREATE_TIME
-from helpers.nomad_harness import assert_no_errors, process_copy, warnings
+from helpers.nomad_harness import assert_no_errors, event_of, process_copy, warnings
 from helpers.schema import enum_values
 from nomad.datamodel import EntryArchive, EntryMetadata
 from nomad.datamodel.context import ClientContext
@@ -643,7 +643,7 @@ class _LogRecords(logging.Handler):
         self.messages = []
 
     def emit(self, record):
-        self.messages.append(record.getMessage())
+        self.messages.append(event_of(record))
 
 
 class _LinuxContext(ClientContext):

@@ -17,7 +17,7 @@ import {createRules} from './rules.js';
 import {API, GUI} from './config.js';
 import {el} from './dom.js';
 import {
-  api, dashboard, entryHash, folderFileNames, putArchive, putRawFiles, rawExists, rawFileText,
+  api, dashboard, entryHash, folderFileNames, putArchive, putRawFiles, rawExists, rawFileBytes,
   readArchiveData, readNomadDraft,
 } from './nomad-api.js';
 import {renderFileCharts} from './charts.js';
@@ -846,7 +846,7 @@ function refresh() {
           onclick: () => removeFile(r.local, r.field.key, r.path, index),
         }, '✕'))));
       if (!(value || []).length) r.fileList.append(el('span', {class: 'muted'}, 'No files added'));
-      if (r.charts && visible) renderFileCharts(r, value, {pendingFiles: app.pendingFiles, uploadId: formUpload(), readRaw: rawFileText});
+      if (r.charts && visible) renderFileCharts(r, value, {pendingFiles: app.pendingFiles, uploadId: formUpload(), readRaw: rawFileBytes});
     }
     if (kind === 'step_choice') renderStepChoices(r);
     if (r.field.required && r.field.required_if) {

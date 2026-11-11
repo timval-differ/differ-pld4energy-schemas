@@ -13,15 +13,41 @@ const SERIES_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#
 export const CHART_POINTS = 1000;
 const SVG = 'http://www.w3.org/2000/svg';
 
+/*
+ * The text of an exported file from its bytes, as in_situ.decode_export does:
+ * UTF-8 or UTF-16 with a byte order mark, else UTF-8, else Windows-1252.
+ * @param {ArrayBuffer | Uint8Array} data
+ */
+export function decodeExport(data) {
+  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+  const starts = (...mark) => mark.every((b, i) => bytes[i] === b);
+  if (starts(0xef, 0xbb, 0xbf)) return new TextDecoder('utf-8').decode(bytes.subarray(3));
+  if (starts(0xff, 0xfe)) return new TextDecoder('utf-16le').decode(bytes.subarray(2));
+  if (starts(0xfe, 0xff)) return new TextDecoder('utf-16be').decode(bytes.subarray(2));
+  try {
+    return new TextDecoder('utf-8', {fatal: true}).decode(bytes);
+  } catch (e) {
+    return new TextDecoder('windows-1252').decode(bytes);
+  }
+}
+
+/* '1,5' or '1,5e3': a decimal comma (in a file not separated by commas). */
+const DECIMAL_COMMA = /^[-+]?\d+,\d+(?:[eE][-+]?\d+)?$/;
+const DECIMAL_POINT = /^[-+]?\d*\.\d+(?:[eE][-+]?\d+)?$/;
+
 /* Header (or null) and columns of an exported text file, as in in_situ.read_columns. */
 export function readColumns(text, delimiter) {
   let header = null;
   let columns = null;
-  const lines = text.split(/\r?\n/);
+  const lines = text.split(/\r\n|\r|\n/);
+  const split = (line) => (delimiter ? line.split(delimiter).map((p) => p.trim()) : line.trim().split(/\s+/));
+  // Decimal commas only in a file whose numbers have no decimal point (mirror in_situ.read_columns).
+  const commas = delimiter !== ',' && !lines.some((line) => split(line).some((p) => DECIMAL_POINT.test(p)));
   for (let number = 1; number <= lines.length; number++) {
     const line = lines[number - 1];
     if (!line.trim()) continue;
-    const parts = delimiter ? line.split(delimiter).map((p) => p.trim()) : line.trim().split(/\s+/);
+    let parts = split(line);
+    if (commas) parts = parts.map((p) => (DECIMAL_COMMA.test(p) ? p.replace(',', '.') : p));
     const values = parts.map((p) => (p === '' ? NaN : Number(p)));
     if (values.some(Number.isNaN)) {
       if (columns) throw new Error(`line ${number} is not numbers`);
@@ -203,7 +229,7 @@ async function plotFile(box, chart, key, fileName, read) {
   if (!chartCache.has(key)) {
     // Let the message show before a large file is parsed.
     chartCache.set(key, new Promise((resolve) => setTimeout(resolve)).then(read)
-      .then((text) => chartPlots(chart, readColumns(text, chart.delimiter))));
+      .then((bytes) => chartPlots(chart, readColumns(decodeExport(bytes), chart.delimiter))));
   }
   try {
     const plots = await chartCache.get(key);
@@ -217,7 +243,8 @@ async function plotFile(box, chart, key, fileName, read) {
 /*
  * The charts of the files of a field, redrawn only when its files change. A
  * file still to be uploaded (`pendingFiles`, by id; see files.js) is plotted from the
- * browser; a saved one on request, read from NOMAD with `readRaw` from the
+ * browser; a saved one on request, read from NOMAD with `readRaw` (giving the
+ * file's bytes) from the
  * upload the form's files are in (`uploadId`).
  */
 export function renderFileCharts(r, value, {pendingFiles, uploadId, readRaw}) {
@@ -234,7 +261,7 @@ export function renderFileCharts(r, value, {pendingFiles, uploadId, readRaw}) {
     const box = el('div', {class: 'file-chart'});
     const file = pending[index];
     if (file) {
-      plotFile(box, r.field.chart, file, fileName, () => file.text());
+      plotFile(box, r.field.chart, file, fileName, () => file.arrayBuffer());
     } else if (uploadId) {
       const cacheKey = `${uploadId}/${name}`;
       const plot = () => plotFile(box, r.field.chart, cacheKey, fileName, () => readRaw(uploadId, name));

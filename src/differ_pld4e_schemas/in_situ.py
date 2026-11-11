@@ -5,6 +5,8 @@ sample, so NOMAD's search knows the techniques used as methods.
 
 from __future__ import annotations
 
+import codecs
+import re
 from copy import deepcopy
 from typing import TYPE_CHECKING
 
@@ -21,6 +23,8 @@ from nomad.datamodel.metainfo.basesections import (
 from nomad.datamodel.metainfo.plot import PlotlyFigure, PlotSection
 from nomad.datamodel.results import ELN, Results
 from nomad.metainfo import MEnum, Quantity, Reference, Section, SubSection
+from nomad.units import ureg
+from pint.errors import PintError
 
 from differ_pld4e_schemas import m_package
 from differ_pld4e_schemas.sample import Sample
@@ -97,6 +101,10 @@ class InSituTechnique(ArchiveSection):
 
 
 MAX_POINTS = 5000
+_DECIMAL_COMMA = re.compile(r'[-+]?\d+,\d+(?:[eE][-+]?\d+)?')
+_DECIMAL_POINT = re.compile(r'[-+]?\d*\.\d+(?:[eE][-+]?\d+)?')
+# Lines end as in the page (charts.js): not at the other breaks of splitlines().
+_LINE_END = re.compile(r'\r\n|\r|\n')
 
 
 def read_columns(lines, delimiter=None) -> tuple[list[str] | None, np.ndarray]:
@@ -107,10 +115,24 @@ def read_columns(lines, delimiter=None) -> tuple[list[str] | None, np.ndarray]:
     Returns the header names and an array of one row per column.
     """
     header, rows = None, []
+    lines = list(lines)
+    # A decimal comma, as some Windows exports write it ('1,5' is 1.5): only in
+    # a file whose numbers have no decimal point, where a comma cannot be a
+    # thousands separator, and whose columns are not separated by commas.
+    commas = delimiter != ',' and not any(
+        _DECIMAL_POINT.fullmatch(part.strip())
+        for line in lines
+        for part in line.strip().split(delimiter)
+    )
     for number, line in enumerate(lines, 1):
         parts = [part.strip() for part in line.strip().split(delimiter)]
         if not line.strip():
             continue
+        if commas:
+            parts = [
+                part.replace(',', '.') if _DECIMAL_COMMA.fullmatch(part) else part
+                for part in parts
+            ]
         try:
             values = [float(part) for part in parts]
         except ValueError:
@@ -251,20 +273,36 @@ class ROIIntensityMap(ExportedData):
         ]
 
 
-def text_lines(binary_lines):
+_BOMS = (
+    (codecs.BOM_UTF8, 'utf-8-sig'),
+    (codecs.BOM_UTF16_LE, 'utf-16'),
+    (codecs.BOM_UTF16_BE, 'utf-16'),
+)
+
+
+def _lines(text: str) -> list[str]:
+    lines = _LINE_END.split(text)
+    return lines[:-1] if lines and lines[-1] == '' else lines
+
+
+def decode_export(data: bytes) -> list[str]:
     """
-    The lines of an exported file as text, whatever its encoding. Instrument
-    software writes UTF-8 or a Windows code page (the MIC export has 'µm' in
-    Latin-1 in its header), and NOMAD runs on Linux, where text files are read
-    as UTF-8. A line that is not UTF-8 is read as Latin-1, which takes any byte.
+    The lines of an exported file. Instrument software writes UTF-8 (with or
+    without a byte order mark), UTF-16 with a byte order mark, or a Windows
+    code page (the MIC export has 'µm' in it); NOMAD runs on Linux, where text
+    files are read as UTF-8. Any of \n, \r\n and \r ends a line.
     """
-    for line in binary_lines:
+    for bom, encoding in _BOMS:
+        if data.startswith(bom):
+            return _lines(data.decode(encoding))
+    try:
+        return _lines(data.decode('utf-8'))
+    except UnicodeDecodeError:
+        # Windows-1252 has 'µ' where Latin-1 has it, and more; Latin-1 takes any byte.
         try:
-            text = line.decode('utf-8')
+            return _lines(data.decode('cp1252'))
         except UnicodeDecodeError:
-            text = line.decode('latin-1')
-        # Like reading in text mode: any of \n, \r\n and \r ends a line.
-        yield from text.splitlines()
+            return _lines(data.decode('latin-1'))
 
 
 def _technique_exports(technique, archive, logger, files, reader) -> list:
@@ -274,7 +312,7 @@ def _technique_exports(technique, archive, logger, files, reader) -> list:
     for path in files or []:
         try:
             with archive.m_context.raw_file(path, 'rb') as binary:
-                exports.append(reader(path, text_lines(binary)))
+                exports.append(reader(path, decode_export(binary.read())))
         except (NotImplementedError, OSError, ValueError) as error:
             logger.warning(f'{technique.m_def.label}: could not read {path}: {error}')
     return exports
@@ -328,6 +366,30 @@ MIC_COLUMNS = {
 }
 
 
+def split_header(name: str) -> tuple[str, str | None]:
+    """'Sagittal Bow (µm)' -> ('Sagittal Bow', 'µm'); without a unit, None."""
+    match = re.fullmatch(r'\s*(.*?)\s*\(([^)]*)\)\s*', name)
+    if match:
+        return match.group(1), match.group(2).strip() or None
+    return name.strip(), None
+
+
+def to_unit(values, unit_text: str, target, column: str):
+    """
+    `values` given in `unit_text` (as an export writes it, e.g. 'GPa.nm',
+    'GPa·nm' or 'µm'), in unit `target`.
+    """
+    text = unit_text.replace('µ', 'u').replace('μ', 'u').replace('·', '*')
+    # A dot between two unit symbols multiplies them (EZ-Curve: 'GPa.nm').
+    text = re.sub(r'(?<=[A-Za-z])\.(?=[A-Za-z])', '*', text)
+    try:
+        return ureg.Quantity(np.asarray(values, dtype=float), text).to(target).magnitude
+    except (PintError, ValueError, AttributeError, TypeError) as error:
+        raise ValueError(
+            f'column {column!r}: {unit_text!r} is not a unit of {target:~}'
+        ) from error
+
+
 def _series(unit=None, description=None):
     return Quantity(type=float, shape=['*'], unit=unit, description=description)
 
@@ -349,11 +411,16 @@ class CurvatureData(ExportedData):
     tangential_stress_thickness_rate = _series(
         'GPa*nm/s', 'Derivative of the tangential stress x thickness.'
     )
-    sagittal_bow = _series(description='Sagittal bow, in the unit of the export.')
-    tangential_bow = _series(description='Tangential bow, in the unit of the export.')
+    sagittal_bow = _series('um', 'Sagittal bow.')
+    tangential_bow = _series('um', 'Tangential bow.')
 
     @classmethod
-    def read(cls, path: str, lines) -> CurvatureData:
+    def read(cls, path: str, lines, warn=None) -> CurvatureData:
+        """
+        The columns are converted from the unit in their header to the unit of
+        the quantity; a column without a unit is taken to be in that unit
+        (with a call of `warn`), one in a unit that does not fit is refused.
+        """
         header, columns = read_columns(lines, ';')
         if header is None or len(header) != len(columns):
             raise ValueError('no header naming each column')
@@ -361,9 +428,17 @@ class CurvatureData(ExportedData):
         columns = block_mean(columns, size)
         data = cls(file=path, averaged_samples=size)
         for name, values in zip(header, columns):
-            key = MIC_COLUMNS.get(name.split('(')[0].strip().lower())
-            if key is not None:
+            column, unit = split_header(name)
+            key = MIC_COLUMNS.get(column.lower())
+            if key is None:
+                continue
+            target = data.m_def.all_quantities[key].unit
+            if unit is None:
+                if warn is not None:
+                    warn(f'column {name!r} gives no unit; read as {target:~}')
                 setattr(data, key, values)
+            else:
+                setattr(data, key, to_unit(values, unit, target, name))
         if data.time is None:
             raise ValueError('no time column')
         return data
@@ -408,8 +483,14 @@ class MIC(InSituTechnique, PlotSection):
         super().normalize(archive, logger)
         if archive.m_context is None:
             return
+
+        def read(path, lines):
+            return CurvatureData.read(
+                path, lines, lambda message: logger.warning(f'MIC: {path}: {message}')
+            )
+
         self.curvature_data = _technique_exports(
-            self, archive, logger, self.export_files, CurvatureData.read
+            self, archive, logger, self.export_files, read
         )
         self.figures = [f for d in self.curvature_data for f in d.figures()]
 
@@ -449,12 +530,26 @@ class LAEDS(InSituTechnique, PlotSection):
 
     def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
         super().normalize(archive, logger)
-        if self.intensity is None or self.energy_per_channel is None:
+        if self.intensity is None:
+            if self.sp0_files:
+                # The files are kept, but not read yet (see the TODO above).
+                self.data_status = AWAITING_DATA
+                logger.warning(
+                    'LA-EDS: .sp0 files are not read yet, so the spectrum is not '
+                    'stored or plotted.'
+                )
             return
-        if self.number_of_channels is None:
-            self.number_of_channels = len(self.intensity)
-        if self.number_of_channels != len(self.intensity):
-            logger.warning('LA-EDS number of channels does not match the intensity.')
+        channels = len(self.intensity)
+        if self.number_of_channels is not None and self.number_of_channels != channels:
+            # The intensity decides: a number entered or read before goes stale.
+            logger.warning(
+                f'LA-EDS number of channels {self.number_of_channels} does not match '
+                f'the intensity ({channels} channels); {channels} is used.'
+            )
+        self.number_of_channels = channels
+        if self.energy_per_channel is None:
+            self.energy = None
+            self.figures = []
             return
         offset = self.energy_offset.to('eV').magnitude if self.energy_offset else 0
         self.energy = energy_axis(

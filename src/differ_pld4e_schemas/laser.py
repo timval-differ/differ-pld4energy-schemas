@@ -113,6 +113,20 @@ class LaserCalibration(ArchiveSection):
         )
         if transmission is not None:
             self.transmission_window_1 = transmission
+            if not 0 < transmission <= 100:  # noqa: PLR2004
+                logger.warning(
+                    f'The 1st window transmission is {transmission:.0f} %, which '
+                    'cannot be: check the energies before and after the chamber.'
+                )
+        elif self.transmission_window_1 is not None:
+            # Calculated before from energies that are no longer given: kept,
+            # but marked as entered, so it is not taken for a calculated value.
+            self.transmission_window_1_manual = True
+            logger.warning(
+                'The 1st window transmission cannot be calculated without both '
+                'energies; the value given is kept as entered by hand. Untick '
+                '"manual" once both energies are entered to calculate it again.'
+            )
 
 
 class LaserParameters(ArchiveSection):

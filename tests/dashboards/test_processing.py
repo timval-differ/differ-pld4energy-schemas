@@ -24,6 +24,10 @@ def _with_existing_sample():
     return data
 
 
+SP0_NOT_READ = (
+    'LA-EDS: .sp0 files are not read yet, so the spectrum is not stored or plotted.'
+)
+
 FORMS = {
     'LA-PLD': (pld, pld.FORM),
     'SA-PLD': (pld, pld.sa_form()),
@@ -51,7 +55,8 @@ def test_dashboard_files_process_without_errors(tmp_path, name):
         tmp_path, result['logbook_file'], other_uploads=database_uploads()
     )
     assert_no_errors(logs)
-    assert warnings(logs) == []
+    # The test forms list an LA-EDS .sp0 file, which is not read yet.
+    assert set(warnings(logs)) <= {SP0_NOT_READ}
     assert archive.metadata.entry_type == type(archive.data).__name__
     # The dashboard writes the Sample files itself; the normalizer adds none.
     assert context.created == []

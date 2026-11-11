@@ -124,7 +124,10 @@ On save, the 1st window transmission is calculated as
 | Typed your own T1, **manual** not ticked | Your value is replaced by the calculated one. |
 | Typed your own T1 and ticked **manual** | Your value is kept. |
 | Ticked **manual** but left T1 empty | T1 is calculated. |
-| Energy before chamber is 0 or an energy is missing | T1 is not calculated (a warning is given for 0). |
+| Energy before chamber is 0 or an energy is missing | T1 is not calculated (a warning is given for 0). A T1 calculated before is kept and marked **manual**, with a warning; untick **manual** once both energies are entered to calculate it again. |
+| The energies give a T1 above 100 % or of 0 % or less | T1 is stored, with a warning: check the energies. |
+
+T1 and T2 are percentages: the form takes 0 to 100 %.
 
 ## Select the targets of a run
 
@@ -290,6 +293,15 @@ one RHEED entry per capture):
 Native files can only be reopened in the instrument software. Upload them
 anyway: they are the raw data. The exported files can be opened elsewhere.
 
+Exported files are read in any of the encodings instrument software writes
+(UTF-8, UTF-16 with a byte order mark, or a Windows code page), and with a
+decimal comma (`1,5`) in files whose columns are not separated by commas and whose
+numbers have no decimal point. The
+columns of a MIC export are converted from the unit in their header (e.g.
+`GPa.nm`, `1/km`, `µm`) to the stored unit; a column without a unit is taken
+to be in the stored unit, with a warning, and a file with a unit that does not
+fit is not read (a warning says why).
+
 ### LA-EDS spectrum
 
 The `.sp0` file has no energy axis; it is rebuilt as
@@ -300,7 +312,9 @@ plotted as intensity versus energy.
     The `.sp0` file is not read yet: the location of E0 in the file still has to
     be confirmed with an example file. Until then the spectrum (intensity per
     channel) can only be added via an archive file, together with E0 and the
-    energy per channel.
+    energy per channel. With only `.sp0` files, LA-EDS stays `awaiting data`
+    and a warning says the files are not read. The number of channels is taken
+    from the intensity.
 
 ## Write logbooks as archive files
 
@@ -333,4 +347,10 @@ Instead of using the form, you can upload YAML or JSON archive files; see
 | Cartesian/Polar scan parameters are ignored for a ... scan. | warning | Check the heater scan type (LA-PLD). |
 | Select a recipe before applying it. | error | Pick a recipe in load recipe. |
 | The recipe is from ..., not from .... | error | Use a recipe of the same system. |
-| LA-EDS number of channels does not match the intensity. | warning | Check the number of channels. |
+| LA-EDS number of channels ... does not match the intensity; ... is used. | warning | Check the intensity data. |
+| LA-EDS: .sp0 files are not read yet ... | warning | Add the spectrum through an archive file for now. |
+| MIC: ...: column ... gives no unit; read as ... | warning | Check that EZ-Curve exported that column in the stored unit. |
+| MIC: could not read ...: ... is not a unit of ... | warning | Export the file in units of the same kind (length, 1/length, ...). |
+| The 1st window transmission is ... %, which cannot be ... | warning | Check the energies before and after the chamber. |
+| The 1st window transmission cannot be calculated without both energies ... | warning | Enter both energies, or keep the value as entered. |
+| The target ... cannot be read ... | error | Check that the target entry exists and that you can see it. |

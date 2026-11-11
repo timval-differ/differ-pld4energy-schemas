@@ -10573,6 +10573,8 @@
        "key": "transmission_window_2",
        "kind": "number",
        "label": "Transmission 2nd window",
+       "max": 100,
+       "min": 0,
        "required": true,
        "unit": null,
        "unit_label": "%"
@@ -10602,6 +10604,8 @@
        "key": "transmission_window_1",
        "kind": "number",
        "label": "Transmission 1st window",
+       "max": 100,
+       "min": 0,
        "required": true,
        "unit": null,
        "unit_label": "%",

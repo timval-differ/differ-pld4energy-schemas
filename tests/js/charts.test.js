@@ -6,11 +6,12 @@ import {readFileSync} from 'node:fs';
 import {describe, test} from 'node:test';
 
 import {
-  CHART_POINTS, blockMean, chartPlots, niceTicks, readColumns,
+  CHART_POINTS, blockMean, chartPlots, decodeExport, niceTicks, readColumns,
 } from '../../src/differ_pld4e_schemas/dashboards/common/static/charts.js';
 
 const parity = JSON.parse(readFileSync(new URL('./fixtures/parity.json', import.meta.url), 'utf8'));
-const exports = (path) => readFileSync(new URL(`../data/exports/${path}`, import.meta.url), 'latin1');
+// As the page reads them: the bytes, decoded like in_situ.decode_export.
+const exports = (path) => decodeExport(readFileSync(new URL(`../data/exports/${path}`, import.meta.url)));
 
 /* The `chart` of the PLD fields whose files have it, by delimiter. */
 function chartDefinitions() {
@@ -93,4 +94,21 @@ describe('plots', () => {
     const ticks = niceTicks(0, 214.621, 5, true);
     assert.ok(ticks[0] <= 0 && ticks.at(-1) >= 214.621);
   });
+});
+
+describe('exported files as the page reads them', () => {
+  test('encodings and byte order marks', () => {
+    assert.equal(decodeExport(Buffer.from('Bow (µm);x\r\n1;2', 'latin1')), 'Bow (µm);x\r\n1;2');
+    assert.equal(decodeExport(Buffer.from('﻿Time (s);x', 'utf8')), 'Time (s);x');
+    assert.equal(decodeExport(Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from('a;b', 'utf16le')])), 'a;b');
+  });
+
+  test('decimal commas, unless commas separate the columns', () => {
+    assert.deepEqual(readColumns('0,5\t1,25e3\r1,5\t2', null).columns, [[0.5, 1.5], [1250, 2]]);
+    assert.deepEqual(readColumns('1,2\n3,4', ',').columns, [[1, 3], [2, 4]]);
+  });
+});
+
+test('commas in a file with decimal points are not decimal commas', () => {
+  assert.throws(() => readColumns('0.5\t1.0\n1,234\t2.0', null), /not numbers/);
 });

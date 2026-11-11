@@ -884,6 +884,8 @@ def form_spec() -> dict:
                         'Transmission 2nd window',
                         unit_label='%',
                         default=92,
+                        min=0,
+                        max=100,
                     ),
                     field(
                         'transmission_window_1_manual',
@@ -906,6 +908,8 @@ def form_spec() -> dict:
                         'transmission_window_1',
                         'Transmission 1st window',
                         unit_label='%',
+                        min=0,
+                        max=100,
                         visible_if={
                             'key': 'transmission_window_1_manual',
                             'equals': True,

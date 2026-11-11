@@ -12,6 +12,7 @@ normalizer chain (`nomad.client.normalize_all`), collecting what is logged.
 """
 
 import logging
+import re
 from pathlib import Path
 
 from nomad.client import normalize_all
@@ -102,9 +103,22 @@ def parse_file(context, mainfile):
     return archive
 
 
+# What nomad.utils.ClassicLogger appends to an event: the bound values, as
+# ' (normalizer=MetainfoNormalizer, ...)', or ' ()' when there are none.
+_BOUND_VALUES = re.compile(r' \((?:[\w.]+=[^,()]*(?:, [\w.]+=[^,()]*)*)?\)$')
+
+
+def event_of(record) -> str:
+    """The event of a log record, without the values NOMAD's logger binds."""
+    return _BOUND_VALUES.sub('', record.getMessage())
+
+
 class _LogRecords(logging.Handler):
-    """NOMAD logs with the standard logging module when installed without
-    its infrastructure extras (as in CI), so both kinds are collected."""
+    """
+    NOMAD logs with the standard logging module when installed without its
+    infrastructure extras (as in CI), through nomad.utils.ClassicLogger, which
+    appends the bound values to the event; both kinds are collected, as events.
+    """
 
     def __init__(self):
         super().__init__(logging.DEBUG)
@@ -112,7 +126,7 @@ class _LogRecords(logging.Handler):
 
     def emit(self, record):
         self.logs.append(
-            {'log_level': record.levelname.lower(), 'event': record.getMessage()}
+            {'log_level': record.levelname.lower(), 'event': event_of(record)}
         )
 
 

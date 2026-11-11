@@ -75,7 +75,8 @@ function pdfString(text) {
 /* Encoded text broken into lines that fit the width. */
 function pdfWrap(text, font, size, width) {
   const lines = [];
-  for (const paragraph of pdfEncode(text).split('\n')) {
+  // Split before encoding: pdfEncode turns line breaks into '?'.
+  for (const paragraph of String(text).split(/\r\n|\r|\n/).map(pdfEncode)) {
     let line = '';
     for (const word of paragraph.split(' ')) {
       const candidate = line ? `${line} ${word}` : word;

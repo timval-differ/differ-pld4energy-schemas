@@ -104,3 +104,13 @@ test('a heading is not left alone at the bottom of a page', async () => {
     assert.ok(pageWithHeading.includes('(a) Tj'), `after ${count} rows`);
   }
 });
+
+test('line breaks in a value start new lines', async () => {
+  // Comments typed in a textarea: '\n' from the browser, '\r\n' when pasted
+  // from or saved on Windows.
+  const pdf = await pdfText([
+    {kind: 'row', label: 'Comments', value: 'Comment 1\nComment 2\r\nComment 3\n\nComment 4'},
+  ]);
+  const lines = shownTexts(pdf).filter((line) => !line.includes('page'));
+  assert.deepEqual(lines, ['Comments', 'Comment 1', 'Comment 2', 'Comment 3', '', 'Comment 4']);
+});

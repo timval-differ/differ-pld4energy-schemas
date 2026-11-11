@@ -7,6 +7,7 @@ the schema quantities (SI), using the `unit` of each form field.
 
 from __future__ import annotations
 
+import copy
 import math
 import re
 
@@ -90,6 +91,29 @@ def _convert(number, source, target, field):
         return ureg.Quantity(number, source).to(target).magnitude
     except Exception as error:  # pint's errors, e.g. DimensionalityError
         raise SpecError(f'{field.get("key")}: {source} -> {target}: {error}') from error
+
+
+# Values NOMAD derives when it processes an entry, and writes into the raw file
+# when an entry is saved in its editor: not kept from an earlier version.
+DERIVED_KEYS = frozenset({'figures'})
+
+
+def merge_onto(existing: dict | None, generated: dict, owned) -> dict:
+    """
+    `generated` (what the form makes) on top of `existing` (the file as it is
+    in the upload): the keys in `owned` come from the form only, so a value
+    cleared in the form is removed; every other key of `existing` is kept,
+    e.g. a description or tags added in NOMAD's entry editor.
+    """
+    if not isinstance(existing, dict):
+        return generated
+    merged = {
+        key: copy.deepcopy(value)
+        for key, value in existing.items()
+        if key not in owned and key not in DERIVED_KEYS
+    }
+    merged.update(generated)
+    return merged
 
 
 def to_archive_value(value, field: dict, quantity):

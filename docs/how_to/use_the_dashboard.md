@@ -211,7 +211,10 @@ recipe…** and pick an earlier logbook of the
 same system. Its process steps are added after your current steps; if you have
 not selected any targets yet, its targets are taken over too. Samples are not
 copied: the steps apply to the samples of this run (in the LA-PLD, choose the
-sample of each deposition step).
+sample of each deposition step). Neither are the step times, comments or
+read-out values (gas flow read-out, actual heater voltage and current) of the
+recipe run: fill them in for this run. The sputter logbook does not record
+which recipe its steps came from; saving says so.
 
 ## Change a saved logbook
 
@@ -220,6 +223,17 @@ updates the Sample entries it created; samples from other runs are never
 changed. A sample keeps its ID once its entry exists, even if you change the
 date or time of the run. The logbook must be in an upload you can edit (not
 published).
+
+What the form does not show is kept: values added to the logbook (outside its
+process steps, which come from the form as a whole) or to its
+Sample entries in NOMAD's entry editor (for example a lab ID, tags or
+references) stay when you save again. What the form shows comes from the
+form, also when it is empty there: the comments of the run and of a sample
+are the description of the logbook and of the Sample entry. Sample entries are
+updated without checking for changes made in NOMAD. If the logbook was changed in NOMAD after you opened it, saving asks
+whether to overwrite it or to save the form as a new logbook. A logbook with
+process steps the dashboard cannot show is not overwritten: save it as a new
+logbook, or edit it in NOMAD.
 
 ## The sputter logbook
 

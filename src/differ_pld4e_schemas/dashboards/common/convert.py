@@ -15,11 +15,13 @@ import uuid
 from datetime import datetime, timezone
 
 from differ_pld4e_schemas.gas import BACKGROUND_GAS, GASES, BackgroundGas
+from differ_pld4e_schemas.process_steps import RUN_SPECIFIC
 from differ_pld4e_schemas.time_zone import lab_instant, lab_wall_time
 
 from .archive import (
     file_name_for,
     fill,
+    merge_onto,
     normalize_reference,
     quantity_of,
     read,
@@ -27,7 +29,7 @@ from .archive import (
     to_form_value,
 )
 from .rules import section_requirement
-from .samples import samples_to_archive, samples_to_form
+from .samples import SAMPLE_KEYS, samples_to_archive, samples_to_form
 from .values import (
     is_empty,
     parse_date,
@@ -42,6 +44,21 @@ DRAFT_SUFFIX = '.draft.json'
 
 class UnsafeLogbookFile(ValueError):
     """The logbook file a save would overwrite is not one this dashboard makes."""
+
+
+# Keys of a logbook the converter always writes, besides those of the fields.
+LOGBOOK_KEYS = frozenset(
+    {
+        'm_def',
+        'datetime',
+        'pvd_system',
+        'name',
+        'samples',
+        'targets',
+        'steps',
+        'load_recipe',
+    }
+)
 
 
 class NotALogbook(ValueError):
@@ -204,6 +221,9 @@ class LogbookConverter:
         self.rules = rules
         self.draft_dir = draft_dir
 
+    # Keys of the logbook written by the dashboard's own sections (extra_to_archive).
+    extra_logbook_keys: frozenset = frozenset()
+
     # Hooks for the sections of one dashboard.
 
     def extra_to_archive(
@@ -260,8 +280,34 @@ class LogbookConverter:
             steps.append(step)
         return steps
 
-    def form_to_files(
-        self, data: dict, spec: dict, logbook_file: str | None = None
+    def owned_logbook_keys(self, spec: dict) -> frozenset:
+        """The keys of a logbook archive that come from the form only."""
+        keys = set(LOGBOOK_KEYS) | set(self.extra_logbook_keys)
+        for section in spec['sections']:
+            if section['kind'] != 'object':
+                continue
+            for field in section['fields']:
+                if field.get('archive'):
+                    keys.add(field['archive'].split('.')[0])
+        return frozenset(keys)
+
+    def unknown_steps(self, existing: dict, spec: dict) -> int:
+        """How many steps of a logbook archive the form cannot hold."""
+        system = self.system_of(existing)
+        if system is None:
+            return 0
+        variants = sections_of(spec)['steps']['variants']
+        return sum(
+            self.variant_of(variants, (step or {}).get('m_def'), system) is None
+            for step in existing.get('steps') or []
+        )
+
+    def form_to_files(  # noqa: PLR0912
+        self,
+        data: dict,
+        spec: dict,
+        logbook_file: str | None = None,
+        existing: dict | None = None,
     ) -> dict:
         """
         The archive files for a complete (validated) form: one Sample file per
@@ -271,6 +317,12 @@ class LogbookConverter:
         `logbook_file` is the file of an opened logbook, which the save
         overwrites. It comes from the browser, so it must be a logbook file name
         this dashboard makes (`is_logbook_file`), else `UnsafeLogbookFile`.
+
+        `existing` holds the files a save overwrites as they are in the upload,
+        `{'logbook': <data>, 'samples': {file name: <data>}}`. What the form does
+        not hold is kept from them (`merge_onto`), so a save does not remove
+        what was added in NOMAD's entry editor. A logbook with steps the form
+        cannot hold is not overwritten (`UnsafeLogbookFile`).
         """
         if logbook_file is not None and not is_logbook_file(
             logbook_file, spec.get('systems')
@@ -301,6 +353,16 @@ class LogbookConverter:
         overwrite = logbook_file is not None
         if logbook_file is None:
             logbook_file = file_name_for(run_file_stem(data))
+        existing = existing if isinstance(existing, dict) else {}
+        existing_logbook = existing.get('logbook') if overwrite else None
+        if isinstance(existing_logbook, dict):
+            unknown = self.unknown_steps(existing_logbook, spec)
+            if unknown:
+                raise UnsafeLogbookFile(
+                    f'{logbook_file} has {unknown} process step(s) this dashboard '
+                    'cannot show, which saving would remove. Save the logbook as a '
+                    'new file instead, or edit it in NOMAD.'
+                )
         logbook['samples'], files, references, warnings = samples_to_archive(
             data,
             sections['samples']['fields'],
@@ -317,7 +379,27 @@ class LogbookConverter:
         self.extra_to_archive(data, spec, logbook, references)
         if data.get('recipe') and 'load_recipe' in logbook_cls.m_def.all_sub_sections:
             logbook['load_recipe'] = {'recipe': data['recipe']}
+        elif data.get('recipe'):
+            warnings.append(
+                {
+                    'path': 'recipe',
+                    'message': 'This logbook does not record the recipe its steps '
+                    'were taken from; note it in the comments if it matters.',
+                }
+            )
 
+        if isinstance(existing_logbook, dict):
+            logbook = merge_onto(
+                existing_logbook, logbook, self.owned_logbook_keys(spec)
+            )
+        existing_samples = existing.get('samples')
+        if isinstance(existing_samples, dict):
+            for file in files:
+                old = existing_samples.get(file['file_name'])
+                if file['overwrite'] and isinstance(old, dict):
+                    file['archive']['data'] = merge_onto(
+                        old, file['archive']['data'], SAMPLE_KEYS
+                    )
         files.append(
             {
                 'file_name': logbook_file,
@@ -429,11 +511,18 @@ class LogbookConverter:
     def recipe_to_form(self, data: dict, spec: dict) -> dict:
         """The steps (and targets) of a recipe, without sample links."""
         form = self.archive_to_form(data, spec)
+        variants = sections_of(spec)['steps']['variants']
         for step in form['steps']:
             step.pop('sample', None)
-            # A recipe is run again at another time.
+            # A recipe is run again at another time: what the step recorded of
+            # its run (times, comments, read-outs) is not copied, as when a
+            # recipe is applied in NOMAD (process_steps.RUN_SPECIFIC).
             step.pop('start_time', None)
             step.pop('end_time', None)
+            for field in variants[step['type']]['fields']:
+                archive = field.get('archive') or ''
+                if archive.split('.')[-1] in RUN_SPECIFIC:
+                    step.pop(field['key'], None)
         return {
             'system': form['run']['system'],
             'targets': form['targets'],

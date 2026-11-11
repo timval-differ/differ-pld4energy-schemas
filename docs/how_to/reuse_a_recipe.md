@@ -42,12 +42,14 @@ again and **applied recipe** shows the name of the recipe that was used.
 
 | Part of the recipe | Copied? | Notes |
 | --- | --- | --- |
-| Process steps | yes | All steps, in order, with all their sub-sections (gases, laser, target stage, heater stage position, scans). Not their start and end times. |
+| Process steps | yes | All steps, in order, with all their sub-sections (gases, laser, target stage, heater stage position, scans): how to run them, not what happened in the recipe run (see the next rows). |
 | Samples of the deposition steps | **no** | Replaced by the sample chosen in **load recipe**, or all samples of this logbook. The recipe's own samples are never copied, so the new run cannot accidentally be recorded on the old samples. |
 | Target of each step | yes | Steps keep pointing to the same PLD Target entries as in the recipe. |
 | Target details | only if empty | If this logbook has no targets yet, the recipe's targets (including their target numbers) are copied. If you already selected targets, they are kept as they are. |
 | Target number in the steps | recalculated | Taken from **this** logbook's target details on save. |
-| Step name, start time, duration, comments | yes | Update start times and comments for the new run. |
+| Step name | yes | |
+| Start and end time, duration, comments | **no** | They describe the recipe run, not this one. |
+| Read-out values (gas flow read-out, actual heater voltage and current) | **no** | Set points are copied; read the values of this run off the system. |
 | Laser details (calibration) | no | Calibrate the laser for every run. |
 | System details (date, base pressure, carrier, particle reduction plate) | no | |
 | Samples | no | |
@@ -69,7 +71,8 @@ Check after every recipe:
 - **Samples.** All copied deposition steps are linked to the same samples. In
   an LA-PLD logbook with several samples, change the sample of the steps that
   belong to another sample.
-- **Start times and comments** are those of the recipe run.
+- **Start and end times, comments and read-out values** are empty: fill them in for
+  this run.
 
 ## Things to know
 

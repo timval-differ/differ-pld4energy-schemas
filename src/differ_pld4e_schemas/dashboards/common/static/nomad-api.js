@@ -66,13 +66,47 @@ export async function rawFileText(uploadId, path) {
   return response.text();
 }
 
-export async function putArchive(uploadId, fileName, archive, overwrite) {
+/**
+ * Write an archive file. With `entryHash` (that of the entry as it was read),
+ * NOMAD refuses with a 409 when the file was changed since.
+ */
+export async function putArchive(uploadId, fileName, archive, overwrite, entryHash = null) {
   return api(`${uploadPath(uploadId, 'raw')}?file_name=${encodeURIComponent(fileName)}`
-    + `&overwrite_if_exists=${overwrite}&wait_for_processing=true`, {
+    + `&overwrite_if_exists=${overwrite}&wait_for_processing=true`
+    + (entryHash ? `&entry_hash=${encodeURIComponent(entryHash)}` : ''), {
     method: 'PUT',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(archive),
   });
+}
+
+/** The hash of an entry's raw file as NOMAD last processed it, or null. */
+export async function entryHash(entryId) {
+  const response = await api(`/entries/${encodeURIComponent(entryId)}/archive/query`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({required: {metadata: {entry_hash: '*'}}}),
+  });
+  const metadata = (((response || {}).data || {}).archive || {}).metadata || {};
+  return typeof metadata.entry_hash === 'string' ? metadata.entry_hash : null;
+}
+
+/**
+ * The `data` of a JSON archive file in an upload, or null if there is no such
+ * file. A file that is not an archive throws: overwriting it would lose it.
+ */
+export async function readArchiveData(uploadId, path) {
+  let archive;
+  try {
+    archive = await api(uploadPath(uploadId, 'raw', path));
+  } catch (e) {
+    if (e.status === 404) return null;
+    throw e;
+  }
+  if (!archive || typeof archive !== 'object' || !archive.data || typeof archive.data !== 'object') {
+    throw new Error(`${path} is not an archive file the dashboard can update.`);
+  }
+  return archive.data;
 }
 
 export async function readNomadDraft(uploadId, path) {

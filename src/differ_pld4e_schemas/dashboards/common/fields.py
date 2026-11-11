@@ -6,6 +6,7 @@ Field keys:
     label        label shown in the form
     kind         text | textarea | number | integer | select | bool | date |
                  time | reference | target_choice | sample_choice |
+                 sample_mask (the samples a step covers, by sample choice) |
                  step_choice (several process steps, by uid) | rows |
                  files (a list of uploaded file paths) | computed
     unit         pint unit the user enters the value in (converted to the
@@ -62,6 +63,7 @@ KNOWN_KINDS = frozenset(
         'reference',
         'target_choice',
         'sample_choice',
+        'sample_mask',
         'step_choice',
         'rows',
         'files',
@@ -120,6 +122,22 @@ def number(key, label, unit=None, **kwargs):
 def comments(**kwargs):
     kwargs.setdefault('archive', 'description')
     return field('comments', 'Comments', 'textarea', **kwargs)
+
+
+def sample_mask(**kwargs):
+    """
+    The samples a film step covers, as sample choices: a sample under a sample
+    mask is unticked and gets no film from the step.
+    """
+    return field(
+        'samples',
+        'Samples covered',
+        'sample_mask',
+        archive=None,
+        help='Untick the samples shielded by a sample mask: only the ticked '
+        'samples get the film of this step.',
+        **kwargs,
+    )
 
 
 def step_comments():

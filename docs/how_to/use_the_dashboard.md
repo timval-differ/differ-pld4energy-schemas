@@ -137,8 +137,9 @@ leave a section with **Next**, or straight away for fields you have edited.
       *Thickness given in* set to *pulses*, as a number of laser pulses (the
       sample name then shows e.g. `YSZ-1500p`). Each deposition step
       grows one film, of its target's material, on its samples, and these films
-      make up the sample names. In the SA-PLD a deposition covers all samples
-      loaded in the chamber; in the LA-PLD choose the sample. The target and
+      make up the sample names. In the SA-PLD a deposition covers the samples
+      ticked under **Samples covered** (all by default): untick those shielded
+      by a sample mask. In the LA-PLD choose the sample. The target and
       heater stage fields follow the *Manual movement* and *Define scan
       pattern* dialogs of the system software; choose the heater scan type
       (*Polar scan* is the default) to get its scan fields.
@@ -263,7 +264,9 @@ differences:
     - **Sputtering:** a new sputtering step starts with the target, gases and
       plasma of the pre-sputtering step before it. Enter the heater position (x,
       y, z, spin), heater rotation, shutter, sputter time and the **film
-      thickness**. A sputtering step covers all samples on the carrier.
+      thickness**. A sputtering step covers the samples ticked under
+      **Samples covered** (all by default): untick those shielded by a sample
+      mask. Sputtering currently does not support a heating step.
 6. **General comments.** Anything else about the run.
 
 There is no laser and no in-situ section.

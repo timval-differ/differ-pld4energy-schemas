@@ -51,6 +51,7 @@ SPUTTERING = {
     'type': 'sputtering',
     'start_time': '10:00',
     'end_time': '10:30',
+    'samples': ['new:sub1'],
     'x': 0,
     'y': 0,
     'z': 100,

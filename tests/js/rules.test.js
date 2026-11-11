@@ -10,7 +10,7 @@ const DATABASE = 'db-upload';
 const SPEC = {
   systems: ['SA-PLD', 'LA-PLD'],
   database_upload_id: DATABASE,
-  client: {film_steps: ['deposition'], all_samples: ['SA-PLD']},
+  client: {film_steps: ['deposition'], mask_systems: ['SA-PLD']},
   sections: [
     {
       key: 'run', kind: 'object', fields: [
@@ -52,7 +52,10 @@ const SPEC = {
         ]},
         deposition: {laser: 'required', targets: 'required', fields: [
           {key: 'target', label: 'Target', kind: 'target_choice', required: true},
-          {key: 'sample', label: 'Sample', kind: 'sample_choice', required: true},
+          {key: 'sample', label: 'Sample', kind: 'sample_choice', required: true,
+            visible_if: {key: '/run/system', equals: 'LA-PLD'}},
+          {key: 'samples', label: 'Samples covered', kind: 'sample_mask', required: true,
+            visible_if: {key: '/run/system', equals: 'SA-PLD'}},
           {key: 'film_thickness', label: 'Thickness', kind: 'number', required: true},
           {key: 'start_time', label: 'Start', kind: 'time'},
           {key: 'end_time', label: 'End', kind: 'time'},
@@ -214,11 +217,60 @@ describe('samples', () => {
     for (const [value, text] of Object.entries(cases)) assert.equal(gText(Number(value)), text, value);
   });
 
-  test('on a system whose films cover all samples, every sample gets every film', () => {
+  test('on a system with a sample mask, only the ticked samples get the film', () => {
     const data = form({run: {system: 'SA-PLD', date: '2026-10-22', time: '09:15'}});
     data.samples.push({uid: 's2', origin: 'New sample'});
     data.steps[1].sample = undefined;
+    data.steps[1].samples = ['new:s1', 'new:s2'];
     assert.equal(rules().sampleFilms(data.samples[1], data).length, 1);
+    data.steps[1].samples = ['new:s1'];
+    assert.equal(rules().sampleFilms(data.samples[0], data).length, 1);
+    assert.equal(rules().sampleFilms(data.samples[1], data).length, 0);
+  });
+
+  test('sample masks follow the samples of the run', () => {
+    const {syncSampleMasks} = rules();
+    const data = form({run: {system: 'SA-PLD', date: '2026-10-22', time: '09:15'}});
+    const masks = () => data.steps.map((s) => s.samples);
+    // A form just opened: a step without a mask covers every sample, the heating step has none.
+    let seen = syncSampleMasks(data, null);
+    assert.deepEqual(masks(), [undefined, ['new:s1']]);
+    // A sample added later is ticked, also on a step where the user unticked another.
+    data.samples.push({uid: 's2', origin: 'New sample'});
+    seen = syncSampleMasks(data, seen);
+    assert.deepEqual(data.steps[1].samples, ['new:s1', 'new:s2']);
+    data.steps[1].samples = ['new:s2'];
+    // A sample turned into an existing one keeps its tick, or its untick.
+    const EXISTING = '../uploads/u0/archive/s0#/data';
+    Object.assign(data.samples[1], {origin: 'Existing sample', sample: EXISTING});
+    seen = syncSampleMasks(data, seen);
+    assert.deepEqual(data.steps[1].samples, [EXISTING]);
+    Object.assign(data.samples[0], {origin: 'Existing sample', sample: undefined});
+    seen = syncSampleMasks(data, seen);
+    assert.deepEqual(data.steps[1].samples, [EXISTING]);
+    // An existing sample is ticked once it is picked; a removed sample is unticked.
+    data.samples[0].sample = '../uploads/u0/archive/s9#/data';
+    seen = syncSampleMasks(data, seen);
+    assert.deepEqual(data.steps[1].samples, ['../uploads/u0/archive/s9#/data', EXISTING]);
+    data.samples.pop();
+    seen = syncSampleMasks(data, seen);
+    assert.deepEqual(data.steps[1].samples, ['../uploads/u0/archive/s9#/data']);
+    // A sample the step was saved with but not in the run is kept, for the page to show.
+    data.steps[1].samples.push('../uploads/u0/archive/old#/data');
+    syncSampleMasks(data, seen);
+    assert.deepEqual(data.steps[1].samples, ['../uploads/u0/archive/s9#/data', '../uploads/u0/archive/old#/data']);
+  });
+
+  test('a sample mask must name samples of the run, at least one', () => {
+    const data = form({run: {system: 'SA-PLD', date: '2026-10-22', time: '09:15'}});
+    data.steps[1].sample = undefined;
+    data.steps[1].samples = ['new:s1'];
+    assert.deepEqual(rules().validate(data, SPEC), []);
+    data.steps[1].samples = ['new:gone'];
+    assert.deepEqual(rules().validate(data, SPEC).map((e) => [e.path, e.message]),
+      [['steps.1.samples', 'Choose samples listed under Samples.']]);
+    data.steps[1].samples = [];
+    assert.deepEqual(rules().validate(data, SPEC).map((e) => [e.path, e.message]), [['steps.1.samples', 'Required.']]);
   });
 });
 

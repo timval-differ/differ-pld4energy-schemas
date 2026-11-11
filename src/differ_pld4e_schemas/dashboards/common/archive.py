@@ -16,7 +16,13 @@ from nomad.units import ureg
 from .values import is_empty, to_number, visible_fields
 
 # Kinds whose value the converter of each dashboard handles itself.
-SKIPPED_KINDS = ('computed', 'reference', 'sample_choice', 'step_choice')
+SKIPPED_KINDS = (
+    'computed',
+    'reference',
+    'sample_choice',
+    'sample_mask',
+    'step_choice',
+)
 
 
 def file_name_for(text: str) -> str:

@@ -216,7 +216,7 @@ page                                   dashboard app                NOMAD API
  │ ◄──────────── files, logbook_file, warnings ─┘
  │ new logbook: stop if its file exists ──────────────────────────►  GET rawdir/<logbook>
  │ per file field: names in its folder, then ─────────────────────►  GET rawdir/<folder>
- │ upload its new files in one request ────────────────────────────►  PUT raw/<file_dir>/<run>/<section>/<field>
+ │ upload each new file, one request each ────────────────────────►  PUT raw/<file_dir>/<run>/<section>/<field>
  │                                                                     ?overwrite_if_exists=false&wait_for_processing=true
  │ (again api/archive, now with the uploaded file paths)
  │ for each file (samples first, then the logbook) ───────────────►  PUT raw/?file_name=…

@@ -127,16 +127,17 @@ export async function readNomadDraft(uploadId, path) {
 }
 
 /**
- * Upload files into one folder of an upload in one request, never replacing
- * a file that is there (NOMAD then refuses the request). Waits for NOMAD to
- * process the upload, so the next write does not find it busy.
+ * Upload one file into a folder of an upload, never replacing a file that is
+ * there (NOMAD then refuses the request). Waits for NOMAD to process the
+ * upload, so the next write does not find it busy; NOMAD only waits for a
+ * request with a single file, hence one file per request.
  * @param {string} uploadId
  * @param {string} folder
- * @param {{name: string, file: Blob}[]} files
+ * @param {{name: string, file: Blob}} file
  */
-export async function putRawFiles(uploadId, folder, files) {
+export async function putRawFile(uploadId, folder, {name, file}) {
   const body = new FormData();
-  for (const {name, file} of files) body.append('file', file, name);
+  body.append('file', file, name);
   return api(`${uploadPath(uploadId, 'raw', folder)}?overwrite_if_exists=false&wait_for_processing=true`, {
     method: 'PUT', body,
   });

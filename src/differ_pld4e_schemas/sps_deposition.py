@@ -222,7 +222,7 @@ class PreSputteringStep(SputterTargetedStep):
 
 
 class SputteringStep(SputterTargetedStep):
-    """Grows one film, from the step's target, on all samples of the run."""
+    """Grows one film, from the step's target, on its samples (see `samples`)."""
 
     m_def = Section(label='Sputtering step')
     heater_stage_position = SubSection(section_def=HeaterStagePosition)

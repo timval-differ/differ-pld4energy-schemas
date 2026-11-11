@@ -239,8 +239,8 @@ pulses.
 
 Deposition steps have a **heater stage position** with x, y, z (mm), tilt and
 spin (degrees), the **film thickness** (nm) of the film they grow, and list the
-**samples** deposited on: in the SA-PLD all samples loaded in the chamber, in
-the LA-PLD the sample of the step.
+**samples** deposited on: in the SA-PLD the samples not shielded by a sample
+mask, in the LA-PLD the sample of the step.
 
 - **SA-PLD:** tick **substrate stage scan** if the stage scanned. On save a
   **substrate scan** sub-section is added for the scan width (mm) and scan speed

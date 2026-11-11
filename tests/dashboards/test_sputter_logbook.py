@@ -126,7 +126,10 @@ def test_client_settings_differ_from_pld():
     assert client['title'] == 'Sputter logbook'
     assert client['draft_dir'] == 'sps_drafts'
     assert client['film_steps'] == ['sputtering']
-    assert client['all_samples'] == ['SPS']
+    assert client['mask_systems'] == ['SPS']
+    assert client['system_notes'] == {
+        'SPS': 'Sputtering currently does not support a heating step.'
+    }
     diameter = next(
         f for f in client['target_entry']['fields'] if f['key'] == 'diameter'
     )
@@ -202,16 +205,22 @@ def test_sample_id_and_name_from_sputtering_steps():
     assert compute('sample_name', sample, FORM) == 'Si_Ta-50nm_Ti-10nm'
 
 
-def test_sputtering_covers_all_samples():
+def test_sputtering_covers_the_samples_of_its_mask():
     data = _form()
     data['samples'].append(
         {'uid': 'old', 'origin': 'Existing sample', 'sample': EXISTING}
     )
+    data['steps'][2]['samples'] = ['new:sub1', EXISTING]
     sputtering = _logbook(data)['steps'][2]
     assert sputtering['samples'] == [
         f'../upload/archive/mainfile/{SAMPLE_FILE}#data',
         EXISTING,
     ]
+    # Ti is sputtered with the new sample under a sample mask.
+    data['steps'][3]['samples'] = [EXISTING]
+    assert validate(data, SPEC) == []
+    assert _logbook(data)['steps'][3]['samples'] == [EXISTING]
+    assert compute('sample_name', data['samples'][0], data) == 'Si_Ta-50nm'
 
 
 def test_draft_needs_system_date_and_time():

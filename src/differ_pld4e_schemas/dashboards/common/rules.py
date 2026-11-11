@@ -111,6 +111,12 @@ TYPE_ERRORS = {
         ),
         'Choose steps listed under Process steps.',
     ),
+    'sample_mask': (
+        lambda value: (
+            isinstance(value, list) and all(isinstance(v, str) for v in value)
+        ),
+        'Choose samples listed under Samples.',
+    ),
     'files': (
         lambda value: (
             isinstance(value, list) and all(isinstance(v, str) for v in value)
@@ -173,6 +179,10 @@ def _field_error(
         'sample_choice': (
             lambda: value in sample_choices(root),
             'Choose one of the samples under Samples.',
+        ),
+        'sample_mask': (
+            lambda: set(value) <= set(sample_choices(root)),
+            'Choose samples listed under Samples.',
         ),
         'step_choice': (
             lambda: set(value) <= set(step_choices(root)),
@@ -314,8 +324,9 @@ class LogbookRules:
     The rules of one logbook dashboard.
 
     film_steps         step types that grow a film on their samples
-    all_samples        systems whose film steps cover every sample of the run;
-                       in the others a step names its one sample
+    mask_systems       systems whose film steps cover the samples ticked in
+                       their sample mask (`samples`); in the others a step
+                       names its one sample (`sample`)
     extra_computed     {name: function(local, root)} computed values besides
                        the sample ID and name
     """
@@ -323,16 +334,16 @@ class LogbookRules:
     def __init__(
         self,
         film_steps: tuple,
-        all_samples: tuple = (),
+        mask_systems: tuple = (),
         extra_computed: dict | None = None,
     ):
         self.film_steps = tuple(film_steps)
-        self.all_samples = tuple(all_samples)
+        self.mask_systems = tuple(mask_systems)
         self.extra_computed = dict(extra_computed or {})
 
     def step_applies_to(self, step: dict, choice, root: dict) -> bool:
-        if (root.get('run') or {}).get('system') in self.all_samples:
-            return True
+        if (root.get('run') or {}).get('system') in self.mask_systems:
+            return choice in (step.get('samples') or [])
         return step.get('sample') == choice
 
     def sample_films(self, item: dict, root: dict) -> list:

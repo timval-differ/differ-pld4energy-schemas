@@ -141,7 +141,7 @@ Everything from the pre-ablation step, plus:
 
 - **film thickness** (nm) of the film this step grows;
 - **samples**: the samples deposited on. In the SA-PLD that is every sample
-  loaded in the chamber;
+  loaded in the chamber that no sample mask shields;
 - **heater stage position**: x, y, z (mm), tilt and spin (degrees);
 - **substrate stage scan**: tick it if the substrate stage scanned. On save a
   **substrate scan** sub-section is added for the scan width (mm) and scan speed

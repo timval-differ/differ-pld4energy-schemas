@@ -31,7 +31,7 @@ from differ_pld4e_schemas.sps_deposition import (
 from differ_pld4e_schemas.target import SputterTarget
 from differ_pld4e_schemas.time_zone import lab_time_zone_name
 
-from ..common.fields import field, number, step_comments
+from ..common.fields import field, number, sample_mask, step_comments
 from ..common.samples import sample_section
 from ..common.steps import (
     gas_fields,
@@ -40,7 +40,7 @@ from ..common.steps import (
     ramp_fields,
     time_fields,
 )
-from .rules import ALL_SAMPLES, FILM_STEPS
+from .rules import FILM_STEPS, MASK_SYSTEMS
 
 DRAFT_DIR = 'sps_drafts'
 SYSTEMS = (SPS,)
@@ -151,6 +151,7 @@ def step_variants():
         step_comments(),
     ]
     sputtering = [
+        sample_mask(),
         *heater_fields(),
         target,
         *gas_fields(),
@@ -209,9 +210,9 @@ def client_settings() -> dict:
         'file_dir': 'sps_files',
         'upload_name': 'SPS logbooks',
         'film_steps': list(FILM_STEPS),
-        'all_samples': list(ALL_SAMPLES),
+        'mask_systems': list(MASK_SYSTEMS),
         'system_notes': {
-            SPS: 'In the SPS a sputtering step covers all samples on the carrier.',
+            SPS: 'Sputtering currently does not support a heating step.',
         },
         'requirement_note': (
             'Not needed for these process steps: targets are only logged when a '

@@ -124,7 +124,7 @@ only in:
 | --- | --- | --- |
 | Substrate carriers | Omicron, 1" | Omicron, 1", 4" wafer, sample select |
 | Particle reduction plate | – | `in use` / `not in use` |
-| Samples of a deposition step | all samples loaded in the chamber | the chosen sample |
+| Samples of a deposition step | the samples ticked in its sample mask (all by default) | the chosen sample |
 | Deposition step scan | substrate stage scan yes/no + scan width and speed | heater scan type: polar (default) or cartesian |
 
 Each system has its own step classes (`SAPLDStep` and `LAPLDStep` and their
@@ -146,7 +146,8 @@ separate from the PLD targets: a sputter target is a different object, with a
 diameter that decides which of the three positions it fits (1 and 2: 2", 3:
 4"). Each pre-sputtering or sputtering step records the plasma (DC, RF or both)
 in its own `SputterPlasma` sub-section. Every sputtering step grows a film on
-all samples of the run, like an SA-PLD deposition.
+the samples ticked in its sample mask (all by default), like an SA-PLD
+deposition.
 
 The power ramps are noted in the lab per 5 minutes. pint, which converts the
 units, cannot express "per 5 minutes", so they are stored as rates (W/s, shown
@@ -424,7 +425,8 @@ computer.
    the file name of the logbook (`<system>_<date>_<hhmm>[_<run name>].archive.json`).
    A new logbook whose file already exists stops the save here, before
    anything is uploaded.
-2. In-situ and log files are uploaded, one request per field, to
+2. In-situ and log files are uploaded, one request per file (NOMAD only waits
+   for processing of a request with a single file), to
    `<file dir>/<system>_<date>_<hhmm>[_<run name>]/<section>/<field>/`, e.g.
    `.../in_situ/rheed_roi_intensity_export_files/` (`<file dir>` is
    `pld_files` for the PLD logbook, `sps_files` for the sputter logbook). Each

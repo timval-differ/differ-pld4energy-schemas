@@ -17,7 +17,7 @@ import {createRules} from './rules.js';
 import {API, GUI} from './config.js';
 import {el} from './dom.js';
 import {
-  api, dashboard, entryHash, folderFileNames, putArchive, putRawFiles, rawExists, rawFileBytes,
+  api, dashboard, entryHash, folderFileNames, putArchive, putRawFile, rawExists, rawFileBytes,
   readArchiveData, readNomadDraft,
 } from './nomad-api.js';
 import {renderFileCharts} from './charts.js';
@@ -1742,8 +1742,10 @@ async function uploadPendingFiles(uploadId, directory, form = app.form) {
   const existing = {};
   for (const folder of folders) existing[folder] = await folderFileNames(uploadId, folder);
   for (const group of planUploads(form, fields, files, directory, existing)) {
-    await putRawFiles(uploadId, group.folder, group.files);
+    // One request per file (putRawFile); each file is marked uploaded at once,
+    // so a save that fails halfway does not upload the first files again.
     for (const f of group.files) {
+      await putRawFile(uploadId, group.folder, f);
       f.target(`${group.folder}/${f.name}`);
       delete app.pendingFiles[f.id];
       logLine(`Uploaded ${group.folder}/${f.name}`, 'ok');

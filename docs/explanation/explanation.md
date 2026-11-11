@@ -425,7 +425,8 @@ computer.
    the file name of the logbook (`<system>_<date>_<hhmm>[_<run name>].archive.json`).
    A new logbook whose file already exists stops the save here, before
    anything is uploaded.
-2. In-situ and log files are uploaded, one request per field, to
+2. In-situ and log files are uploaded, one request per file (NOMAD only waits
+   for processing of a request with a single file), to
    `<file dir>/<system>_<date>_<hhmm>[_<run name>]/<section>/<field>/`, e.g.
    `.../in_situ/rheed_roi_intensity_export_files/` (`<file dir>` is
    `pld_files` for the PLD logbook, `sps_files` for the sputter logbook). Each

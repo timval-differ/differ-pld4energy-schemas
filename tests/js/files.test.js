@@ -68,7 +68,7 @@ describe('collecting pending files', () => {
     assert.deepEqual(data.in_situ[0].rheed_files, ['dir/in_situ/rheed_files/step1.txt']);
   });
 
-  test('several files added at once to one field are all uploaded by one save, in one request', () => {
+  test('several files added at once to one field are all uploaded by one save', () => {
     const data = {in_situ: [{uid: 'm1', rheed_files: ['p1.png', 'p2.png', 'p3.png'].map((n, i) => pendingToken(`p${i}`, n))}]};
     const plan = planUploads(data, FIELDS, {p0: 'P0', p1: 'P1', p2: 'P2'}, 'dir');
     assert.deepEqual(plan.map((g) => [g.folder, g.files.map((f) => f.name)]), [

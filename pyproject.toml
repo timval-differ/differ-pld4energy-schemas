@@ -15,7 +15,7 @@ classifiers = [
 ]
 name = "differ_pld4e_schemas"
 description = "NOMAD schemas and the PLD and sputter logbook dashboards of the PLD4Energy lab at DIFFER"
-version = "0.4.0"
+version = "0.4.1"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
@@ -54,7 +54,7 @@ dev = [
 extra-index-url = [
   "https://gitlab.mpcdf.mpg.de/api/v4/projects/2187/packages/pypi/simple",
 ]
-    
+
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
 exclude = [

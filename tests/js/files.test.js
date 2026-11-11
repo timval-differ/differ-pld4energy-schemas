@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {describe, test} from 'node:test';
 
 import {
-  collectPending, displayName, fileFieldsOf, folderFor, parsePending, pendingToken, planUploads,
+  collectPending, displayName, fileFieldsOf, folderFor, isImage, parsePending, pendingToken, planUploads,
   stripPending, uniqueName,
 } from '../../src/differ_pld4e_schemas/dashboards/common/static/files.js';
 
@@ -35,6 +35,13 @@ describe('pending file tokens', () => {
     assert.equal(uniqueName('README', ['README']), 'README (2)');
   });
 
+  test('images are told by their extension', () => {
+    assert.equal(isImage(pendingToken('x1', 'pattern.PNG')), true);
+    assert.equal(isImage('pld_files/run/in_situ/rheed/pattern.jpeg'), true);
+    assert.equal(isImage('pld_files/run/in_situ/rheed/pattern.img'), false);
+    assert.equal(isImage('roi.txt'), false);
+  });
+
   test('a folder per field', () => {
     assert.equal(folderFor('pld_files/run', 'in_situ', 'mic_files'), 'pld_files/run/in_situ/mic_files');
   });
@@ -59,6 +66,17 @@ describe('collecting pending files', () => {
     assert.deepEqual(data.in_situ[1].rheed_files, [
       'pld_files/run/in_situ/rheed_files/old.txt', 'dir/in_situ/rheed_files/step1 (2).txt']);
     assert.deepEqual(data.in_situ[0].rheed_files, ['dir/in_situ/rheed_files/step1.txt']);
+  });
+
+  test('several files added at once to one field are all uploaded by one save, in one request', () => {
+    const data = {in_situ: [{uid: 'm1', rheed_files: ['p1.png', 'p2.png', 'p3.png'].map((n, i) => pendingToken(`p${i}`, n))}]};
+    const plan = planUploads(data, FIELDS, {p0: 'P0', p1: 'P1', p2: 'P2'}, 'dir');
+    assert.deepEqual(plan.map((g) => [g.folder, g.files.map((f) => f.name)]), [
+      ['dir/in_situ/rheed_files', ['p1.png', 'p2.png', 'p3.png']],
+    ]);
+    for (const group of plan) for (const f of group.files) f.target(`${group.folder}/${f.name}`);
+    assert.deepEqual(data.in_situ[0].rheed_files, [
+      'dir/in_situ/rheed_files/p1.png', 'dir/in_situ/rheed_files/p2.png', 'dir/in_situ/rheed_files/p3.png']);
   });
 
   test('files of one name in different techniques go to different folders', () => {

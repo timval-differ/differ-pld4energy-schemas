@@ -31,6 +31,11 @@ export function displayName(value) {
   return pending ? pending.name : String(value).split('/').pop();
 }
 
+/** Whether a browser can show the file as an image, e.g. a RHEED pattern export. */
+export function isImage(value) {
+  return /\.(png|jpe?g|gif|bmp|webp)$/i.test(displayName(value));
+}
+
 /**
  * `name`, or `name (2).ext`, `name (3).ext`, ... if it is in `taken`.
  * @param {string} name

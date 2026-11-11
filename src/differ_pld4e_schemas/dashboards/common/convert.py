@@ -249,10 +249,11 @@ class LogbookConverter:
         return getattr(self.step_module, variant['sections'][system])
 
     def step_samples(self, item: dict, system: str, references: dict) -> list:
-        if system in self.rules.all_samples:
-            return list(references.values())
-        chosen = item.get('sample')
-        return [references.get(chosen, chosen)] if chosen else []
+        if system in self.rules.mask_systems:
+            chosen = item.get('samples') or []
+        else:
+            chosen = [item['sample']] if item.get('sample') else []
+        return [references.get(choice, choice) for choice in chosen]
 
     def steps_to_archive(self, data: dict, spec: dict, system: str, references):
         steps = []
@@ -445,9 +446,11 @@ class LogbookConverter:
             )
             form_item.update(step_clock_times(item))
             form_item.update(uid=new_uid(), type=variant_key, archive_index=index)
+            masked = system in self.rules.mask_systems
             step_samples = item.get('samples') or []
-            if system not in self.rules.all_samples and step_samples:
-                reference = normalize_reference(step_samples[0])
+            choices = []
+            for sample in step_samples if masked else step_samples[:1]:
+                reference = normalize_reference(sample)
                 if reference not in by_reference:
                     samples.append(
                         {
@@ -457,7 +460,11 @@ class LogbookConverter:
                         }
                     )
                     by_reference[reference] = reference
-                form_item['sample'] = by_reference[reference]
+                choices.append(by_reference[reference])
+            if masked and any(f['key'] == 'samples' for f in variant['fields']):
+                form_item['samples'] = choices
+            elif not masked and choices:
+                form_item['sample'] = choices[0]
             steps.append(form_item)
         return steps
 
@@ -511,7 +518,9 @@ class LogbookConverter:
         form = self.archive_to_form(data, spec)
         variants = sections_of(spec)['steps']['variants']
         for step in form['steps']:
+            # The page links the steps to the samples of the run they are added to.
             step.pop('sample', None)
+            step.pop('samples', None)
             # A recipe is run again at another time: what the step recorded of
             # its run (times, comments, read-outs) is not copied, as when a
             # recipe is applied in NOMAD (process_steps.RUN_SPECIFIC).

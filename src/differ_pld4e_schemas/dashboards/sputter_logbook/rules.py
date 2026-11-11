@@ -13,10 +13,10 @@ __all__ = ['RULES', 'compute', 'sample_films', 'validate', 'validate_draft']
 
 # Step types that grow a film on their samples.
 FILM_STEPS = ('sputtering',)
-# A sputtering step covers all samples on the carrier.
-ALL_SAMPLES = (SPS,)
+# A sputtering step covers the samples its sample mask leaves open.
+MASK_SYSTEMS = (SPS,)
 
-RULES = LogbookRules(FILM_STEPS, ALL_SAMPLES)
+RULES = LogbookRules(FILM_STEPS, MASK_SYSTEMS)
 compute = RULES.compute
 sample_films = RULES.sample_films
 validate = RULES.validate

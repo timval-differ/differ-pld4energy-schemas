@@ -206,6 +206,10 @@ def sa_form(**changes):
         run__system='SA-PLD', chamber__substrate_carrier='1" carrier', **changes
     )
     data['chamber'].pop('particle_reduction_plate')
+    # The sample mask of an SA-PLD deposition: all samples of the run ticked.
+    for step in data['steps']:
+        if step['type'] == 'deposition':
+            step.setdefault('samples', ['new:sub1'])
     return data
 
 

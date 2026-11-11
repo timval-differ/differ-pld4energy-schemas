@@ -33,8 +33,9 @@ __all__ = [
 
 # Step types that grow a film on their samples.
 FILM_STEPS = ('deposition',)
-# SA-PLD deposits on all samples in the chamber, LA-PLD on the chosen one.
-ALL_SAMPLES = ('SA-PLD',)
+# SA-PLD deposits on the samples its sample mask leaves open, LA-PLD on the
+# chosen one.
+MASK_SYSTEMS = ('SA-PLD',)
 
 
 def transmission_window_1(local: dict, root: dict):
@@ -49,7 +50,7 @@ def transmission_window_1(local: dict, root: dict):
 
 RULES = LogbookRules(
     FILM_STEPS,
-    ALL_SAMPLES,
+    MASK_SYSTEMS,
     extra_computed={'transmission_window_1': transmission_window_1},
 )
 compute = RULES.compute

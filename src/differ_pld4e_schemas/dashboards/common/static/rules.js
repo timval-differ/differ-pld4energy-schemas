@@ -193,9 +193,12 @@ export function createRules(ctx) {
       const selected = (root.targets || []).find((t) => t.target === target);
       return selected ? selected.material : undefined;
     };
-    const all = ctx.spec.client.all_samples.includes((root.run || {}).system);
+    // A step covers the samples ticked in its sample mask, or its one sample.
+    const masked = ctx.spec.client.mask_systems.includes((root.run || {}).system);
+    const choice = sampleChoice(item);
+    const covers = (step) => (masked ? (step.samples || []).includes(choice) : step.sample === choice);
     return (root.steps || [])
-      .filter((step) => ctx.spec.client.film_steps.includes(step.type) && (all || step.sample === sampleChoice(item)))
+      .filter((step) => ctx.spec.client.film_steps.includes(step.type) && covers(step))
       .map((step) => ({target: step.target, material: material(step.target), ...filmThickness(step)}));
   }
 
@@ -258,6 +261,7 @@ export function createRules(ctx) {
     text: [(value) => typeof value === 'string', 'Enter text.'],
     textarea: [(value) => typeof value === 'string', 'Enter text.'],
     step_choice: [isTextList, 'Choose steps listed under Process steps.'],
+    sample_mask: [isTextList, 'Choose samples listed under Samples.'],
     files: [isTextList, 'Add the files again.'],
   };
 
@@ -277,6 +281,48 @@ export function createRules(ctx) {
   /* Values a measurement uses to name process steps (mirror rules.step_choices). */
   function stepChoices(root) {
     return (root.steps || []).filter((s) => s.uid).map((s) => s.uid);
+  }
+
+  /*
+   * Keeps the sample masks of the steps in line with the samples of the run;
+   * the page calls it after every change. `previous` is {sample uid: choice}
+   * as returned by the last call, or null for a form just opened. A step
+   * without a mask covers every sample; a sample that gets a choice (one added,
+   * or an existing sample picked) is ticked; a sample chosen anew keeps its
+   * tick; a removed sample is unticked. Values naming no sample of the run
+   * otherwise are kept, for the page to show.
+   */
+  function syncSampleMasks(root, previous) {
+    const current = {};
+    for (const item of root.samples || []) {
+      const choice = sampleChoice(item);
+      if (item.uid && choice) current[item.uid] = choice;
+    }
+    const all = Object.values(current);
+    const steps = ctx.spec.sections.find((s) => s.kind === 'variant_list');
+    for (const step of (steps && root[steps.key]) || []) {
+      const variant = steps.variants[step.type];
+      for (const field of variant ? variant.fields : []) {
+        if (field.kind !== 'sample_mask') continue;
+        if (!Array.isArray(step[field.key])) {
+          step[field.key] = [...all];
+          continue;
+        }
+        if (!previous) continue;
+        const ticked = new Set(step[field.key]);
+        for (const [uid, old] of Object.entries(previous)) {
+          if (current[uid] === old) continue;
+          const wasTicked = ticked.delete(old);
+          if (wasTicked && current[uid]) ticked.add(current[uid]);
+        }
+        for (const [uid, choice] of Object.entries(current)) {
+          if (!Object.hasOwn(previous, uid)) ticked.add(choice);
+        }
+        // In the order of the samples, then what names none of them.
+        step[field.key] = [...all.filter((v) => ticked.has(v)), ...[...ticked].filter((v) => !all.includes(v))];
+      }
+    }
+    return current;
   }
 
   /* What one step needs of an aspect (e.g. the laser): an optional one counts once used. */
@@ -338,6 +384,9 @@ export function createRules(ctx) {
       if (!targetChoices(root).includes(value)) return 'Choose one of the targets selected under Targets.';
     } else if (kind === 'sample_choice') {
       if (!sampleChoices(root).includes(value)) return 'Choose one of the samples under Samples.';
+    } else if (kind === 'sample_mask') {
+      const samples = sampleChoices(root);
+      if (!value.every((v) => samples.includes(v))) return 'Choose samples listed under Samples.';
     } else if (kind === 'step_choice') {
       const steps = stepChoices(root);
       if (!value.every((v) => steps.includes(v))) return 'Choose steps listed under Process steps.';
@@ -538,6 +587,7 @@ export function createRules(ctx) {
     isEmpty,
     targetChoices,
     sampleChoices,
+    syncSampleMasks,
     stepChoices,
     stepLevel,
     sectionRequirement,

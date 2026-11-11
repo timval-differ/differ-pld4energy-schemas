@@ -131,7 +131,7 @@ form definition, rules and converter.
 | `pld_logbook/`, `sputter_logbook/` | One dashboard each: |
 | `.../__init__.py` | Dashboard entry point |
 | `.../spec.py` | Form definition, including `client`: the page's texts and settings (title, draft folder, film steps, ...) |
-| `.../rules.py` | The dashboard's `LogbookRules` (film steps, systems whose steps cover all samples, extra computed values) |
+| `.../rules.py` | The dashboard's `LogbookRules` (film steps, systems whose steps have a sample mask, extra computed values) |
 | `.../convert.py` | The dashboard's `LogbookConverter`, with the sections only it has (PLD: laser, in-situ; SPS: general comments) |
 | `.../app.py` | Creates the app with `common.app.create_app` |
 | `common/app.py` | FastAPI app: serves the page, `api/spec`, `api/validate`, `api/archive`, `api/draft-name`, `api/form-from-archive` |

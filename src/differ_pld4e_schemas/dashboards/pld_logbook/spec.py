@@ -61,7 +61,7 @@ from differ_pld4e_schemas.stages import (
 from differ_pld4e_schemas.target import PLDTarget
 from differ_pld4e_schemas.time_zone import lab_time_zone_name
 
-from ..common.fields import comments, field, number, step_comments
+from ..common.fields import comments, field, number, sample_mask, step_comments
 from ..common.samples import sample_section
 from ..common.steps import (
     gas_fields,
@@ -70,7 +70,7 @@ from ..common.steps import (
     temperature,
     time_fields,
 )
-from .rules import ALL_SAMPLES, FILM_STEPS
+from .rules import FILM_STEPS, MASK_SYSTEMS
 
 DRAFT_DIR = 'pld_drafts'
 SYSTEMS = ('SA-PLD', 'LA-PLD')
@@ -545,6 +545,7 @@ def step_variants():
             archive=None,
             visible_if=LA,
         ),
+        sample_mask(visible_if=SA),
         target,
         *film_thickness_fields(),
         *temperature_control_fields('substrate_temperature', 'Substrate temperature'),
@@ -746,10 +747,10 @@ def client_settings() -> dict:
         'file_dir': 'pld_files',
         'upload_name': 'PLD logbooks',
         'film_steps': list(FILM_STEPS),
-        'all_samples': list(ALL_SAMPLES),
+        'mask_systems': list(MASK_SYSTEMS),
         'system_notes': {
-            'SA-PLD': 'In the SA-PLD a deposition covers all samples loaded in the '
-            'chamber.',
+            'SA-PLD': 'In the SA-PLD a deposition covers the samples ticked under '
+            'Samples covered: untick those shielded by a sample mask.',
         },
         'requirement_note': (
             'Not needed for these process steps: it is only logged when a step '

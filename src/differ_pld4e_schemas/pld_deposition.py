@@ -413,7 +413,7 @@ class SAPLDAnnealingStep(AnnealingStep, SAPLDHeaterControl, SAPLDStep):
 
 
 class SAPLDDepositionStep(PLDDepositionStep, SAPLDHeaterControl, SAPLDStep):
-    """Deposits on all samples loaded in the chamber."""
+    """Deposits on the samples in the chamber not shielded by a sample mask."""
 
     m_def = Section(label='Pulsed laser deposition step')
 

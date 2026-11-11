@@ -228,7 +228,7 @@ All fields of the pre-ablation step, plus:
 | `film_thickness_unit` | choice | | `nm` (default) or `pulses`: how the intended thickness is given. |
 | `film_thickness` | number | nm | Thickness of the film grown in this step. |
 | `film_thickness_pulses` | integer | | The thickness as a number of laser pulses; the sample name shows it as `<n>p`. |
-| `samples` | references to Sample | | The samples deposited on: all samples of the run (SA-PLD) or the chosen one (LA-PLD). |
+| `samples` | references to Sample | | The samples deposited on: those not shielded by a sample mask (SA-PLD) or the chosen one (LA-PLD). |
 | `heater_stage_position` | sub-section | | [HeaterStagePosition](#heaterstageposition) |
 | `heater_scan_type` | choice | | `Polar scan` (default), `Cartesian scan`, or `None` (SA-PLD only: no heater scan). The matching sub-section is added on save; none for `None`. |
 | `heater_scan_axis` | choice | | `X`. Not asked for without a heater scan. |
@@ -368,7 +368,7 @@ The pre-sputtering and sputtering steps have:
 | `sputter_time` | number | min | Sputtering only. |
 | `ramp_down_rate` | number | W/min | Sputtering only. Entered in W/5 min in the dashboard. |
 | `film_thickness` | number | nm | Sputtering only. The film grown on the samples; it makes up the sample names. |
-| `samples` | references to Sample | | Sputtering only: the samples deposited on (all samples of the run). |
+| `samples` | references to Sample | | Sputtering only: the samples deposited on (those not shielded by a sample mask). |
 
 ### SputterPlasma
 

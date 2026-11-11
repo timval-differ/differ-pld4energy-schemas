@@ -512,9 +512,14 @@ def test_films_come_from_the_deposition_steps():
     # LA-PLD: each deposition step grows its film on the step's sample.
     assert compute('sample_name', data['samples'][0], data) == 'Si_SrTiO3-20nm_YSZ-5nm'
     assert compute('sample_name', data['samples'][1], data) == 'Si'
-    # SA-PLD: a deposition covers all samples in the chamber.
+    # SA-PLD: a deposition covers the samples ticked in its sample mask.
     data['run']['system'] = 'SA-PLD'
+    for step in data['steps'][1:]:
+        step['samples'] = ['new:sub1', 'new:sub2']
     assert compute('sample_name', data['samples'][1], data) == 'Si_SrTiO3-20nm_YSZ-5nm'
+    data['steps'][2]['samples'] = ['new:sub1']
+    assert compute('sample_name', data['samples'][0], data) == 'Si_SrTiO3-20nm_YSZ-5nm'
+    assert compute('sample_name', data['samples'][1], data) == 'Si_SrTiO3-20nm'
 
 
 def test_external_sample_can_come_with_films():
@@ -717,16 +722,42 @@ def test_logbook_archive_has_si_values():
     assert 'heater_output' not in logbook['steps'][0]
 
 
-def test_sa_deposition_covers_all_samples():
+def test_sa_deposition_covers_the_samples_of_its_mask():
     data = sa_form()
     data['samples'].append(
         {'uid': 'old', 'origin': 'Existing sample', 'sample': EXISTING}
     )
-    deposition = _logbook(data)['steps'][1]
-    assert deposition['samples'] == [
-        '../upload/archive/mainfile/SA-PLD_2026-10-22_09_15_S01.archive.json#data',
-        EXISTING,
-    ]
+    new = '../upload/archive/mainfile/SA-PLD_2026-10-22_09_15_S01.archive.json#data'
+    data['steps'][1]['samples'] = ['new:sub1', EXISTING]
+    assert _logbook(data)['steps'][1]['samples'] == [new, EXISTING]
+    # A sample under a sample mask is not deposited on and gets no film.
+    data['steps'][1]['samples'] = [EXISTING]
+    assert validate(data, SPEC) == []
+    assert _logbook(data)['steps'][1]['samples'] == [EXISTING]
+    assert compute('sample_name', data['samples'][0], data) == 'Si'
+    assert 'samples' not in _logbook(data)['steps'][0]
+
+
+def test_sa_sample_mask_is_checked():
+    errors = messages(validate(sa_form(steps__1__samples=['new:gone']), SPEC))
+    assert errors == {'steps.1.samples': 'Choose samples listed under Samples.'}
+    errors = messages(validate(sa_form(steps__1__samples=[]), SPEC))
+    assert errors == {'steps.1.samples': 'Required.'}
+    # LA-PLD steps name their one sample instead.
+    assert 'steps.1.samples' not in messages(validate(form(), SPEC))
+
+
+def test_sa_sample_mask_round_trip():
+    data = sa_form()
+    data['samples'].append(dict(data['samples'][0], uid='sub2'))
+    data['steps'][1]['samples'] = ['new:sub2']
+    loaded = archive_to_form(_logbook(data), SPEC)
+    assert loaded['steps'][1]['samples'] == [f'new:{loaded["samples"][1]["uid"]}']
+    assert 'samples' not in loaded['steps'][0]
+    assert validate(loaded, SPEC) == []
+    # A recipe's steps are linked to the samples of the run they are added to.
+    recipe = recipe_to_form(_logbook(data), SPEC)
+    assert 'samples' not in recipe['steps'][1]
 
 
 def test_logbook_archive_loads_with_schema():

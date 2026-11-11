@@ -21,7 +21,7 @@ import {
   readArchiveData, readNomadDraft,
 } from './nomad-api.js';
 import {renderFileCharts} from './charts.js';
-import {displayName, fileFieldsOf, parsePending, pendingToken, planUploads, stripPending, uniqueName} from './files.js';
+import {displayName, fileFieldsOf, isImage, parsePending, pendingToken, planUploads, stripPending, uniqueName} from './files.js';
 import {uid, clockIn, fileNameFor, entryRef, uploadPath, validUploadId, formatNumber} from './util.js';
 
 const DRAFT_VERSION = 1;
@@ -68,6 +68,7 @@ const {
   compute,
   madeHere,
   sampleId,
+  syncSampleMasks,
   sampleName,
   isEmpty,
   sectionRequirement,
@@ -187,6 +188,13 @@ function newItem(listSection, variantKey, list) {
   return {uid: uid(), ...defaults(listSection.fields)};
 }
 
+/* The samples of each form as its sample masks last saw them (rules.syncSampleMasks). */
+const maskSamples = new WeakMap();
+
+function syncMasks() {
+  maskSamples.set(app.form, syncSampleMasks(app.form, maskSamples.get(app.form) || null));
+}
+
 function newForm() {
   const form = {recipe: null};
   for (const s of app.spec.sections) {
@@ -246,6 +254,7 @@ let draftTimer = null;
 function changed() {
   app.started = true;
   app.changedSinceDraft = true;
+  syncMasks();
   app.errors = validate(app.form, app.spec);
   refresh();
   clearTimeout(draftTimer);
@@ -561,7 +570,7 @@ function choiceOptions(field, local) {
       label: refName('target', t.target) + (t.target_number ? ` (target ${t.target_number})` : ''),
     }));
   }
-  if (field.kind === 'sample_choice') {
+  if (field.kind === 'sample_choice' || field.kind === 'sample_mask') {
     return (root.samples || []).map((s, index) => {
       if (madeHere(s)) {
         return {value: `new:${s.uid}`, label: sampleId(s, root) || sampleName(s, root) || `Sample ${index + 1}`};
@@ -659,8 +668,9 @@ function control(field, local, path) {
       body = el('div', {class: 'rows'}, input, files, choose, charts);
       return {body, input, fileList: files, charts};
     }
-    case 'step_choice': {
-      // One checkbox per process step, rebuilt by refresh when the steps change.
+    case 'step_choice':
+    case 'sample_mask': {
+      // One checkbox per process step or sample, rebuilt by refresh when they change.
       input = el('div', {class: 'step-choices', id});
       return {body: input, input};
     }
@@ -745,7 +755,7 @@ function renderFields(container, fields, local, path) {
     const fieldPath = `${path}.${field.key}`;
     const made = control(field, local, fieldPath);
     const error = el('div', {class: 'error'});
-    const wide = ['textarea', 'files', 'rows', 'step_choice'].includes(field.kind);
+    const wide = ['textarea', 'files', 'rows', 'step_choice', 'sample_mask'].includes(field.kind);
     const classes = 'field' + (wide ? ' wide' : '') + (field.row_start ? ' row-start' : '');
     const helper = el('div', {class: 'helper'}, field.help || '');
     const wrap = el('div', {class: classes, 'data-path': fieldPath},
@@ -759,6 +769,49 @@ function renderFields(container, fields, local, path) {
   }
 }
 
+
+/*
+ * Object URLs of the images shown as thumbnails, by pending file id or upload
+ * path: each image is read once (from the browser, or from NOMAD once saved).
+ */
+const imageUrls = new Map();
+
+/* A thumbnail of an image in a `files` field (e.g. a RHEED pattern); a click shows it at full size. */
+function fileThumbnail(name) {
+  if (!isImage(name)) return null;
+  const pending = parsePending(name);
+  const uploadId = formUpload();
+  const key = pending ? `pending:${pending.id}` : `${uploadId}/${name}`;
+  if (!imageUrls.has(key)) {
+    const file = pending ? app.pendingFiles[pending.id] : null;
+    if (file) imageUrls.set(key, Promise.resolve(URL.createObjectURL(file)));
+    else if (!pending && uploadId) {
+      imageUrls.set(key, rawFileBytes(uploadId, name).then((bytes) => URL.createObjectURL(new Blob([bytes]))));
+    } else return null;
+  }
+  const title = displayName(name);
+  const img = el('img', {class: 'file-thumb', alt: title, title: 'Show full size'});
+  const failed = (message, retry) => img.replaceWith(el('span', {class: 'muted'},
+    `Could not show the image: ${message} `,
+    retry ? el('button', {type: 'button', class: 'btn btn-text', onclick: retry}, 'Retry') : null));
+  img.onerror = () => failed('the browser cannot read it');
+  // A failed read is kept (not repeated at every change) until Retry.
+  imageUrls.get(key).then((url) => {
+    img.src = url;
+    img.onclick = () => openDialog(title, el('img', {class: 'file-image', src: url, alt: title}));
+  }, (e) => failed(e.message, () => { imageUrls.delete(key); refresh(); }));
+  return img;
+}
+
+/* Lets go of the images of files no longer at hand (removed, uploaded, or of another form). */
+function releaseImages() {
+  for (const [key, url] of imageUrls) {
+    if (key.startsWith('pending:') && !Object.hasOwn(app.pendingFiles, key.slice('pending:'.length))) {
+      url.then((u) => URL.revokeObjectURL(u));
+      imageUrls.delete(key);
+    }
+  }
+}
 
 /* Remove one file of a `files` field. */
 function removeFile(local, key, path, index) {
@@ -796,6 +849,36 @@ function renderStepChoices(r) {
   r.input.replaceChildren(...(boxes.length ? boxes : [el('span', {class: 'muted'}, 'Add process steps first')]));
 }
 
+/* The samples a film step covers: one checkbox per sample of the run. */
+function renderSampleMask(r) {
+  const chosen = r.local[r.field.key] || [];
+  const options = choiceOptions(r.field, r.local);
+  const set = (values) => {
+    r.local[r.field.key] = values;
+    app.touched.add(r.path);
+    changed();
+  };
+  const toggle = (value, on) => {
+    const current = (r.local[r.field.key] || []).filter((v) => v !== value);
+    // In the order of the samples; values naming no sample stay until removed.
+    set(on ? [...options.map((o) => o.value).filter((v) => v === value || current.includes(v)),
+      ...current.filter((v) => !options.some((o) => o.value === v))] : current);
+  };
+  const boxes = options.map((option, index) => {
+    const id = `${r.input.id}-${index}`;
+    return el('label', {class: 'step-choice', for: id},
+      el('input', {type: 'checkbox', id, checked: chosen.includes(option.value), onchange: (e) => toggle(option.value, e.target.checked)}),
+      option.label);
+  });
+  // Samples the step names that are not in this run (e.g. from a saved logbook).
+  const gone = chosen.filter((v) => !options.some((o) => o.value === v));
+  if (gone.length) {
+    boxes.push(el('button', {type: 'button', class: 'btn btn-text', onclick: () => set(chosen.filter((v) => !gone.includes(v)))},
+      gone.length === 1 ? 'Remove a sample that no longer exists' : `Remove ${gone.length} samples that no longer exist`));
+  }
+  r.input.replaceChildren(...(boxes.length ? boxes : [el('span', {class: 'muted'}, 'Add samples under Samples first')]));
+}
+
 /* Whether a ticked in-situ technique of a measurement has no data file yet. */
 function awaitingData(technique, measurement) {
   return section('in_situ').fields
@@ -817,6 +900,7 @@ function sectionShown(path) {
 }
 
 function refresh() {
+  releaseImages();
   const root = app.form;
   const byPath = new Map();
   for (const error of app.errors) if (!byPath.has(error.path)) byPath.set(error.path, error.message);
@@ -839,6 +923,7 @@ function refresh() {
     }
     if (kind === 'files') {
       r.fileList.replaceChildren(...(value || []).map((name, index) => el('div', {class: 'file-row'},
+        fileThumbnail(name),
         el('span', {class: 'file-name'}, displayName(name)),
         el('span', {class: 'file-pending'}, parsePending(name) ? 'uploaded on save' : ''),
         el('button', {
@@ -849,6 +934,7 @@ function refresh() {
       if (r.charts && visible) renderFileCharts(r, value, {pendingFiles: app.pendingFiles, uploadId: formUpload(), readRaw: rawFileBytes});
     }
     if (kind === 'step_choice') renderStepChoices(r);
+    if (kind === 'sample_mask') renderSampleMask(r);
     if (r.field.required && r.field.required_if) {
       const label = r.wrap.querySelector('label');
       if (label) label.classList.toggle('required', evaluate(r.field.required_if, r.local, root));
@@ -990,6 +1076,7 @@ function go(key, focusPath) {
 }
 
 function render() {
+  if (app.form) syncMasks();
   app.rendered = [];
   const container = document.getElementById('section');
   container.replaceChildren();
@@ -1389,7 +1476,7 @@ async function recipeDialog() {
           go('steps');
           showBanner(`Added ${recipe.steps.length} steps from ${picked.title}`
             + (hasTargets ? '.' : ' and its targets.') + ' Check the targets'
-            + (client().all_samples.includes(system) ? '.' : ' and choose the sample of each deposition step.'));
+            + (client().mask_systems.includes(system) ? '.' : ' and choose the sample of each deposition step.'));
         } catch (e) {
           showBanner('Could not load the recipe: ' + e.message, 'error');
         }
@@ -1902,6 +1989,10 @@ function displayValue(field, local) {
   if (field.kind === 'sample_choice') {
     const option = choiceOptions(field, local).find((o) => o.value === value);
     return option ? option.label : value;
+  }
+  if (field.kind === 'sample_mask') {
+    const options = choiceOptions(field, local);
+    return value.map((v) => (options.find((o) => o.value === v) || {label: v}).label).join(', ');
   }
   if (field.kind === 'files') return value.map(displayName).join(', ');
   if (field.kind === 'step_choice') {

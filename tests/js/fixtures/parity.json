@@ -176,6 +176,9 @@
        "radius_start": 0,
        "radius_stop": 40,
        "sample": "new:sub1",
+       "samples": [
+        "new:sub1"
+       ],
        "scan_speed_x": 2,
        "scan_speed_y": 1.5,
        "scan_width_x": 10,
@@ -10201,9 +10204,6 @@
   ],
   "spec": {
    "client": {
-    "all_samples": [
-     "SA-PLD"
-    ],
     "draft_dir": "pld_drafts",
     "draft_key": "pld-logbook-draft-v2",
     "file_dir": "pld_files",
@@ -10211,9 +10211,12 @@
      "deposition"
     ],
     "intro": "Log an SA-PLD or LA-PLD run step by step, starting from its samples. Only the fields that apply are shown, and a logbook is saved once it is complete.",
+    "mask_systems": [
+     "SA-PLD"
+    ],
     "requirement_note": "Not needed for these process steps: it is only logged when a step needs it (e.g. a pre-ablation or deposition step). What you enter here is not saved.",
     "system_notes": {
-     "SA-PLD": "In the SA-PLD a deposition covers all samples loaded in the chamber."
+     "SA-PLD": "In the SA-PLD a deposition covers the samples ticked under Samples covered: untick those shielded by a sample mask."
     },
     "title": "PLD logbook",
     "upload_name": "PLD logbooks"
@@ -11734,6 +11737,18 @@
          "required": true,
          "visible_if": {
           "equals": "LA-PLD",
+          "key": "/run/system"
+         }
+        },
+        {
+         "archive": null,
+         "help": "Untick the samples shielded by a sample mask: only the ticked samples get the film of this step.",
+         "key": "samples",
+         "kind": "sample_mask",
+         "label": "Samples covered",
+         "required": true,
+         "visible_if": {
+          "equals": "SA-PLD",
           "key": "/run/system"
          }
         },
@@ -14444,6 +14459,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -14473,6 +14491,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -14603,6 +14624,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -14632,6 +14656,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -14747,6 +14774,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -14776,6 +14806,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -14906,6 +14939,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -14935,6 +14971,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -15060,6 +15099,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -15089,6 +15131,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -15214,6 +15259,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -15243,6 +15291,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -15368,6 +15419,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -15397,6 +15451,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -15522,6 +15579,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -15551,6 +15611,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -15676,6 +15739,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -15705,6 +15771,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -15829,6 +15898,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -15858,6 +15930,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -15983,6 +16058,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -16012,6 +16090,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -16137,6 +16218,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -16166,6 +16250,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -16291,6 +16378,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -16320,6 +16410,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -16440,6 +16533,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -16469,6 +16565,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -16594,6 +16693,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -16623,6 +16725,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -16748,6 +16853,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -16777,6 +16885,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -16897,6 +17008,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -16926,6 +17040,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -17051,6 +17168,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -17080,6 +17200,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -17205,6 +17328,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -17234,6 +17360,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -17359,6 +17488,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -17388,6 +17520,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -17513,6 +17648,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -17542,6 +17680,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -17662,6 +17803,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -17691,6 +17835,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -17816,6 +17963,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -17845,6 +17995,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -17970,6 +18123,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -17999,6 +18155,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -18119,6 +18278,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -18148,6 +18310,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -18273,6 +18438,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -18302,6 +18470,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -18427,6 +18598,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -18456,6 +18630,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -18581,6 +18758,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -18610,6 +18790,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -18735,6 +18918,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -18764,6 +18950,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -18886,6 +19075,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -18915,6 +19107,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -19037,6 +19232,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -19066,6 +19264,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -19191,6 +19392,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -19220,6 +19424,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -19347,6 +19554,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -19376,6 +19586,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -19501,6 +19714,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -19530,6 +19746,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -19575,6 +19794,14 @@
      {
       "message": "Add at least one sample.",
       "path": "samples"
+     },
+     {
+      "message": "Choose samples listed under Samples.",
+      "path": "steps.2.samples"
+     },
+     {
+      "message": "Choose samples listed under Samples.",
+      "path": "steps.3.samples"
      }
     ],
     "form": {
@@ -19645,6 +19872,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -19674,6 +19904,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -19811,6 +20044,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -19840,6 +20076,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -19884,7 +20123,16 @@
      "samples.0.sample_id": null
     },
     "draft_errors": [],
-    "errors": [],
+    "errors": [
+     {
+      "message": "Choose samples listed under Samples.",
+      "path": "steps.2.samples"
+     },
+     {
+      "message": "Choose samples listed under Samples.",
+      "path": "steps.3.samples"
+     }
+    ],
     "form": {
      "chamber": {
       "base_pressure": 1e-07,
@@ -19961,6 +20209,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -19990,6 +20241,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -20032,7 +20286,7 @@
     "computed": {
      "samples.0.name": "Si_Ta-50nm_Ti-10nm",
      "samples.0.sample_id": "LA-PLD_2026-10-22_09:15_S02",
-     "samples.1.name": "Si_Ta-50nm_Ti-10nm",
+     "samples.1.name": "Si",
      "samples.1.sample_id": "SPS_2026-10-22_09:15_S03"
     },
     "draft_errors": [],
@@ -20120,6 +20374,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -20149,6 +20406,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -20274,6 +20534,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -20303,6 +20566,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -20425,6 +20691,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -20454,6 +20723,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -20574,6 +20846,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -20603,6 +20878,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -20735,6 +21013,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -20764,6 +21045,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -20896,6 +21180,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -20925,6 +21212,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -21058,6 +21348,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -21087,6 +21380,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -21263,6 +21559,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -21292,6 +21591,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -21417,6 +21719,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -21446,6 +21751,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -21570,6 +21878,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -21599,6 +21910,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -21725,6 +22039,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -21754,6 +22071,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -21875,6 +22195,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -21904,6 +22227,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -22024,6 +22350,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -22053,6 +22382,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -22178,6 +22510,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -22207,6 +22542,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -22327,6 +22665,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -22356,6 +22697,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -22478,6 +22822,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -22507,6 +22854,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -22628,6 +22978,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -22657,6 +23010,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -22778,6 +23134,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -22807,6 +23166,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -22928,6 +23290,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -22957,6 +23322,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -23078,6 +23446,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -23107,6 +23478,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -23228,6 +23602,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -23257,6 +23634,9 @@
        "power": 100,
        "pressure": 0.005,
        "ramp_down_rate": 10,
+       "samples": [
+        "new:sub1"
+       ],
        "shutter": "open",
        "spin": 0,
        "sputter_time": 20,
@@ -23298,9 +23678,6 @@
   ],
   "spec": {
    "client": {
-    "all_samples": [
-     "SPS"
-    ],
     "draft_dir": "sps_drafts",
     "draft_key": "sps-logbook-draft-v1",
     "file_dir": "sps_files",
@@ -23308,9 +23685,12 @@
      "sputtering"
     ],
     "intro": "Log an SPS run step by step, starting from its samples. Only the fields that apply are shown, and a logbook is saved once it is complete.",
+    "mask_systems": [
+     "SPS"
+    ],
     "requirement_note": "Not needed for these process steps: targets are only logged when a step sputters (pre-sputtering or sputtering). What you enter here is not saved.",
     "system_notes": {
-     "SPS": "In the SPS a sputtering step covers all samples on the carrier."
+     "SPS": "Sputtering currently does not support a heating step."
     },
     "target_entry": {
      "fields": [
@@ -24772,6 +25152,14 @@
          "prefill": false,
          "required": false,
          "row_start": false
+        },
+        {
+         "archive": null,
+         "help": "Untick the samples shielded by a sample mask: only the ticked samples get the film of this step.",
+         "key": "samples",
+         "kind": "sample_mask",
+         "label": "Samples covered",
+         "required": true
         },
         {
          "archive": "heater_stage_position.x",

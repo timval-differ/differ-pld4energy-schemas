@@ -2,7 +2,7 @@
   "name": "differ-pld4e-dashboard",
   "private": true,
   "description": "Type checking and tests of the logbook dashboard's browser code (src/differ_pld4e_schemas/dashboards/common/static). Nothing here is built or shipped: the browser loads those files as they are.",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "type": "module",
   "engines": {
     "node": ">=22"

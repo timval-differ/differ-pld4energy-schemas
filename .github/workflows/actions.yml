@@ -9,13 +9,16 @@ permissions:
 
 env:
   UV_VERSION: 0.9
-  PYTHON_VERSION: 3.11
   UV_SYSTEM_PYTHON: true
-  NODE_VERSION: 26
 
 jobs:
   install-and-test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The lowest and the highest supported version (pyproject.toml).
+        python-version: ['3.11', '3.14']
     steps:
     - uses: actions/checkout@v4
     - name: Install uv
@@ -25,28 +28,76 @@ jobs:
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
-          python-version: ${{ env.PYTHON_VERSION }}
+          python-version: ${{ matrix.python-version }}
     - name: Install dependencies
       run: |
         uv sync --all-extras
     - name: Test with pytest
       run: |
-        uv run --with coverage coverage run -m pytest -sv
+        uv run --with coverage coverage run --source=src/differ_pld4e_schemas -m pytest -sv
+    - name: Coverage
+      # 98 % when the gate was set; it fails if coverage drops well below that.
+      run: |
+        uv run --with coverage coverage report --fail-under=96
     - name: Submit to coveralls
+      if: matrix.python-version == '3.11'
       continue-on-error: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         uv run --with coveralls coveralls --service=github
 
+  newest-nomad:
+    # The newest nomad-lab and nomad-material-processing, beyond the bounds in
+    # pyproject.toml: a failure here warns of an upcoming break, it does not
+    # block a merge.
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    env:
+      # Install into the project's .venv, which `uv run` uses, not the system Python.
+      UV_SYSTEM_PYTHON: false
+    steps:
+    - uses: actions/checkout@v4
+    - uses: astral-sh/setup-uv@v5
+      with:
+          version: ${{ env.UV_VERSION }}
+    - uses: actions/setup-python@v5
+      with:
+          python-version: '3.12'
+    - run: |
+        uv sync --all-extras
+        uv pip install --python .venv/bin/python --upgrade nomad-lab nomad-material-processing
+        uv pip list --python .venv/bin/python | grep -i nomad
+        uv run --no-sync pytest -q
+
+  docs:
+    # The documentation builds without broken links or navigation entries.
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: astral-sh/setup-uv@v5
+      with:
+          version: ${{ env.UV_VERSION }}
+    - uses: actions/setup-python@v5
+      with:
+          python-version: '3.12'
+    - run: |
+        uv sync --extra dev
+        uv run mkdocs build --strict
+
   dashboard-scripts:
     # Type checking and tests of the dashboard's browser code (package.json).
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The lowest supported version (package.json engines) and the current one.
+        node-version: [22, 26]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: ${{ matrix.node-version }}
           cache: npm
       - run: npm ci
       - run: npm run typecheck
@@ -58,5 +109,4 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/ruff-action@v3
       - run: ruff check .
-      # Uncomment the following line to enable format check
-      # - run: ruff format --check .
+      - run: ruff format --check .

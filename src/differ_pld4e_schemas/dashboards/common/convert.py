@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from differ_pld4e_schemas.gas import BACKGROUND_GAS, GASES, BackgroundGas
 from differ_pld4e_schemas.process_steps import RUN_SPECIFIC
@@ -123,9 +123,7 @@ def step_clock_times(step: dict) -> dict:
 def seconds_between(start: datetime, end: datetime) -> float:
     """Real elapsed time: datetimes of one time zone subtract as wall-clock
     times, which is an hour off over a clock change."""
-    return (
-        end.astimezone(timezone.utc) - start.astimezone(timezone.utc)
-    ).total_seconds()
+    return (end.astimezone(UTC) - start.astimezone(UTC)).total_seconds()
 
 
 def new_uid() -> str:

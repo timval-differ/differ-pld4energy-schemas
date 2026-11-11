@@ -21,7 +21,7 @@ from __future__ import annotations
 import json
 import re
 import uuid
-from datetime import timezone
+from datetime import UTC
 from typing import TYPE_CHECKING
 
 from nomad.datamodel.data import ArchiveSection, EntryData
@@ -508,7 +508,7 @@ class SampleRun(ArchiveSection):
         if start is None:
             return None
         new = sample_id(system, lab_wall_time(start), number)
-        utc = start.astimezone(timezone.utc) if start.tzinfo else start
+        utc = start.astimezone(UTC) if start.tzinfo else start
         legacy = sample_id(system, utc, number)
         context = getattr(archive, 'm_context', None) if archive is not None else None
         if legacy != new and context is not None:

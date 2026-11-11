@@ -7,16 +7,17 @@ classifiers = [
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "License :: OSI Approved :: Apache Software License",
 ]
 name = "differ_pld4e_schemas"
 description = "NOMAD schemas and the PLD and sputter logbook dashboards of the PLD4Energy lab at DIFFER"
-version = "0.3.4"
+version = "0.4.0"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [
     { name = "Tim van Alphen", email = "t.j.j.vanalphen@differ.nl" },
 ]
@@ -25,8 +26,10 @@ maintainers = [
 ]
 license = { file = "LICENSE" }
 dependencies = [
-    "nomad-lab>=2.0",
-    "nomad-material-processing>=1.0",
+    # Tested with these minor versions; the plugin uses parts of their APIs that
+    # change between minor versions. CI also runs against the newest ones.
+    "nomad-lab>=2.0.1,<2.1",
+    "nomad-material-processing>=1.0.7,<1.1",
     "fastapi>=0.100",
     # Time zone data for zoneinfo where the system has none (Windows, slim images).
     "tzdata",

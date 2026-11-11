@@ -32,8 +32,9 @@ full instructions; in short:
     nomad-material-processing = { workspace = true }
     ```
 
-4. Install: `uv sync`. The plugin needs Python 3.10 or newer and `nomad-lab` 2.0
-   or newer.
+4. Install: `uv sync`. The plugin needs Python 3.11 or newer, `nomad-lab` 2.0.x
+   (2.0.1 or newer) and `nomad-material-processing` 1.0.x (1.0.7 or newer). The
+   distribution's own `requires-python` must not allow an older Python.
 5. Set the target and substrate database upload in the distribution's
    `nomad.yaml` (`database_upload_id`, see
    [Set up the target and substrate database](use_this_plugin.md#set-up-the-target-and-substrate-database)).
@@ -64,13 +65,18 @@ automatically. Save them again in the form, or reprocess the upload.
 ## In a NOMAD Oasis
 
 Add the plugin (and `nomad-material-processing`) to the plugin dependencies of
-your Oasis distribution, e.g. as a Git dependency:
+your Oasis distribution, e.g. as a Git dependency on a released version (a tag),
+so that a rebuild installs the version you tested and not whatever `main` is
+then:
 
 ```toml
 dependencies = [
-    "differ-pld4e-schemas @ git+https://github.com/timval-differ/differ-pld4energy-schemas.git",
+    "differ-pld4e-schemas @ git+https://github.com/timval-differ/differ-pld4energy-schemas.git@v0.4.0",
 ]
 ```
+
+The plugin needs nomad-lab 2.0.x and nomad-material-processing 1.0.x
+(`pyproject.toml`).
 
 Then rebuild and restart the Oasis. Read the
 [NOMAD plugin documentation](https://nomad-lab.eu/prod/v1/staging/docs/howto/oasis/plugins_install.html)

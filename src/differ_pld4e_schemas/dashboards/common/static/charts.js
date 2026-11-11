@@ -1,4 +1,5 @@
 // @ts-check
+import {displayName, parsePending} from './files.js';
 import {el} from './dom.js';
 import {formatNumber} from './util.js';
 
@@ -215,18 +216,21 @@ async function plotFile(box, chart, key, fileName, read) {
 
 /*
  * The charts of the files of a field, redrawn only when its files change. A
- * file still to be uploaded (`pendingFiles`, by form path) is plotted from the
+ * file still to be uploaded (`pendingFiles`, by id; see files.js) is plotted from the
  * browser; a saved one on request, read from NOMAD with `readRaw` from the
  * upload the form's files are in (`uploadId`).
  */
 export function renderFileCharts(r, value, {pendingFiles, uploadId, readRaw}) {
   const files = value || [];
-  const pending = files.map((_, index) => pendingFiles[`${r.path}.${index}`]);
+  const pending = files.map((name) => {
+    const token = parsePending(name);
+    return token ? pendingFiles[token.id] : undefined;
+  });
   const key = files.join('|') + '|' + pending.map(Boolean).join();
   if (r.charts.dataset.key === key) return;
   r.charts.dataset.key = key;
   r.charts.replaceChildren(...files.map((name, index) => {
-    const fileName = String(name).split('/').pop();
+    const fileName = displayName(name);
     const box = el('div', {class: 'file-chart'});
     const file = pending[index];
     if (file) {

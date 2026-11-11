@@ -129,6 +129,10 @@ CHANGES = {
     # Steps
     'no steps': {'steps': []},
     'unknown step type': {'steps.0.type': 'no-such-step'},
+    'file not uploaded': {
+        'in_situ.0.rheed_pattern_export_files': ['pending:a1b2/pattern1.png'],
+        'logfiles.system_logfiles': ['pending:c3/tsst.txt'],
+    },
     'two steps with one ID': {'steps.1.uid': 'step1'},
     'step without an ID': {'steps.0.uid': DELETE},
     'background gas without a gas': {

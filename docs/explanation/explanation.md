@@ -419,12 +419,18 @@ computer.
 
 ### Saving
 
-1. The form is validated by the server, which also returns the file name of the
-   logbook (`<system>_<date>_<hhmm>[_<run name>].archive.json`).
-2. In-situ and log files are uploaded to
-   `<file dir>/<system>_<date>_<hhmm>[_<run name>]/`, the logbook's file name
-   without `.archive.json` (`<file dir>` is `pld_files` for the PLD logbook,
-   `sps_files` for the sputter logbook).
+1. The page checks that the NOMAD session is still valid. The form, without
+   the files not uploaded yet, is validated by the server, which also returns
+   the file name of the logbook (`<system>_<date>_<hhmm>[_<run name>].archive.json`).
+   A new logbook whose file already exists stops the save here, before
+   anything is uploaded.
+2. In-situ and log files are uploaded, one request per field, to
+   `<file dir>/<system>_<date>_<hhmm>[_<run name>]/<section>/<field>/`, e.g.
+   `.../in_situ/rheed_roi_intensity_export_files/` (`<file dir>` is
+   `pld_files` for the PLD logbook, `sps_files` for the sputter logbook). Each
+   technique has its own folder, and a file never replaces another: a name
+   already in the folder (or added twice) gets a number, `step1 (2).txt`.
+   The server validates the form again, now with the uploaded file paths.
 3. One Sample archive is written per new or external sample, named after its
    sample ID, and the logbook archive refers to it by file name. A Sample that
    this logbook created before is written again (overwritten), so corrections
@@ -437,9 +443,16 @@ computer.
    same upload instead.
 5. The draft of the run, if any, is deleted.
 
-The Sample and logbook archives are written with `wait_for_processing=true`,
-so NOMAD's processing errors and warnings are shown in the log. Data files and
-drafts are written without waiting: NOMAD does not make entries of them.
+Data files, Sample and logbook archives are written with
+`wait_for_processing=true`, so the next write does not find the upload busy and
+NOMAD's processing errors and warnings are shown in the log. Drafts are written
+without waiting: NOMAD does not make entries of them.
+
+A file chosen in the form is kept in the form's list as `pending:<id>/<name>`
+until it is uploaded (`static/files.js`), so it stays with its measurement when
+measurements are moved or removed. The server refuses a form that still holds
+one. A save that ends after another logbook was put in the form leaves that
+logbook as it is.
 
 Run and step times are on the lab's clock: its time zone (`lab_time_zone`,
 default Europe/Amsterdam) turns a date and hh:mm into an instant, with the

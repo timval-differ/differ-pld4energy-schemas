@@ -165,9 +165,10 @@ transpiler; Node is only used to type-check and test them.
 
 | Module | What | Uses |
 | --- | --- | --- |
-| `app.js` | The page: start page, form rendering, NOMAD lookups, dialogs, save, drafts, PDF report. Holds the page's state in one `app` object. | `rules.js`, `charts.js`, `nomad-api.js`, `pdf.js`, `config.js`, `dom.js`, `util.js` |
-| `rules.js` | Computed values and validation, the counterpart of `rules.py` (`createRules(ctx)` reads `ctx.spec` and `ctx.refs` when a rule runs). | `constants.js`, `util.js` |
-| `charts.js` | Reading and plotting exported data files. | `dom.js`, `util.js` |
+| `app.js` | The page: start page, form rendering, NOMAD lookups, dialogs, save, drafts, PDF report. Holds the page's state in one `app` object. | `rules.js`, `charts.js`, `files.js`, `nomad-api.js`, `pdf.js`, `config.js`, `dom.js`, `util.js` |
+| `rules.js` | Computed values and validation, the counterpart of `rules.py` (`createRules(ctx)` reads `ctx.spec`, `ctx.refs` and `ctx.pendingFiles` when a rule runs). | `constants.js`, `files.js`, `util.js` |
+| `charts.js` | Reading and plotting exported data files. | `dom.js`, `files.js`, `util.js` |
+| `files.js` | Data files chosen but not uploaded yet: the `pending:<id>/<name>` tokens in the form, and the folders and unique names a save uploads them to. | – |
 | `nomad-api.js` | Requests to NOMAD (with the session cookie) and to the dashboard's API. | `config.js`, `util.js` |
 | `pdf.js` | A small PDF writer for the report (the sandboxed frame ignores `window.print()`). | – |
 | `config.js` | URLs from the page's location: `API`, `GUI`, `DASHBOARD`. | – |
@@ -210,11 +211,14 @@ also that of a sample made in the run (the server does not look samples up).
 
 ```
 page                                   dashboard app                NOMAD API
- │ validate locally (rules.js)
- │ ─ POST api/archive {form, logbook_file} ──►  validate (rules.py)
+ │ validate locally (rules.js); check the session ────────────────►  GET users/me
+ │ ─ POST api/archive {form without pending files, logbook_file} ──►  validate (rules.py)
  │                                               build files (convert.py)
  │ ◄──────────── files, logbook_file, warnings ─┘
- │ upload new data files ─────────────────────────────────────────►  PUT raw/<file_dir>/<run>/…
+ │ new logbook: stop if its file exists ──────────────────────────►  GET rawdir/<logbook>
+ │ per file field: names in its folder, then ─────────────────────►  GET rawdir/<folder>
+ │ upload its new files in one request ────────────────────────────►  PUT raw/<file_dir>/<run>/<section>/<field>
+ │                                                                     ?overwrite_if_exists=false&wait_for_processing=true
  │ (again api/archive, now with the uploaded file paths)
  │ for each file (samples first, then the logbook) ───────────────►  PUT raw/?file_name=…
  │                                                                     &overwrite_if_exists=…
@@ -223,9 +227,9 @@ page                                   dashboard app                NOMAD API
 ```
 
 `<file_dir>` and `<draft_dir>` come from the `client` part of the spec
-(`pld_files`/`pld_drafts` for PLD, `sps_files`/`sps_drafts` for SPS). Data files
-and drafts are written with `wait_for_processing=false`: NOMAD does not process
-them into entries. Drafts are the form state as `<draft_dir>/<run>.draft.json`;
+(`pld_files`/`pld_drafts` for PLD, `sps_files`/`sps_drafts` for SPS). Drafts
+are written with `wait_for_processing=false`: NOMAD does not process them into
+entries. Drafts are the form state as `<draft_dir>/<run>.draft.json`;
 no parser reads them, so they are never entries (see
 [Drafts](explanation.md#drafts)).
 

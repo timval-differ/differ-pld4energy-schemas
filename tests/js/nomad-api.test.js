@@ -123,3 +123,25 @@ describe('dashboard API', () => {
     await assert.rejects(dashboard('api/spec'), /sent no data/);
   });
 });
+
+describe('raw files', () => {
+  test('one request per folder, never replacing a file', async () => {
+    const {putRawFiles} = await import('../../src/differ_pld4e_schemas/dashboards/common/static/nomad-api.js');
+    answer(200, '{}');
+    await putRawFiles('u1', 'pld_files/run/in_situ/mic_files', [
+      {name: 'a.csv', file: new Blob(['1'])}, {name: 'b.csv', file: new Blob(['2'])}]);
+    assert.equal(requests.length, 1);
+    assert.match(requests[0].url, /\/uploads\/u1\/raw\/pld_files\/run\/in_situ\/mic_files\?overwrite_if_exists=false&wait_for_processing=true$/);
+    assert.deepEqual(requests[0].options.body.getAll('file').map((f) => f.name), ['a.csv', 'b.csv']);
+  });
+
+  test('the files of a missing folder are none', async () => {
+    const {folderFileNames, rawExists} = await import('../../src/differ_pld4e_schemas/dashboards/common/static/nomad-api.js');
+    answer(404, '{"detail": "not found"}');
+    assert.deepEqual(await folderFileNames('u1', 'x'), []);
+    assert.equal(await rawExists('u1', 'x.json'), false);
+    answer(200, JSON.stringify({directory_metadata: {content: [{name: 'a', is_file: true}, {name: 'd', is_file: false}]}}));
+    assert.deepEqual(await folderFileNames('u1', 'x'), ['a']);
+    assert.equal(await rawExists('u1', 'a'), true);
+  });
+});

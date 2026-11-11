@@ -15,7 +15,7 @@ classifiers = [
 ]
 name = "differ_pld4e_schemas"
 description = "NOMAD schemas and the PLD and sputter logbook dashboards of the PLD4Energy lab at DIFFER"
-version = "4.0.0"
+version = "0.4.0"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [

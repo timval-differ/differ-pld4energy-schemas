@@ -71,7 +71,7 @@ then:
 
 ```toml
 dependencies = [
-    "differ-pld4e-schemas @ git+https://github.com/timval-differ/differ-pld4energy-schemas.git@v4.0.0",
+    "differ-pld4e-schemas @ git+https://github.com/timval-differ/differ-pld4energy-schemas.git@v0.4.0",
 ]
 ```
 

@@ -15,7 +15,7 @@ classifiers = [
 ]
 name = "differ_pld4e_schemas"
 description = "NOMAD schemas and the PLD and sputter logbook dashboards of the PLD4Energy lab at DIFFER"
-version = "0.4.1"
+version = "0.5.0"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
@@ -136,11 +136,13 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "differ_pld4e_schemas.dashboards.common" = ["static/*"]
+"differ_pld4e_schemas.dashboards.publication" = ["static/*"]
 
 [project.entry-points."nomad.plugin"]
 schema_packages = "differ_pld4e_schemas.schema_packages:schema_package_entry_point"
 pld_logbook_dashboard = "differ_pld4e_schemas.dashboards:pld_logbook_dashboard_entry_point"
 sputter_logbook_dashboard = "differ_pld4e_schemas.dashboards:sputter_logbook_dashboard_entry_point"
+publication_dashboard = "differ_pld4e_schemas.dashboards:publication_dashboard_entry_point"
 
 [tool.cruft]
 # Avoid updating workflow files, this leads to permissions issues

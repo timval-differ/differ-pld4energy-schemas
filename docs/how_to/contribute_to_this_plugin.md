@@ -22,7 +22,8 @@ tests, and where to make a change. This page has the recipes for common changes.
 | `composition.py` | Chemical formulas of targets and substrate types, and the elements NOMAD's search uses |
 | `database.py` | The target and substrate database: the one upload that holds every target and substrate type |
 | `schema_packages/schema_package.py` | Imports all modules and initialises the schema package |
-| `dashboards/` | The PLD and sputter logbook dashboards, see [below](#the-logbook-dashboards) |
+| `snapshot.py` | The self-contained copy of an upload for publication: copies the entries it refers to in other uploads and rewrites the references |
+| `dashboards/` | The PLD and sputter logbook dashboards, see [below](#the-logbook-dashboards), and the publication dashboard (`publication/`) |
 
 ## Develop and test
 

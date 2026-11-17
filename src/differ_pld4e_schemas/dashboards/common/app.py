@@ -112,6 +112,21 @@ class FormRequest(BaseModel):
     logbook_file: str | None = Field(None, max_length=255)
     # The files a save overwrites, as they are in the upload (convert.form_to_files).
     existing: dict | None = None
+    # The target and substrate database the user chose on the page, instead of
+    # the lab's (prototype: every user may use one of their own uploads). It
+    # only decides which targets and substrates count as from the database;
+    # NOMAD's permissions still decide what the user can read and write.
+    # As validUploadId in static/util.js (ASCII only).
+    database_upload_id: str | None = Field(
+        None, max_length=64, pattern=r'^[A-Za-z0-9_-]+$'
+    )
+
+
+def with_database(spec: dict, request: FormRequest) -> dict:
+    """The spec with the database the page chose, if it chose one."""
+    if not request.database_upload_id:
+        return spec
+    return {**spec, 'database_upload_id': request.database_upload_id}
 
 
 class ArchiveRequest(BaseModel):
@@ -146,19 +161,20 @@ def create_app(form_spec: dict, rules, converter) -> FastAPI:
     async def post_validate(request: FormRequest):
         with malformed_request('validate'):
             return {
-                'errors': rules.validate(request.form, spec),
+                'errors': rules.validate(request.form, with_database(spec, request)),
                 'warnings': step_time_warnings(request.form),
             }
 
     @app.post('/api/archive')
     async def post_archive(request: FormRequest):
         with malformed_request('archive'):
-            errors = rules.validate(request.form, spec)
+            request_spec = with_database(spec, request)
+            errors = rules.validate(request.form, request_spec)
             if errors:
                 return {'errors': errors, 'files': []}
             try:
                 result = converter.form_to_files(
-                    request.form, spec, request.logbook_file, request.existing
+                    request.form, request_spec, request.logbook_file, request.existing
                 )
             except UnsafeLogbookFile as error:
                 return {

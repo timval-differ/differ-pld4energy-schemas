@@ -43,6 +43,10 @@ const app = {
   uploads: [],
   refs: {target: [], sample: [], substrate: []},
   maintainer: false, // whether the user can edit the target and substrate database
+  // The database of nomad.yaml, taken from the spec when it is first loaded
+  // (api/spec is fetched once); see applyDatabaseChoice.
+  labDatabase: undefined,
+  databaseLoading: false, // a newly chosen database is being loaded
   pendingFiles: {}, // id -> File chosen but not uploaded yet (see files.js)
   // Counts the logbooks put in the form: a save that ends after another
   // logbook was opened does not change the new one.
@@ -428,6 +432,89 @@ function databaseUpload() {
   return app.spec.database_upload_id || null;
 }
 
+/*
+ * For now (prototype) every user may choose their own target and substrate
+ * database: one of their uploads, which they then maintain. The choice is kept
+ * in this browser per NOMAD user and shared by the logbook dashboards. Without
+ * a choice the lab's database (`database_upload_id` in nomad.yaml) applies.
+ * The choice replaces the spec's `database_upload_id`, so the page's rules use
+ * it, and it is sent with every check by the server (`api/archive`).
+ */
+const DATABASE_KEY = 'differ_pld4e_database';
+
+function databaseKey() {
+  return app.user && app.user.user_id ? `${DATABASE_KEY}:${app.user.user_id}` : null;
+}
+
+function chosenDatabase() {
+  const key = databaseKey();
+  if (!key) return null;
+  try {
+    return validUploadId(localStorage.getItem(key));
+  } catch (e) {
+    return null; // storage unavailable: the lab's database applies
+  }
+}
+
+function applyDatabaseChoice() {
+  if (app.labDatabase === undefined) app.labDatabase = app.spec.database_upload_id || null;
+  app.spec.database_upload_id = chosenDatabase() || app.labDatabase;
+}
+
+async function chooseDatabase(uploadId) {
+  const key = databaseKey();
+  if (!key) return;
+  try {
+    if (uploadId) localStorage.setItem(key, uploadId);
+    else localStorage.removeItem(key);
+  } catch (e) {
+    showBanner('Your choice could not be kept in this browser.', 'error');
+    return;
+  }
+  applyDatabaseChoice();
+  // The lists of the previous database are gone; the choice cannot change
+  // again until the new ones are in, or a slower answer for the previous
+  // database could overwrite them.
+  app.refs.target = [];
+  app.refs.substrate = [];
+  app.databaseLoading = true;
+  document.getElementById('banner').hidden = true;
+  render();
+  try {
+    await Promise.all([loadDatabaseAccess(), loadReferences()]);
+  } finally {
+    app.databaseLoading = false;
+  }
+  app.errors = validate(app.form, app.spec);
+  render();
+}
+
+function databaseCard() {
+  const chosen = chosenDatabase();
+  const select = el('select', {
+    onchange: (e) => chooseDatabase(e.target.value || null), disabled: app.databaseLoading,
+  },
+    el('option', {value: ''}, app.labDatabase ? `The lab's database (${app.labDatabase})` : 'None'));
+  for (const upload of app.uploads) {
+    select.append(el('option', {value: upload.upload_id},
+      `${upload.upload_name || 'Unnamed upload'} (${upload.upload_id})`));
+  }
+  // A choice that is not among the uploads listed (e.g. published since).
+  if (chosen && !app.uploads.some((u) => u.upload_id === chosen)) {
+    select.append(el('option', {value: chosen}, chosen));
+  }
+  select.value = chosen || '';
+  return el('div', {class: 'card'},
+    el('h2', {}, 'Target and substrate database'),
+    el('p', {class: 'muted small'}, 'The upload from which targets and substrates are chosen. '
+      + 'For now you may use one of your unpublished uploads as your database: you then add '
+      + 'its targets and substrates yourself. Kept in this browser. Targets and substrates '
+      + 'of a previous database in the current logbook have to be chosen again.'),
+    app.user
+      ? el('div', {class: 'field'}, el('label', {}, 'Database upload'), select)
+      : el('p', {class: 'muted small'}, 'Log in to NOMAD to choose a database.'));
+}
+
 async function loadDatabaseAccess() {
   app.maintainer = false;
   const database = databaseUpload();
@@ -445,7 +532,8 @@ async function loadDatabaseAccess() {
     app.maintainer = mine.some((g) => groups.includes(g.group_id));
   } catch (e) {
     showBanner('Could not open the target and substrate database (upload '
-      + `${database}): ${e.message}. Ask a maintainer to add you to it as a reviewer.`, 'error');
+      + `${database}): ${e.message}. Ask its owner to add you to it as a reviewer, `
+      + 'or choose another database on the start page.', 'error');
   }
 }
 
@@ -454,8 +542,8 @@ async function loadReferences() {
   const names = app.spec.reference_sections;
   const database = databaseUpload();
   if (!database) {
-    showBanner('The target and substrate database is not set up in NOMAD yet, so no '
-      + 'targets or substrates can be chosen. Ask a maintainer.', 'error');
+    showBanner('No target and substrate database is chosen, so no targets or substrates '
+      + 'can be chosen. Choose one on the start page.', 'error');
   }
   try {
     const targets = !names.target || !database ? [] : await searchEntries([names.target], {
@@ -1146,7 +1234,7 @@ function renderHome(container) {
     entryList('home-recent', app.user ? 'Loading…' : 'Log in to NOMAD to see your logbooks.'),
     el('div', {class: 'btn-row'},
       el('button', {type: 'button', class: 'btn btn-text', onclick: openLogbookDialog}, 'Find a logbook…')));
-  container.append(intro, el('div', {class: 'home-grid'}, drafts, recent));
+  container.append(intro, databaseCard(), el('div', {class: 'home-grid'}, drafts, recent));
   if (!app.user) return;
   findDrafts().then(
     (entries) => fillEntryList('home-drafts', entries, 'No drafts.', (e) => openNomadDraft(e.uploadId, e.path, e.stored)),
@@ -1815,6 +1903,7 @@ async function saveLogbook() {
     // Checked without the files still to upload: only the uploaded ones count.
     let result = await dashboard('api/archive', {
       form: formWithoutPending(form), logbook_file: logbookFile, existing: {logbook: opened, samples: {}},
+      database_upload_id: databaseUpload(),
     });
     const fileError = result.errors.find((e) => e.path === 'logbook_file');
     if (fileError) {
@@ -1875,7 +1964,9 @@ async function saveLogbook() {
     // Built again with the uploaded file names. Checked like the first time:
     // with errors there are no files, and an unchecked result would be
     // reported as saved and the draft deleted.
-    result = await dashboard('api/archive', {form, logbook_file: logbookFile, existing});
+    result = await dashboard('api/archive', {
+      form, logbook_file: logbookFile, existing, database_upload_id: databaseUpload(),
+    });
     const keptError = (result.errors || []).find((e) => e.path === 'logbook_file');
     if (keptError) {
       app.edit = null;
@@ -2289,6 +2380,7 @@ async function init() {
   // The logbook last worked on in this browser by this user is offered on the
   // start page, or opened straight away when the page is reloaded inside the form.
   await loadUser();
+  applyDatabaseChoice();
   restoreLocalDraft();
   app.errors = validate(app.form, app.spec);
   app.referencesLoadedAt = Date.now();

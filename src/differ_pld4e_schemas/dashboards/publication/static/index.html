@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Export for publication</title>
+  <link rel="stylesheet" href="common/static/style.css">
+  <style>
+    /* One column, not the logbooks' layout with its side navigation. */
+    .page { max-width: 960px; margin: 0 auto; padding: 24px; }
+    .page select { width: 100%; }
+  </style>
+</head>
+<body>
+  <header class="appbar">
+    <span class="appbar-title">
+      <span class="appbar-brand">PLD4Energy</span>
+      <span class="appbar-sep">/</span>
+      <span>Export for publication</span>
+    </span>
+    <div class="appbar-actions">
+      <span id="user" class="appbar-user"></span>
+    </div>
+  </header>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <main class="page">
+    <div>
+      <section class="card">
+        <h2>Export an upload</h2>
+        <p class="section-intro">
+          The export is one ZIP with every file of the upload, and a copy of every
+          target, substrate type and other entry it refers to in other uploads,
+          such as the target and substrate database. The references are rewritten
+          to point into the ZIP, so they work wherever it is published.
+        </p>
+        <div class="field">
+          <label for="upload">Upload</label>
+          <select id="upload" disabled><option>Loading your uploads…</option></select>
+        </div>
+        <div class="btn-row">
+          <button type="button" class="btn btn-contained" id="btn-export" disabled>Export</button>
+        </div>
+        <p id="status" class="muted" aria-live="polite"></p>
+      </section>
+
+      <section class="card">
+        <h2>Publish on the central NOMAD</h2>
+        <ol>
+          <li>Download the ZIP of the export above (it is kept for one day).</li>
+          <li>Log in at <a href="https://nomad-lab.eu/prod/v1/gui/" target="_blank" rel="noopener">nomad-lab.eu</a>
+            with your own account and create a new upload.</li>
+          <li>Drop the ZIP into it; NOMAD unpacks and processes it.</li>
+          <li>Check the entries, add coauthors and a dataset, and publish.</li>
+        </ol>
+        <p class="muted small">
+          Until the central NOMAD can read this plugin's schemas, the logbooks,
+          samples and targets show there as files and entries without their
+          PLD4Energy sections.
+        </p>
+      </section>
+    </div>
+  </main>
+
+  <script type="module" src="publication/static/publication.js"></script>
+</body>
+</html>

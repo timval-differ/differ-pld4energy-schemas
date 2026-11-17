@@ -1,6 +1,11 @@
 """NOMAD dashboards of the PLD4Energy plugin."""
 
 from .pld_logbook import pld_logbook_dashboard_entry_point
+from .publication import publication_dashboard_entry_point
 from .sputter_logbook import sputter_logbook_dashboard_entry_point
 
-__all__ = ['pld_logbook_dashboard_entry_point', 'sputter_logbook_dashboard_entry_point']
+__all__ = [
+    'pld_logbook_dashboard_entry_point',
+    'publication_dashboard_entry_point',
+    'sputter_logbook_dashboard_entry_point',
+]

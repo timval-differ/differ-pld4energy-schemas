@@ -56,10 +56,14 @@ differ-pld4energy-schemas/
 │   ├── composition.py,          chemical formulas → elements (native search),
 │   │   database.py,             the target and substrate database upload,
 │   │   references.py            comparing and copying references
+│   ├── snapshot.py              self-contained copy of an upload for publication
 │   └── dashboards/
-│       ├── __init__.py          the two dashboard entry points
+│       ├── __init__.py          the three dashboard entry points
 │       ├── pld_logbook/         PLD dashboard: spec.py, rules.py, convert.py, app.py
 │       ├── sputter_logbook/     sputter dashboard: the same four files
+│       ├── publication/         export for publication: app.py, jobs.py
+│       │                        (background exports), source.py (reads uploads
+│       │                        as the user), static/
 │       └── common/              everything the dashboards share
 │           ├── app.py           the FastAPI app (create_app) and its endpoints
 │           ├── fields.py        building blocks of a form definition (field(), …)
@@ -273,6 +277,61 @@ to, so both sides check:
 | Forms of the wrong shape | The server: 400 or 422 instead of 500 (`malformed_request` in `common/app.py`). |
 | Injected HTML | The page builds every element with `el()` and text nodes; there is no `innerHTML`. |
 
+## Part 3: the publication dashboard
+
+The publication dashboard (`dashboards/publication/`) exports an upload as one
+ZIP for the central NOMAD; see
+[Publishing on the central NOMAD](explanation.md#publishing-on-the-central-nomad)
+for why, and [Export an upload for publication](../how_to/export_for_publication.md)
+for its use. It is not a logbook dashboard: it has its own small app and page,
+and borrows only `common/static/` (style, `config.js`, `nomad-api.js`), which
+it serves at `common/static/`, as its own files at `publication/static/`:
+the same paths as on disk below `dashboards/`, so the imports in
+`publication.js` resolve in the browser and in the type check alike.
+
+| Endpoint | Does |
+| --- | --- |
+| `GET /` | The page: lists the user's uploads through the NOMAD API, starts an export and polls it. |
+| `POST /api/exports` | Checks that the user may read the upload, starts the export in the background and answers at once (202) with its `job_id`. |
+| `GET /api/exports/{job_id}` | The state of the export: `running`, `done` or `failed` with the reasons. |
+| `GET /api/exports/{job_id}/download` | The ZIP. |
+
+- **The user.** NOMAD's GUI keeps the session in a cookie whose path is
+  NOMAD's API (`<base>/api`), so the browser does not send it to a dashboard.
+  Before each request to its own endpoints the page therefore gets a signature
+  token from the API (`/auth/signature_token`, valid for 10 s) and sends it as
+  `Authorization: Bearer`; the endpoints check it with NOMAD's own
+  `get_current_user`. The user never enters a token. The download is fetched
+  the same way and saved from a blob, since a plain link cannot carry the
+  header.
+- **Reading as the user.** `source.py` reads uploads on the server, not
+  through the API. Before it reads anything of an upload it checks NOMAD's
+  rule for reading uploads (`get_upload_with_read_access`, published uploads
+  included), for the exported upload and for every upload a reference leads
+  to, and then reads the files as NOMAD's raw-file API does
+  (`upload.upload_files`). Without that check the export would hand out files
+  of uploads the user cannot see. An upload that is being processed is not
+  exported (409).
+- **In the background.** `jobs.py` runs each export in a thread pool
+  (`MAX_RUNNING` at a time per NOMAD process), so a large upload does not hold
+  up other requests; the endpoints are plain functions, which FastAPI runs in
+  its thread pool. The state of each export is a folder under
+  `<fs.tmp>/publication-exports/` with `job.json` and the ZIP, not memory:
+  NOMAD may run several API processes, and a later request can reach another
+  one. Only the user who started an export sees it, and a user has one export
+  running at a time (409). A process cannot tell whether another process
+  still runs an export, so one running for longer than `STUCK_AFTER` (2 h)
+  counts as interrupted (e.g. by a restart of NOMAD), and the page stops
+  waiting. Exports older than a day are deleted when the next one starts.
+- **The copy itself** is `snapshot.py`, which knows nothing of NOMAD's server:
+  it reads through a `Source` (here `source.py`; in the tests, uploads in
+  memory) and fails with every problem listed rather than make a ZIP with
+  references that lead nowhere.
+- **Memory.** An export holds all files of the upload in memory while it
+  rewrites the references, then writes them into the ZIP on disk one by one.
+  That is fine for logbook uploads; uploads of many gigabytes would need a
+  streaming version.
+
 ## Tests and CI
 
 | Tests | Cover |
@@ -288,6 +347,8 @@ to, so both sides check:
 | `tests/dashboards/test_dashboard_input.py` | Which files a save may overwrite. |
 | `tests/dashboards/test_malformed_input.py` | Malformed requests get a 400, 422 or a 200 listing the problems, never a 500. |
 | `tests/dashboards/test_page.py` | The page, versioned and revalidated static files, no blocked dialogs. |
+| `tests/test_snapshot.py` | The copy for publication: which entries are copied, how references are rewritten (checked with NOMAD's own `parse_path`), and every reference that cannot be kept working. |
+| `tests/dashboards/test_publication_dashboard.py` | The publication dashboard: exports in the background, seen only by their user, no files of uploads the user cannot read. |
 | `tests/helpers/` | Shared by the tests: the complete forms (`pld_forms`, `sputter_forms`), the entries they refer to (`database`), and `nomad_harness`, which processes a file like a NOMAD server without mongo or Elasticsearch. `tests/` is on the pytest `pythonpath`. |
 | `tests/js/*.test.js` | The scripts: `rules`, `parity`, `charts`, `nomad-api`, `pdf`. |
 
@@ -346,4 +407,5 @@ dependencies weekly.
 | change the page | `static/app.js`, or the module the code belongs to | [The page](#the-page-es-modules-without-a-build-step) |
 | plot a new kind of data file | the field's `chart` in `spec.py`; reading in `in_situ.py` and `static/charts.js` | `FILE_CHARTS` in `pld_logbook/spec.py` |
 | add a dashboard for another system | a new folder like `sputter_logbook/` (spec, rules, convert, app, `__init__.py` with the entry point), export the entry point from `dashboards/__init__.py`, and register it under `[project.entry-points."nomad.plugin"]` in `pyproject.toml` | `dashboards/__init__.py` |
+| change what an export for publication holds, or how it rewrites references | `snapshot.py` | [Part 3: the publication dashboard](#part-3-the-publication-dashboard) |
 | change the docs | `docs/`, `mkdocs.yml` | [Contribute to the documentation](../how_to/contribute_to_the_documentation.md) |

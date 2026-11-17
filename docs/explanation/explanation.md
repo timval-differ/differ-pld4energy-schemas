@@ -114,6 +114,44 @@ system it was made in as text. The same section and the `SampleRun` base of the
 logbook are therefore also used by the SPS logbook, and can be used by later diagnostics,
 so a sample made in one system can be processed and measured in another.
 
+### Publishing on the central NOMAD
+
+References between entries suit the work in the lab: each target and substrate
+type is stored once, in the database upload that only the maintainers change,
+and every run can be traced back to it. They do not suit publication. A
+publication on the central NOMAD is one upload; references from it into the
+lab's database would point at entries that are not on the central NOMAD.
+
+Publishing the database on the central NOMAD as well would not help: a
+published upload gets a new upload ID, and so do all its entries (an entry's
+ID is a hash of its upload's ID and its file), so the references would break
+all the same.
+
+The [publication dashboard](../how_to/export_for_publication.md) therefore
+makes a self-contained copy (`snapshot.py`), as the NOMAD developers advise for
+publishing interconnected data:
+
+- It copies every entry the upload refers to in another upload into
+  `referenced/<upload id>/`, and follows the references of the copies too (a
+  target may refer to further entries).
+- It rewrites every reference into the form
+  `../upload/archive/mainfile/<file>#<path>`. That form names the entry by its
+  file in the same upload, so it holds in any NOMAD the ZIP is uploaded to,
+  under any upload ID.
+- It refuses to make a ZIP with a reference it cannot keep working: an entry
+  that is gone, an upload the user cannot see, an entry in another NOMAD, a
+  form of reference it cannot rewrite. A published upload with references
+  that lead nowhere would be worse than none.
+- It reads only what the user may read, as the user who asks for it.
+
+The lab's own data stays as it is: the copies exist only in the ZIP, so the
+database keeps one entry per target and substrate type, and the history of
+each target stays in the Oasis.
+
+The central NOMAD does not run this plugin, so it does not know its schemas;
+the copied entries are kept complete, and NOMAD plans to read schemas from
+uploads themselves (version 2.1).
+
 ## SA-PLD and LA-PLD
 
 Both logbooks share the `PLDLogbook` base: samples, system details, laser

@@ -28,6 +28,13 @@ save only complete logbooks (unfinished runs can be kept as drafts), and write
 them as entries of the schemas above. See
 [Use the logbook dashboards](docs/how_to/use_the_dashboard.md).
 
+**Export for publication.** A dashboard at
+`<NOMAD URL>/dashboards/differ_pld4e_schemas-publication/` exports an upload as
+one ZIP, together with the targets, substrate types and other entries it refers
+to in other uploads, with the references rewritten to point inside the ZIP. The
+ZIP can be published on the central NOMAD as a new upload. See
+[Export an upload for publication](docs/how_to/export_for_publication.md).
+
 See the [documentation](docs/index.md): a tutorial, how-to guides (including
 [recipes](docs/how_to/reuse_a_recipe.md)), an explanation of the design and a
 field reference. Example entries are in `tests/data/`.

@@ -10,8 +10,6 @@ import zipfile
 from http import HTTPStatus
 from types import SimpleNamespace
 
-import nomad.app.v1.routers.uploads.utils as upload_utils
-import nomad.processing
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
@@ -27,6 +25,11 @@ from differ_pld4e_schemas.dashboards.publication.jobs import (
 )
 from differ_pld4e_schemas.dashboards.publication.source import NomadFilesSource
 from differ_pld4e_schemas.snapshot import SnapshotError, build_snapshot
+
+# NOMAD's login check needs NOMAD's server modules, which are installed with
+# NOMAD's infrastructure extras (as in nomad-distro-dev) but not in CI. All
+# other tests replace NOMAD's server parts and run everywhere.
+NEEDS_NOMAD_SERVER = "NOMAD's login check needs nomad-lab[infrastructure]"
 
 ALICE = SimpleNamespace(user_id='alice')
 BOB = SimpleNamespace(user_id='bob')
@@ -198,10 +201,11 @@ def _entry(path, mainfile_key=None):
 
 
 @pytest.fixture
-def uploads(monkeypatch):
+def uploads():
     """
     Upload `mine` (Alice's), `database` (Alice and Bob read it), `private`
-    (no one), and `busy` (Alice's, being processed).
+    (no one), and `busy` (Alice's, being processed): their files, and NOMAD's
+    read rule and entry lookup for them.
     """
     files = {
         'mine': _Files(
@@ -225,8 +229,7 @@ def uploads(monkeypatch):
     }
     entries['database'].append(_entry('t.archive.json', mainfile_key='child'))
 
-    def read_access(upload_id, user, include_others):
-        assert include_others
+    def read_access(upload_id, user):
         if upload_id not in readers:
             raise HTTPException(404, 'The specified upload_id was not found.')
         if user.user_id not in readers[upload_id]:
@@ -235,21 +238,17 @@ def uploads(monkeypatch):
             upload_files=files[upload_id], process_running=upload_id == 'busy'
         )
 
-    class Entry:
-        class objects:  # noqa: N801 (as MongoEngine names it)
-            def __init__(self, upload_id):
-                self.upload_id = upload_id
+    return SimpleNamespace(
+        files=files, readers=readers, read_access=read_access, entries=entries.get
+    )
 
-            def only(self, *fields):
-                return entries[self.upload_id]
 
-    monkeypatch.setattr(upload_utils, 'get_upload_with_read_access', read_access)
-    monkeypatch.setattr(nomad.processing, 'Entry', Entry)
-    return files
+def _source(uploads, user):
+    return NomadFilesSource(user, uploads.read_access, uploads.entries)
 
 
 def test_source_reads_the_uploads_the_user_can_see(uploads):
-    source = NomadFilesSource(ALICE)
+    source = _source(uploads, ALICE)
     assert source.raw_files('database') == {'t.archive.json': b'{}'}
     assert source.raw_file('database', 't.archive.json') == b'{}'
     # An entry made from part of a file is left out: it has no file of its own.
@@ -261,36 +260,27 @@ def test_source_reads_the_uploads_the_user_can_see(uploads):
 def test_source_reads_nothing_of_an_upload_the_user_cannot_see(uploads):
     for user, upload_id in [(BOB, 'mine'), (ALICE, 'private'), (ALICE, 'nope')]:
         with pytest.raises(SnapshotError, match=f'Cannot read upload {upload_id}'):
-            NomadFilesSource(user).raw_files(upload_id)
+            _source(uploads, user).raw_files(upload_id)
         with pytest.raises(SnapshotError):
-            NomadFilesSource(user).mainfiles(upload_id)
-    assert uploads['mine'].opened == uploads['private'].opened == 0
+            _source(uploads, user).mainfiles(upload_id)
+    assert uploads.files['mine'].opened == uploads.files['private'].opened == 0
 
 
-def test_a_reference_into_an_upload_the_user_cannot_see_stops_the_export(
-    uploads, monkeypatch
-):
+def test_a_reference_into_an_upload_the_user_cannot_see_stops_the_export(uploads):
     """Bob may not read Alice's sample, even if his archive refers to it."""
-    uploads['bobs'] = _Files(
+    uploads.files['bobs'] = _Files(
         {
             'b.archive.json': b'{"s": "../uploads/private/archive/id-secret.archive.json#/data"}'
         }
     )
-    upload_utils_rule = upload_utils.get_upload_with_read_access
-
-    def read_access(upload_id, user, include_others):
-        if upload_id == 'bobs':
-            return SimpleNamespace(upload_files=uploads['bobs'], process_running=False)
-        return upload_utils_rule(upload_id, user, include_others)
-
-    monkeypatch.setattr(upload_utils, 'get_upload_with_read_access', read_access)
+    uploads.readers['bobs'] = {'bob'}
     with pytest.raises(SnapshotError, match='Cannot read upload private'):
-        build_snapshot('bobs', NomadFilesSource(BOB))
-    assert uploads['private'].opened == 0
+        build_snapshot('bobs', _source(uploads, BOB))
+    assert uploads.files['private'].opened == 0
 
 
 def test_export_follows_references_into_readable_uploads(uploads):
-    files = build_snapshot('mine', NomadFilesSource(ALICE))
+    files = build_snapshot('mine', _source(uploads, ALICE))
     assert sorted(files) == ['a.archive.json', 'referenced/database/t.archive.json']
 
 
@@ -301,7 +291,12 @@ def client(tmp_path, uploads, monkeypatch):
     jobs = Jobs(tmp_path / 'exports', executor=later)
     state = SimpleNamespace(user=ALICE)
     monkeypatch.setattr(app_module, 'api_url', lambda: 'https://oasis/api/v1')
-    app = app_module.create_app(jobs, user_dependency=lambda: state.user)
+    app = app_module.create_app(
+        jobs,
+        user_dependency=lambda: state.user,
+        read_access=uploads.read_access,
+        entries=uploads.entries,
+    )
     test_client = TestClient(app)
     test_client.later = later
     test_client.state = state
@@ -373,6 +368,7 @@ def test_page_and_its_scripts_are_served(client):
 
 def test_requests_need_a_login(tmp_path):
     """With NOMAD's own check of the user: no token, no export."""
+    pytest.importorskip('mongoengine', reason=NEEDS_NOMAD_SERVER)
     client = TestClient(app_module.create_app(Jobs(tmp_path, executor=Later())))
     response = client.post('api/exports', json={'upload_id': 'mine'})
     assert response.status_code == HTTPStatus.UNAUTHORIZED
@@ -381,6 +377,7 @@ def test_requests_need_a_login(tmp_path):
 
 def test_the_signature_token_of_the_page_is_accepted(tmp_path, monkeypatch):
     """The page sends a token from NOMAD's /auth/signature_token as Bearer."""
+    pytest.importorskip('mongoengine', reason=NEEDS_NOMAD_SERVER)
     from nomad.auth.tokens import generate_simple_token
     from nomad.config import config
     from nomad.datamodel import User

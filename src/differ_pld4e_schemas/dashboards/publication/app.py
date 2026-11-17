@@ -27,7 +27,7 @@ from differ_pld4e_schemas.snapshot import build_snapshot
 
 from ..common.app import RevalidatedStaticFiles
 from .jobs import AlreadyRunning, Jobs
-from .source import NomadFilesSource
+from .source import NomadFilesSource, nomad_entries, nomad_read_access
 
 STATIC = Path(__file__).parent / 'static'
 COMMON_STATIC = Path(__file__).parents[1] / 'common' / 'static'
@@ -57,7 +57,16 @@ def api_url() -> str:
     return config.api_url(api='api/v1')
 
 
-def create_app(jobs: Jobs | None = None, user_dependency=None) -> FastAPI:
+def create_app(
+    jobs: Jobs | None = None,
+    user_dependency=None,
+    read_access=nomad_read_access,
+    entries=nomad_entries,
+) -> FastAPI:
+    """
+    The arguments other than `jobs` are NOMAD's own login check, read rule for
+    uploads and entry lookup; tests replace them (see `source.py`).
+    """
     jobs = jobs or default_jobs()
     User = Annotated[object, Depends(user_dependency or current_user())]
     app = FastAPI(title='Publication export dashboard')
@@ -83,17 +92,13 @@ def create_app(jobs: Jobs | None = None, user_dependency=None) -> FastAPI:
 
     @app.post('/api/exports', status_code=202)
     def start_export(request: ExportRequest, user: User):
-        from nomad.app.v1.routers.uploads.utils import get_upload_with_read_access
-
         # Answer at once (404, 403) if the upload cannot be exported at all.
-        upload = get_upload_with_read_access(
-            request.upload_id, user, include_others=True
-        )
+        upload = read_access(request.upload_id, user)
         if upload.process_running:
             raise HTTPException(
                 409, 'The upload is being processed. Export it when it is done.'
             )
-        source = NomadFilesSource(user)
+        source = NomadFilesSource(user, read_access, entries)
         url = api_url()
         try:
             return jobs.start(

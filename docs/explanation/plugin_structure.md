@@ -240,7 +240,7 @@ no parser reads them, so they are never entries (see
 
 | Setting | Where | What |
 | --- | --- | --- |
-| `database_upload_id` | `nomad.yaml` at the distribution root (or of the Oasis), under the options of `differ_pld4e_schemas.schema_packages:schema_package_entry_point` | The upload that holds the target and substrate database. Without it the dashboards cannot offer targets or substrates. See [Set up the target and substrate database](../how_to/use_this_plugin.md#set-up-the-target-and-substrate-database). The tests set a placeholder (`tests/conftest.py`). |
+| `database_upload_id` | `nomad.yaml` at the distribution root (or of the Oasis), under the options of `differ_pld4e_schemas.schema_packages:schema_package_entry_point` | The upload that holds the lab's target and substrate database. For now a user may choose their own on the page instead (`applyDatabaseChoice` in `app.js`, kept in the browser): the choice replaces the spec's `database_upload_id` on the page and is sent as `database_upload_id` with `api/archive` (`with_database` in `common/app.py`). Without either the dashboards cannot offer targets or substrates. See [Set up the target and substrate database](../how_to/use_this_plugin.md#set-up-the-target-and-substrate-database). The tests set a placeholder (`tests/conftest.py`). |
 | `lab_time_zone` | Same place as `database_upload_id` | The IANA time zone of the lab (default `Europe/Amsterdam`). Run and step times are entered and shown on its clock, and sample IDs use it (`time_zone.py`). |
 | `dashboards.enabled` | NOMAD's `nomad.yaml` | Dashboards are on by default; with `false` NOMAD serves none. |
 | `dashboards.frame_ancestors` | NOMAD's `nomad.yaml` | Origins allowed to show the dashboards in a frame (default: NOMAD itself). Add the origin of another GUI, e.g. the GUI development server, to embed them there. |
@@ -272,6 +272,7 @@ to, so both sides check:
 | --- | --- |
 | A draft that sends the save into another upload | The page: `checkedEdit` keeps a draft's logbook only if it is in the draft's own upload and has a name the dashboard makes; checked again before every save. |
 | Overwriting a file that is not the opened logbook | The server: `is_logbook_file` (`common/convert.py`) allows only `{system}_{date}_{hhmm}[_{name}].archive.json`; anything else is saved as a new logbook. |
+| A target or substrate from outside the database | The page and the server (`database_reference_error`), against the database the page sends. That is a check of the logbook's content, not of rights: a user may name any upload as their database, and NOMAD's permissions decide what they can read and write. |
 | Overwriting another sample's file | The server: `own_sample_file` (`common/samples.py`) allows a Sample file only if it is the file of that sample's ID; else the link is kept and a warning shown. |
 | Paths that leave the upload or change the request | The page: `uploadPath` (`util.js`) checks the upload id and encodes every part. |
 | Forms of the wrong shape | The server: 400 or 422 instead of 500 (`malformed_request` in `common/app.py`). |

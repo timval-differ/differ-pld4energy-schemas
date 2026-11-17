@@ -47,7 +47,26 @@ From then on:
   **substrate details**.
 
 Without `database_upload_id` no targets or substrates can be chosen in the
-dashboards: they tell the user that the database is not set up.
+dashboards until a user chooses a database of their own (below).
+
+### Your own database (prototype)
+
+For now every user may also choose **their own** target and substrate
+database: on the start page of a logbook dashboard, under *Target and
+substrate database*, pick one of your unpublished uploads. You can write to
+your own uploads, so you add targets and substrates to it yourself (*New
+target / substrate in the database*). The choice is kept in this browser, for
+your NOMAD account, and applies to both logbook dashboards; it does not follow
+you to another browser. Choose *The lab's database* (or *None*) to go back.
+Targets and substrates of the previous database in the current logbook have to
+be chosen again.
+
+While this is possible, the dashboards no longer enforce the lab's database:
+anyone can choose another. The checks on save in NOMAD itself (the error for a
+target outside the database, the warnings for references outside it) only know
+the lab's database, and would report a logbook with targets from a user's own
+database. While users keep their own databases, leave `database_upload_id`
+unset in `nomad.yaml`: these checks are then off.
 
 ## Manage the target database
 

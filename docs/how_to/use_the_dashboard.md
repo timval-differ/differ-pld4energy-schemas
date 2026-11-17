@@ -36,6 +36,9 @@ It opens on the **start page**:
 - **Continue current logbook** returns to the logbook you were working on in this
   browser, whether saved or not.
 - **Drafts** lists the drafts in your unpublished uploads; click one to continue it.
+- **Target and substrate database** is the upload from which targets and
+  substrates are chosen: the lab's, or (for now) one of your own uploads, see
+  [Your own database](use_this_plugin.md#your-own-database-prototype).
 - **Recent logbooks** lists your latest logbooks; click one to open it.
   **Find a logbook…** searches all logbooks you can see.
 

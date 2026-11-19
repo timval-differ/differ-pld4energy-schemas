@@ -11,6 +11,10 @@ Upload and entry IDs differ in every NOMAD, so references are rewritten to name
 the entry by its file: '../upload/archive/mainfile/<file>#<path>'. Entries from
 other uploads are placed in 'referenced/<upload id>/<file>'.
 
+The NOMAD it is published on need not run this plugin, so the snapshot also
+holds the plugin's schemas as a YAML schema (see `yaml_schema`), and entries
+name their sections in it: '../upload/raw/<schema file>#<section>'.
+
 This module has no network code; `build_snapshot` reads through a `Source`.
 """
 
@@ -20,14 +24,19 @@ import re
 from typing import Protocol
 from urllib.parse import unquote
 
+from differ_pld4e_schemas.yaml_schema import SCHEMA_PATH, plugin_yaml_schema
+
 __all__ = [
     'REFERENCED_DIRECTORY',
+    'SCHEMA_DIRECTORY',
     'SnapshotError',
     'Source',
     'build_snapshot',
 ]
 
 REFERENCED_DIRECTORY = 'referenced'
+# Where the snapshot puts the YAML schema.
+SCHEMA_DIRECTORY = SCHEMA_PATH.split('/')[0]
 
 # Files in which references are rewritten: archives written as text.
 _ARCHIVE_SUFFIXES = ('.archive.json', '.archive.yaml', '.archive.yml')
@@ -48,6 +57,23 @@ _UNSUPPORTED = re.compile(
     r'[^\s"\']*(?:/entries/[^/\s"\'#]+/(?:archive|raw)#'
     r'|uploads/[^/\s"\'#]+/(?:archive|raw)/'
     r'|(?P<own_raw>\.\./upload/raw/))[^\s"\']*'
+)
+
+# The section of an entry or sub-section named by its Python name: 'm_def: a.b.C',
+# as a key of its own (not 'my_m_def') and a whole value (not 'a.b-c.D').
+_PYTHON_M_DEF = re.compile(
+    r'(?<![\w.])(?P<key>(?P<key_quote>["\']?)m_def(?P=key_quote)\s*:\s*)'
+    r'(?P<quote>["\']?)(?P<name>[A-Za-z_]\w*(?:\.\w+)+)(?P=quote)'
+    r'(?=\s*(?:[,}\]]|$))',
+    re.MULTILINE,
+)
+
+# Python names of definitions that only the Oasis has, for example as the base
+# of a section in an upload's own YAML schema. Left after the rewriting, they
+# would not resolve where the snapshot is published.
+_PLUGIN_NAME = re.compile(
+    # Not after '/': the schema's file name starts like a Python name.
+    r'(?<![\w./])(?:differ_pld4e_schemas|nomad_material_processing)\.\w+(?:\.\w+)*'
 )
 
 # In a file name, these keep NOMAD from finding the entry by its file.
@@ -76,9 +102,15 @@ def _is_archive(path: str) -> bool:
 
 
 class _Snapshot:
-    def __init__(self, upload_id: str, source: Source, api_url: str | None):
+    def __init__(
+        self,
+        upload_id: str,
+        source: Source,
+        api_url: str | None,
+    ):
         self.upload_id = upload_id
         self.source = source
+        self.schema = plugin_yaml_schema()
         self.api_url = api_url.rstrip('/') if api_url else None
         self.files: dict[str, bytes] = {}
         self.problems: list[str] = []
@@ -162,7 +194,43 @@ class _Snapshot:
                 return match.group(0)
             return f'../upload/archive/mainfile/{target}'
 
-        return _REFERENCE.sub(replace, text).encode('utf-8')
+        text = _REFERENCE.sub(replace, text)
+        # After the references: the schema is named as a raw file of the upload,
+        # which the check for unsupported references would report.
+        unknown: set[str] = set()
+        text = _PYTHON_M_DEF.sub(
+            lambda match: self._section(match, path, unknown), text
+        )
+        for name in dict.fromkeys(_PLUGIN_NAME.findall(text)):
+            if name in unknown:
+                continue  # reported as an unknown section
+            self.problems.append(
+                f'{path}: "{name}" names a definition of this plugin by its Python '
+                f'name outside an m_def, which the export cannot rewrite.'
+            )
+        return text.encode('utf-8')
+
+    def _section(self, match: re.Match, path: str, unknown: set[str]) -> str:
+        """
+        An `m_def` by Python name, rewritten to name the section in the schema.
+        Names it cannot rewrite are reported and added to `unknown`.
+        """
+        name = match.group('name')
+        if name.split('.')[0] == 'nomad':
+            return match.group(0)  # NOMAD's own sections are in every NOMAD
+        section = self.schema.section_name(name)
+        if section is None:
+            unknown.add(name)
+            self.problems.append(
+                f'{path}: the section "{name}" is not in the schemas of this '
+                f'plugin, so the export cannot describe it.'
+            )
+            return match.group(0)
+        # Quoted where it was not: in YAML, ' #' would start a comment.
+        quote = match.group('quote') or "'"
+        return (
+            f'{match.group("key")}{quote}../upload/raw/{SCHEMA_PATH}#{section}{quote}'
+        )
 
     def _add(self, path: str, content: bytes, origin: str) -> None:
         if path.startswith('/') or '\\' in path or '..' in path.split('/'):
@@ -174,12 +242,16 @@ class _Snapshot:
 
     def build(self) -> dict[str, bytes]:
         own = self.source.raw_files(self.upload_id)
-        clashes = [path for path in own if path.startswith(f'{REFERENCED_DIRECTORY}/')]
-        if clashes:
-            raise SnapshotError(
-                f'The upload has files in "{REFERENCED_DIRECTORY}/", where the '
-                f'snapshot puts entries of other uploads: {", ".join(sorted(clashes))}'
-            )
+        for directory, use in (
+            (REFERENCED_DIRECTORY, 'entries of other uploads'),
+            (SCHEMA_DIRECTORY, 'the schemas'),
+        ):
+            clashes = [path for path in own if path.startswith(f'{directory}/')]
+            if clashes:
+                raise SnapshotError(
+                    f'The upload has files in "{directory}/", where the snapshot '
+                    f'puts {use}: {", ".join(sorted(clashes))}'
+                )
         for path, content in own.items():
             self._add(path, content, self.upload_id)
         while self._pending:
@@ -192,11 +264,14 @@ class _Snapshot:
             self._add(mainfile, content, upload_id)
         if self.problems:
             raise SnapshotError('\n'.join(dict.fromkeys(self.problems)))
+        self.files[SCHEMA_PATH] = self.schema.text.encode('utf-8')
         return self.files
 
 
 def build_snapshot(
-    upload_id: str, source: Source, api_url: str | None = None
+    upload_id: str,
+    source: Source,
+    api_url: str | None = None,
 ) -> dict[str, bytes]:
     """
     The files of a self-contained copy of upload `upload_id`, by path.

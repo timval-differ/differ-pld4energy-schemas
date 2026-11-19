@@ -31,8 +31,10 @@ them as entries of the schemas above. See
 **Export for publication.** A dashboard at
 `<NOMAD URL>/dashboards/differ_pld4e_schemas-publication/` exports an upload as
 one ZIP, together with the targets, substrate types and other entries it refers
-to in other uploads, with the references rewritten to point inside the ZIP. The
-ZIP can be published on the central NOMAD as a new upload. See
+to in other uploads, with the references rewritten to point inside the ZIP. It
+brings the schemas along as a YAML schema, so the central NOMAD, which does not
+run this plugin, can read the entries. The ZIP can be published on the central
+NOMAD as a new upload. See
 [Export an upload for publication](docs/how_to/export_for_publication.md).
 
 See the [documentation](docs/index.md): a tutorial, how-to guides (including

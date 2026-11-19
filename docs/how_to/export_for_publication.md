@@ -29,7 +29,12 @@ The ZIP holds:
   entries those refer to, and so on);
 - the references in the archive files (`*.archive.json`, `*.archive.yaml`)
   rewritten to point at the files in the ZIP, so they keep working after the
-  upload is published elsewhere.
+  upload is published elsewhere;
+- this plugin's schemas as a [YAML schema](https://docs.nomad-lab.eu/howto/schemas/define.html),
+  `schema/differ_pld4e_schemas.archive.yaml`, with every entry naming its
+  sections in it (`m_def: '../upload/raw/schema/differ_pld4e_schemas.archive.yaml#SAPLDLogbook'`).
+  The schema includes the sections of nomad-material-processing that this
+  plugin builds on, so it relies on nothing but NOMAD itself.
 
 Nothing in NOMAD is changed by an export.
 
@@ -41,10 +46,14 @@ Nothing in NOMAD is changed by an export.
 3. Check the entries, add coauthors, a dataset and comments, and publish.
 
 !!! note "This plugin's schemas on the central NOMAD"
-    The central NOMAD does not run this plugin. Until it can read the schemas
-    of plugins from the uploads themselves (planned for NOMAD 2.1), your
-    logbooks, samples and targets show there as files and entries without their
-    PLD4Energy sections.
+    The central NOMAD runs neither this plugin nor nomad-material-processing.
+    It reads your logbooks, samples and targets with the YAML schema in the
+    ZIP, so they show there with their PLD4Energy sections, values and
+    descriptions. The schema
+    describes the data only: the plugin's code does not run there. NOMAD does
+    not fill in values or make sample entries the way the plugin does, and the
+    logbook dashboards are not available. What the Oasis made before the export
+    is in the ZIP as it is.
 
 ## When the export fails
 
@@ -58,6 +67,8 @@ lists every problem, each with the file it is in:
 | *points at an entry in another NOMAD* | The reference is to another NOMAD installation; such entries cannot be copied. |
 | *NOMAD cannot refer to a file with "?", "#", "\" or "mainfile/" in its name* | Rename the file (or its folder), then export again. |
 | *is a kind of reference that the export cannot rewrite* | The reference names an entry by `/entries/<id>/…` or points into the raw files of another upload. Change it to a normal reference to the entry. |
-| *The upload has files in "referenced/"* | That folder name is used for the copied entries. Rename the folder in your upload. |
+| *The upload has files in "referenced/"* (or *"schema/"*) | That folder name is used for the copied entries (or the schema). Rename the folder in your upload. An upload made from an exported ZIP has both already: export the original upload instead. |
+| *the section … is not in the schemas of this plugin* | The entry uses a section of another plugin, or one that this version of the plugin no longer has. Only this plugin's sections and NOMAD's own can be exported. |
+| *names a definition of this plugin by its Python name outside an m_def* | A schema of your own (an `.archive.yaml` with `definitions:`) builds on this plugin's sections by their Python names, which the central NOMAD does not have. Only `m_def`s are rewritten; build your schema on NOMAD's own sections instead. |
 | *The export was interrupted* | NOMAD was probably restarted during the export. Export again. |
 | *The export failed unexpectedly* | Ask a maintainer to look for the error in NOMAD's log. |

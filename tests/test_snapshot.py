@@ -11,6 +11,7 @@ from nomad.datamodel.util import parse_path
 from nomad.utils import generate_entry_id
 
 from differ_pld4e_schemas.snapshot import SnapshotError, build_snapshot
+from differ_pld4e_schemas.yaml_schema import SCHEMA_PATH, plugin_yaml_schema
 
 UPLOAD = 'researchers_upload'
 INTERNAL = '../upload/archive/mainfile/'
@@ -109,6 +110,7 @@ def test_referenced_entries_are_copied_into_the_snapshot():
         'run 1/logbook.archive.json',
         'run 1/rheed.png',
         'sample.archive.json',
+        SCHEMA_PATH,
     ]
     assert _data(files, copied + 'STO.archive.json') == {'material': 'SrTiO3'}
     assert files['run 1/rheed.png'] == b'\x89PNG\xff\x00'
@@ -130,8 +132,9 @@ def test_references_stay_inside_the_snapshot():
     # In the copied target, its own upload is no longer "the upload".
     target = _data(files, copied + 'YSZ.archive.json')
     assert target['supplier'] == f'{INTERNAL}{copied}supplier.archive.json#/data'
-    for content in files.values():
-        assert b'uploads/' not in content
+    for path, content in files.items():
+        if path != SCHEMA_PATH:
+            assert b'uploads/' not in content
 
 
 def test_rewritten_reference_names_the_entry_in_any_upload():
@@ -271,3 +274,161 @@ def test_upload_may_not_use_the_directory_of_referenced_entries():
     uploads = Uploads({UPLOAD: {'referenced/x.archive.json': _archive()}})
     with pytest.raises(SnapshotError, match='referenced/x.archive.json'):
         build_snapshot(UPLOAD, uploads)
+
+
+SCHEMA = f'../upload/raw/{SCHEMA_PATH}#'
+
+
+def test_snapshot_holds_the_schemas_as_yaml():
+    files = build_snapshot(UPLOAD, _lab())
+    assert files[SCHEMA_PATH] == plugin_yaml_schema().text.encode()
+
+
+def test_entries_name_their_sections_in_the_yaml_schema():
+    """Wherever the section is named, and by any module of the plugin that has it."""
+    plugin = 'differ_pld4e_schemas.schema_packages.schema_package'
+    uploads = Uploads(
+        {
+            UPLOAD: {
+                'logbook.archive.json': json.dumps(
+                    {
+                        'data': {
+                            'm_def': f'{plugin}.SAPLDLogbook',
+                            'steps': [
+                                {
+                                    'm_def': 'differ_pld4e_schemas.pld_deposition.'
+                                    'SAPLDHeatingStep'
+                                }
+                            ],
+                            'target': _by_id(DATABASE_UPLOAD, 'YSZ.archive.json'),
+                        }
+                    }
+                ),
+                'sample.archive.yaml': (
+                    'data:\n'
+                    f'  m_def: {plugin}.Sample\n'
+                    '  results:\n'
+                    "    m_def: 'nomad.datamodel.results.Results'\n"
+                    '  pld:\n'
+                    '    m_def: "nomad_material_processing.vapor_deposition.pvd.pld.'
+                    'PLDTarget"\n'
+                ),
+            },
+            # A copied entry names its section in the schema of the snapshot.
+            DATABASE_UPLOAD: {
+                'YSZ.archive.json': json.dumps(
+                    {'data': {'m_def': f'{plugin}.PLDTarget'}}
+                )
+            },
+        }
+    )
+    files = build_snapshot(UPLOAD, uploads)
+    logbook = _data(files, 'logbook.archive.json')
+    assert logbook['m_def'] == f'{SCHEMA}SAPLDLogbook'
+    assert logbook['steps'][0]['m_def'] == f'{SCHEMA}SAPLDHeatingStep'
+    assert files['sample.archive.yaml'].decode() == (
+        'data:\n'
+        f"  m_def: '{SCHEMA}Sample'\n"
+        '  results:\n'
+        # NOMAD's own sections are in every NOMAD.
+        "    m_def: 'nomad.datamodel.results.Results'\n"
+        '  pld:\n'
+        f'    m_def: "{SCHEMA}pld_PLDTarget"\n'
+    )
+    copied = _data(files, f'referenced/{DATABASE_UPLOAD}/YSZ.archive.json')
+    assert copied['m_def'] == f'{SCHEMA}PLDTarget'
+
+
+def test_no_snapshot_with_sections_the_schema_does_not_hold():
+    uploads = Uploads(
+        {
+            UPLOAD: {
+                'a.archive.json': _archive(m_def='differ_pld4e_schemas.gone.Section'),
+                'b.archive.yaml': 'data:\n  m_def: other_plugin.schemas.Thing\n',
+            }
+        }
+    )
+    with pytest.raises(SnapshotError) as error:
+        build_snapshot(UPLOAD, uploads)
+    message = str(error.value)
+    assert (
+        'a.archive.json' in message and 'differ_pld4e_schemas.gone.Section' in message
+    )
+    assert 'b.archive.yaml' in message and 'other_plugin.schemas.Thing' in message
+
+
+def test_upload_may_not_use_the_directory_of_the_schema():
+    uploads = Uploads({UPLOAD: {'schema/notes.txt': 'x'}})
+    with pytest.raises(SnapshotError, match='schema/notes.txt'):
+        build_snapshot(UPLOAD, uploads)
+
+
+_PLUGIN = 'differ_pld4e_schemas.schema_packages.schema_package'
+
+
+@pytest.mark.parametrize(
+    'content, expected',
+    [
+        # Spacing, a quoted key and YAML flow style.
+        (
+            f'data:\n  m_def :  {_PLUGIN}.Sample\n',
+            f"data:\n  m_def :  '{SCHEMA}Sample'\n",
+        ),
+        (
+            f"data: {{'m_def': {_PLUGIN}.Sample}}\n",
+            f"data: {{'m_def': '{SCHEMA}Sample'}}\n",
+        ),
+        (f'data: {{m_def: {_PLUGIN}.Sample, name: x}}\n', None),
+        # Already in the schema, or another key that ends in m_def: left as is.
+        (f"data:\n  m_def: '{SCHEMA}Sample'\n", f"data:\n  m_def: '{SCHEMA}Sample'\n"),
+        ('data:\n  my_m_def: a.b.C\n', 'data:\n  my_m_def: a.b.C\n'),
+        # Not a Python name as a whole.
+        ('data:\n  m_def: a.b-c.D\n', 'data:\n  m_def: a.b-c.D\n'),
+    ],
+)
+def test_m_def_forms(content, expected):
+    files = build_snapshot(UPLOAD, Uploads({UPLOAD: {'a.archive.yaml': content}}))
+    if expected is None:
+        expected = content.replace(f'{_PLUGIN}.Sample', f"'{SCHEMA}Sample'")
+    assert files['a.archive.yaml'].decode() == expected
+
+
+def test_copied_yaml_entry_names_its_section_in_the_schema():
+    uploads = Uploads(
+        {
+            UPLOAD: {
+                'a.archive.json': _archive(t=_by_id(DATABASE_UPLOAD, 'T.archive.yaml'))
+            },
+            DATABASE_UPLOAD: {
+                'T.archive.yaml': f'data:\n  m_def: {_PLUGIN}.PLDTarget\n'
+            },
+        }
+    )
+    files = build_snapshot(UPLOAD, uploads)
+    copied = files[f'referenced/{DATABASE_UPLOAD}/T.archive.yaml'].decode()
+    assert copied == f"data:\n  m_def: '{SCHEMA}PLDTarget'\n"
+
+
+def test_no_snapshot_with_plugin_definitions_named_outside_an_m_def():
+    """An upload's own YAML schema built on the plugin's would not resolve elsewhere."""
+    schema = (
+        'definitions:\n'
+        '  sections:\n'
+        '    MySample:\n'
+        f'      base_sections: [{_PLUGIN}.Sample]\n'
+    )
+    uploads = Uploads({UPLOAD: {'my_schema.archive.yaml': schema}})
+    with pytest.raises(SnapshotError) as error:
+        build_snapshot(UPLOAD, uploads)
+    message = str(error.value)
+    assert 'my_schema.archive.yaml' in message and f'{_PLUGIN}.Sample' in message
+    assert len(message.splitlines()) == 1
+
+
+def test_unknown_section_is_reported_once():
+    uploads = Uploads(
+        {UPLOAD: {'a.archive.json': _archive(m_def='differ_pld4e_schemas.gone.X')}}
+    )
+    with pytest.raises(SnapshotError) as error:
+        build_snapshot(UPLOAD, uploads)
+    assert len(str(error.value).splitlines()) == 1

@@ -25,6 +25,7 @@ from differ_pld4e_schemas.dashboards.publication.jobs import (
 )
 from differ_pld4e_schemas.dashboards.publication.source import NomadFilesSource
 from differ_pld4e_schemas.snapshot import SnapshotError, build_snapshot
+from differ_pld4e_schemas.yaml_schema import SCHEMA_PATH
 
 # NOMAD's login check needs NOMAD's server modules, which are installed with
 # NOMAD's infrastructure extras (as in nomad-distro-dev) but not in CI. All
@@ -281,7 +282,11 @@ def test_a_reference_into_an_upload_the_user_cannot_see_stops_the_export(uploads
 
 def test_export_follows_references_into_readable_uploads(uploads):
     files = build_snapshot('mine', _source(uploads, ALICE))
-    assert sorted(files) == ['a.archive.json', 'referenced/database/t.archive.json']
+    assert sorted(files) == [
+        'a.archive.json',
+        'referenced/database/t.archive.json',
+        SCHEMA_PATH,
+    ]
 
 
 @pytest.fixture
@@ -325,6 +330,7 @@ def test_export_through_the_dashboard(client):
         assert sorted(archive.namelist()) == [
             'a.archive.json',
             'referenced/database/t.archive.json',
+            SCHEMA_PATH,
         ]
 
     # Another user knows nothing of it.

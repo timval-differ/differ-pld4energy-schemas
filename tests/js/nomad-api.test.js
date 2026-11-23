@@ -168,4 +168,24 @@ describe('changes made elsewhere', () => {
     answer(200, '"not an archive"');
     await assert.rejects(readArchiveData('u1', 'a.archive.json'), /not an archive/);
   });
+
+  test('the warnings and errors of processing an entry, each once', async () => {
+    const {processingProblems} = await import('../../src/differ_pld4e_schemas/dashboards/common/static/nomad-api.js');
+    answer(200, JSON.stringify({data: {archive: {processing_logs: [
+      {level: 'INFO', event: 'parsed'},
+      {level: 'WARNING', event: 'LA-EDS: could not read a.sp0: not an Iridium .sp0 file'},
+      {level: 'WARNING', event: 'LA-EDS: could not read a.sp0: not an Iridium .sp0 file'},
+      {level: 'ERROR', event: 'could not normalize section'},
+      {level: 'WARNING'},
+    ]}}}));
+    assert.deepEqual(await processingProblems('e 1'), [
+      {level: 'WARNING', event: 'LA-EDS: could not read a.sp0: not an Iridium .sp0 file'},
+      {level: 'ERROR', event: 'could not normalize section'},
+    ]);
+    assert.match(requests[0].url, /\/entries\/e%201\/archive\/query$/);
+    assert.deepEqual(JSON.parse(requests[0].options.body), {required: {processing_logs: '*'}});
+    // An archive without processing logs has no problems.
+    answer(200, JSON.stringify({data: {archive: {}}}));
+    assert.deepEqual(await processingProblems('e1'), []);
+  });
 });

@@ -99,6 +99,30 @@ export async function entryHash(entryId) {
   return typeof metadata.entry_hash === 'string' ? metadata.entry_hash : null;
 }
 
+const PROBLEM_LEVELS = ['WARNING', 'ERROR', 'CRITICAL'];
+
+/**
+ * The warnings and errors logged while NOMAD processed an entry (e.g. by the
+ * normalizers), as {level, event}, each message once and in order.
+ */
+export async function processingProblems(entryId) {
+  const response = await api(`/entries/${encodeURIComponent(entryId)}/archive/query`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({required: {processing_logs: '*'}}),
+  });
+  const logs = (((response || {}).data || {}).archive || {}).processing_logs;
+  const seen = new Set();
+  const problems = [];
+  for (const log of Array.isArray(logs) ? logs : []) {
+    const level = String((log && log.level) || '').toUpperCase();
+    if (!PROBLEM_LEVELS.includes(level) || typeof log.event !== 'string' || seen.has(log.event)) continue;
+    seen.add(log.event);
+    problems.push({level, event: log.event});
+  }
+  return problems;
+}
+
 /**
  * The `data` of a JSON archive file in an upload, or null if there is no such
  * file. A file that is not an archive throws: overwriting it would lose it.

@@ -298,6 +298,10 @@ def test_a_reference_into_an_upload_the_user_cannot_see_stops_the_export(uploads
 
 def test_source_reads_the_data_nomad_stored(uploads, tmp_path):
     """From an archive file as NOMAD writes and reads it."""
+    # NOMAD's archive files are read through nomad.files, which needs zipstream.
+    pytest.importorskip(
+        'zipstream', reason="NOMAD's archive files need nomad-lab[infrastructure]"
+    )
     from nomad.archive import read_archive, write_archive
 
     stored = {

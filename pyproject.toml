@@ -151,3 +151,5 @@ skip = [".github/*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["tests"]
+# pytest-asyncio warns until it is set; each test gets its own event loop.
+asyncio_default_fixture_loop_scope = "function"

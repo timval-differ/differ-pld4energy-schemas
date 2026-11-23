@@ -11,6 +11,7 @@ from nomad.datamodel import EntryArchive, EntryMetadata
 from nomad.datamodel.context import ClientContext
 from nomad.datamodel.data import EntryData
 from nomad.normalizing.metainfo import MetainfoNormalizer
+from nomad.utils import generate_entry_id
 from structlog.testing import CapturingLogger, capture_logs
 
 import differ_pld4e_schemas.schema_packages.schema_package  # noqa: F401
@@ -655,15 +656,18 @@ class _LinuxContext(ClientContext):
         return super().raw_file(path, mode, *args, **kwargs)
 
 
-def _normalize_with_files(data, local_dir=EXPORTS):
+def _normalize_with_files(data, local_dir=EXPORTS, upload_id=None):
     """
     The messages logged while normalizing. NOMAD logs with structlog, or with
     the standard logging module when installed without its infrastructure
-    extras (as in CI), so both are collected.
+    extras (as in CI), so both are collected. References to other entries
+    need the `upload_id`.
     """
     archive = EntryArchive(
         data=data,
-        metadata=EntryMetadata(entry_create_time=ENTRY_CREATE_TIME),
+        metadata=EntryMetadata(
+            entry_create_time=ENTRY_CREATE_TIME, upload_id=upload_id
+        ),
         m_context=_LinuxContext(local_dir=local_dir),
     )
     records = _LogRecords()
@@ -722,6 +726,115 @@ def test_mic_export_is_read_on_linux():
     assert not [event for event in events if 'could not read' in event]
     (data,) = mic.curvature_data
     assert len(data.time) == MIC_ROWS
+
+
+LAEDS_EXPORT = 'LAEDS/t90s_d140cm_f1.65A_P1e-8_light-on.sp0'
+LAEDS_CHANNELS = 4096
+LAEDS_EV_PER_CHANNEL = 5  # CalGain in the file; CalZero is 0
+LAEDS_MAX_COUNTS = 32441
+
+
+@pytest.fixture
+def laeds_dir(tmp_path):
+    """A copy of the LA-EDS export, as a file of an upload."""
+    (tmp_path / 'LAEDS').mkdir()
+    shutil.copyfile(Path(EXPORTS) / LAEDS_EXPORT, tmp_path / LAEDS_EXPORT)
+    return tmp_path
+
+
+def test_la_eds_reads_sp0_files():
+    laeds = LAEDS(sp0_files=[LAEDS_EXPORT])
+    events = _normalize_with_files(InSituTechniquesEntry(la_eds=[laeds]))
+    assert not [e for e in events if 'LA-EDS' in e or 'could not' in e], events
+    assert laeds.data_status == 'complete'
+    (spectrum,) = laeds.spectra
+    assert spectrum.file == LAEDS_EXPORT
+    assert spectrum.settings.number_of_channels == LAEDS_CHANNELS
+    assert len(spectrum.intensity) == LAEDS_CHANNELS
+    assert max(spectrum.intensity) == LAEDS_MAX_COUNTS
+    energy = spectrum.energy.to('eV').magnitude
+    assert energy[0] == 0
+    assert energy[1] == LAEDS_EV_PER_CHANNEL
+    # No editable entry next to the file: nothing to link.
+    assert spectrum.spectrum_entry is None
+    assert [figure.label for figure in laeds.figures] == ['LA-EDS spectra']
+
+
+def test_la_eds_spectrum_links_its_editable_entry(laeds_dir):
+    entry_file = LAEDS_EXPORT.removesuffix('.sp0') + '.archive.json'
+    (laeds_dir / entry_file).write_text('{"data": {}}', encoding='utf-8')
+    laeds = LAEDS(sp0_files=[LAEDS_EXPORT])
+    events = _normalize_with_files(
+        InSituTechniquesEntry(la_eds=[laeds]), str(laeds_dir), upload_id='upload'
+    )
+    assert not events
+    # NOMAD stores the reference by the entry id of the mainfile.
+    reference = laeds.spectra[0].m_to_dict()['spectrum_entry']
+    entry_id = generate_entry_id('upload', entry_file)
+    assert reference == f'../upload/archive/{entry_id}#/data'
+    # A path written differently names the same entry.
+    laeds = LAEDS(sp0_files=[f'./{LAEDS_EXPORT}'])
+    _normalize_with_files(
+        InSituTechniquesEntry(la_eds=[laeds]), str(laeds_dir), upload_id='upload'
+    )
+    assert laeds.spectra[0].m_to_dict()['spectrum_entry'] == reference
+
+
+def test_la_eds_spectrum_is_not_linked_outside_an_upload(laeds_dir):
+    # E.g. a local parse: a reference by mainfile needs the upload id.
+    entry_file = LAEDS_EXPORT.removesuffix('.sp0') + '.archive.json'
+    (laeds_dir / entry_file).write_text('{"data": {}}', encoding='utf-8')
+    laeds = LAEDS(sp0_files=[LAEDS_EXPORT])
+    events = _normalize_with_files(
+        InSituTechniquesEntry(la_eds=[laeds]), str(laeds_dir)
+    )
+    assert not events
+    assert laeds.spectra[0].spectrum_entry is None
+
+
+def test_la_eds_file_that_cannot_be_read_is_reported(laeds_dir):
+    (laeds_dir / 'LAEDS' / 'bad.sp0').write_text('not a spectrum', encoding='utf-8')
+    laeds = LAEDS(sp0_files=['LAEDS/bad.sp0', LAEDS_EXPORT])
+    events = _normalize_with_files(
+        InSituTechniquesEntry(la_eds=[laeds]), str(laeds_dir)
+    )
+    assert any('could not read LAEDS/bad.sp0' in event for event in events)
+    # The readable file is still read; the status shows one is not.
+    assert [spectrum.file for spectrum in laeds.spectra] == [LAEDS_EXPORT]
+    assert laeds.data_status == 'unreadable data'
+
+
+def test_data_read_before_from_a_file_now_unreadable_is_dropped(laeds_dir):
+    laeds = LAEDS(sp0_files=[LAEDS_EXPORT])
+    entry = InSituTechniquesEntry(la_eds=[laeds])
+    _normalize_with_files(entry, str(laeds_dir))
+    assert laeds.spectra
+    assert laeds.data_status == 'complete'
+    # The file is replaced by one that cannot be read: no stale spectrum.
+    (laeds_dir / LAEDS_EXPORT).write_text('not a spectrum', encoding='utf-8')
+    _normalize_with_files(entry, str(laeds_dir))
+    assert not laeds.spectra
+    assert not laeds.figures
+    assert laeds.data_status == 'unreadable data'
+
+
+def test_unreadable_rheed_and_mic_exports_are_marked(tmp_path):
+    (tmp_path / 'bad.txt').write_text('not numbers', encoding='utf-8')
+    rheed = RHEED(roi_intensity_export_files=['bad.txt'])
+    mic = MIC(export_files=['bad.txt'])
+    _normalize_with_files(
+        InSituTechniquesEntry(rheed=[rheed], mic=[mic]), str(tmp_path)
+    )
+    assert rheed.data_status == 'unreadable data'
+    assert mic.data_status == 'unreadable data'
+
+
+def test_la_eds_calibration_entered_by_hand_gives_way_to_the_file():
+    laeds = LAEDS(sp0_files=[LAEDS_EXPORT], energy_per_channel=10)
+    events = _normalize_with_files(InSituTechniquesEntry(la_eds=[laeds]))
+    assert any('energy per channel 10 eV differs from 5 eV' in e for e in events)
+    energy = laeds.spectra[0].energy.to('eV').magnitude
+    assert energy[1] == LAEDS_EV_PER_CHANNEL
 
 
 def test_block_mean():
@@ -784,7 +897,7 @@ def test_unreadable_export_is_reported():
     events = _normalize_with_files(InSituTechniquesEntry(rheed=[rheed]))
     assert any('could not read RHEED/missing.txt' in event for event in events)
     assert not rheed.roi_intensities
-    assert rheed.data_status == 'complete'
+    assert rheed.data_status == 'unreadable data'
 
 
 def test_export_figures_show_on_the_entry(mic_dir):

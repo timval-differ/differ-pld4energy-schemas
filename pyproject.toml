@@ -15,7 +15,7 @@ classifiers = [
 ]
 name = "differ_pld4e_schemas"
 description = "NOMAD schemas and the PLD and sputter logbook dashboards of the PLD4Energy lab at DIFFER"
-version = "0.6.0"
+version = "0.6.1"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
@@ -31,6 +31,9 @@ dependencies = [
     "nomad-lab>=2.0.1,<2.1",
     "nomad-material-processing>=1.0.7,<1.1",
     "fastapi>=0.100",
+    # Reads the LA-EDS .sp0 spectra. Not on PyPI, so installed from git; in
+    # nomad-distro-dev uv uses the workspace member instead (its source wins).
+    "laeds-tools @ git+https://github.com/timval-differ/la-eds-tools.git",
     # Time zone data for zoneinfo where the system has none (Windows, slim images).
     "tzdata",
 ]

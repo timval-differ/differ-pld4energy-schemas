@@ -221,12 +221,13 @@ and typing them by hand would let them disagree with their source.
 | Substrate material and size | Sample | Taken from the substrate. | Change the substrate. |
 | Material, manufacturer, purchase date | targets in the logbook | Copied from the PLD Target entry, for checking your selection. | Correct the PLD Target entry. |
 | Target number | pre-ablation and deposition steps | Copied from the target details, so the steps always show the number the target has in this run. | Change it in the target details. |
-| Data status | in-situ techniques | Whether a data file has been added. | Add a data file. |
+| Data status | in-situ techniques | Whether a data file has been added, and whether the files that are read could be read. | Add a data file, or replace one that cannot be read. |
 | Elemental composition | targets, substrate types | Follows from the chemical formula. | Correct the chemical formula. |
 | Elements of a film or sample | samples, films | Those of the targets and the substrate type. | Correct the formula on the target or substrate type. |
 | `sources`, `environment`, `sample_parameters` | process steps | The native NOMAD view of what was entered (see [Search](#search)). | Change the step's own fields. |
 | Applied recipe | load recipe | A record of what was applied. | Apply a recipe. |
-| Energy, intensity | LA-EDS | Calculated from / read from the spectrum. | Change E0 or the energy per channel. |
+| Spectra (energy, intensity, header settings) | LA-EDS | Read from the `.sp0` files. | Replace the file. |
+| Energy, intensity | LA-EDS, without a file | Calculated from the intensity entered, E0 and the energy per channel. | Change E0 or the energy per channel. |
 
 The sample **name** is generated too, but can be overwritten: it only describes
 the sample.
@@ -350,12 +351,21 @@ separately where both exist. The data are often collected from several computers
 after the run, so a technique can be saved without files: its `data_status` is
 then `awaiting data`, with a warning on every save, until a file is added. The
 run's metadata is safe in NOMAD in the meantime, and the missing data stays
-visible.
+visible. A file that is read (RHEED ROI intensities, MIC curvature, LA-EDS
+spectra) but cannot be read is reported, and makes the status `unreadable
+data`; data read from it before is not kept, as it may no longer be right.
 
-The LA-EDS energy axis is not stored in the `.sp0` file and is rebuilt from E0
-and the energy per channel. The `.sp0` reader is still to be written; the LA-EDS
-spectrum supplier changes from RSX1000 to RaySpec RSX2000, so the reader is kept
-separate and easy to replace.
+LA-EDS `.sp0` files are read with the
+[laeds_tools](https://github.com/timval-differ/la-eds-tools) plugin, which also
+turns each `.sp0` file of an upload into an editable spectrum entry of its own,
+where the run conditions are filled in. In the logbook each file becomes a
+spectrum under `spectra`, with the settings of the file's header, and links to
+that entry. The file has no energy axis: it is rebuilt from the calibration in
+the file, E = CalZero + channel number × CalGain. An E0 or energy per channel
+entered by hand that differs from the file gets a warning; the file decides.
+Without a file, a spectrum can still be entered by hand. The LA-EDS spectrum
+supplier changes from RSX1000 to RaySpec RSX2000; its format is read by
+laeds_tools, not here.
 
 ## The logbook dashboards
 

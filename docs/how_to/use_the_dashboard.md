@@ -158,9 +158,14 @@ leave a section with **Next**, or straight away for fields you have edited.
 9. **Review and save.** Lists everything that is still missing; click an item
    to jump to the field. Choose an upload (or *+ New upload*) and save.
 
-Saving creates the Sample entries first and then the logbook, and shows
-NOMAD's processing messages. After saving, the form stays open: saving again
-updates the same logbook and its samples.
+Saving creates the Sample entries first and then the logbook. Below the save
+button a banner then tells whether everything went well. Each warning and error
+NOMAD logged while processing the entries follows as a card, e.g. an LA-EDS
+`.sp0` file that could not be read, or an E0 that differs from the one in the
+file. These are the messages on the entry's **LOGS** tab in NOMAD. Buttons open
+the logbook and the upload in NOMAD; *Steps* lists what was uploaded and saved.
+After saving, the form stays open: saving again updates the same logbook and its
+samples.
 
 ## Drafts: continue on another computer
 

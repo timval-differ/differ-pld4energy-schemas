@@ -17,8 +17,8 @@ import {createRules} from './rules.js';
 import {API, GUI} from './config.js';
 import {el} from './dom.js';
 import {
-  api, dashboard, entryHash, folderFileNames, putArchive, putRawFile, rawExists, rawFileBytes,
-  readArchiveData, readNomadDraft,
+  api, dashboard, entryHash, folderFileNames, processingProblems, putArchive, putRawFile, rawExists,
+  rawFileBytes, readArchiveData, readNomadDraft,
 } from './nomad-api.js';
 import {renderFileCharts} from './charts.js';
 import {displayName, fileFieldsOf, isImage, parsePending, pendingToken, planUploads, stripPending, uniqueName} from './files.js';
@@ -1757,7 +1757,7 @@ function renderSave(container) {
   card.append(el('div', {class: 'btn-row'}, save, draft, pdf));
   card.append(el('p', {class: 'muted small'}, 'A draft keeps an unfinished run in the upload so it can be '
     + 'continued on another computer. Drafts are not logbooks: only a complete, saved logbook counts as logged.'));
-  card.append(el('ul', {class: 'log', id: 'save-log'}));
+  card.append(el('div', {class: 'save-result', id: 'save-log'}));
   container.append(card);
   renderLog();
 }
@@ -1795,23 +1795,82 @@ function updateSaveState() {
   }
 }
 
-function logLine(text, kind) {
-  app.log.push({text, kind});
+/** A line of the save log: `kind` is 'ok', 'warn', 'err' or none; `source` names what it is about. */
+function logLine(text, kind, source = null) {
+  app.log.push({text, kind, source});
   renderLog();
+}
+
+const isProblem = (line) => line.kind === 'err' || line.kind === 'warn';
+
+function plural(count, word) {
+  return `${count} ${word}${count === 1 ? '' : 's'}`;
+}
+
+/** The outcome of the save so far, as a banner: what needs attention first. */
+function logSummary(lines) {
+  const errors = lines.filter((line) => line.kind === 'err').length;
+  const warnings = lines.filter((line) => line.kind === 'warn').length;
+  if (app.saving) return el('div', {class: 'banner', role: 'status'}, 'Saving…');
+  if (errors) {
+    return el('div', {class: 'banner error', role: 'alert'}, plural(errors, 'error')
+      + (warnings ? ` and ${plural(warnings, 'warning')}` : '') + ': see below.');
+  }
+  if (warnings) {
+    return el('div', {class: 'banner warning', role: 'status'}, `Done, with ${plural(warnings, 'warning')} to check.`);
+  }
+  return el('div', {class: 'banner success', role: 'status'}, 'Done.');
+}
+
+function notice(line) {
+  return el('li', {class: `notice ${line.kind}`},
+    el('span', {class: 'notice-icon', 'aria-hidden': 'true'}, line.kind === 'err' ? '×' : '!'),
+    el('div', {class: 'notice-body'},
+      el('span', {class: 'visually-hidden'}, line.kind === 'err' ? 'Error: ' : 'Warning: '),
+      line.source ? el('div', {class: 'notice-source'}, line.source) : null,
+      el('div', {}, line.text)));
 }
 
 function renderLog() {
   const log = document.getElementById('save-log');
   if (!log) return;
-  log.replaceChildren(...app.log.map((line) => el('li', {class: line.kind || ''},
-    line.link ? el('a', {href: line.link, target: '_top'}, line.text) : line.text)));
+  if (!app.log.length) {
+    log.replaceChildren();
+    return;
+  }
+  const problems = app.log.filter(isProblem);
+  const links = app.log.filter((line) => line.link);
+  const steps = app.log.filter((line) => !line.link && !isProblem(line));
+  log.replaceChildren(
+    logSummary(app.log),
+    problems.length ? el('ul', {class: 'notices'}, problems.map(notice)) : null,
+    links.length ? el('div', {class: 'btn-row'}, links.map((line) =>
+      el('a', {class: 'btn btn-outlined', href: line.link, target: '_top'}, line.text))) : null,
+    steps.length ? el('details', {class: 'save-steps', open: app.saving},
+      el('summary', {}, `Steps (${steps.length})`),
+      el('ul', {class: 'log'}, steps.map((line) => el('li', {class: line.kind || ''}, line.text)))) : null,
+  );
 }
 
-function processingMessages(response, label) {
-  const entry = response && response.processing && response.processing.entry;
-  if (!entry) return;
-  for (const message of entry.errors || []) logLine(`${label}: ${message}`, 'err');
-  for (const message of entry.warnings || []) logLine(`${label}: ${message}`, 'warn');
+async function processingMessages(response, label) {
+  const processing = (response && response.processing) || {};
+  const entry = processing.entry || {};
+  const shown = new Set();
+  for (const message of entry.errors || []) { logLine(message, 'err', label); shown.add(message); }
+  for (const message of entry.warnings || []) { logLine(message, 'warn', label); shown.add(message); }
+  // What the normalizers logged, e.g. a data file that could not be read: kept
+  // in the entry's processing logs, not in the answer to the save.
+  if (!processing.entry_id) return;
+  let problems;
+  try {
+    problems = await processingProblems(processing.entry_id);
+  } catch (e) {
+    logLine(`Could not read the processing log from NOMAD (${e.message}).`, 'warn', label);
+    return;
+  }
+  for (const {level, event} of problems) {
+    if (!shown.has(event)) logLine(event, level === 'WARNING' ? 'warn' : 'err', label);
+  }
 }
 
 /*
@@ -2003,7 +2062,7 @@ async function saveLogbook() {
       }
       const label = file.kind === 'sample' ? `Sample ${file.archive.data.sample_id}` : `Logbook ${file.file_name}`;
       logLine(`${label} saved`, 'ok');
-      processingMessages(response, label);
+      await processingMessages(response, label);
       if (file.kind === 'sample') {
         const item = form.samples.find((s) => s.uid === file.uid);
         if (item) {
@@ -2020,7 +2079,7 @@ async function saveLogbook() {
     }
     for (const warning of result.warnings || []) {
       const sample = /^samples\.(\d+)$/.exec(warning.path || '');
-      logLine((sample ? `Sample ${Number(sample[1]) + 1}: ` : '') + warning.message, 'warn');
+      logLine(warning.message, 'warn', sample ? `Sample ${Number(sample[1]) + 1}` : null);
     }
     if (!current()) {
       // Another logbook was opened meanwhile: it is left as it is.
@@ -2046,6 +2105,7 @@ async function saveLogbook() {
     logLine('Saving failed: ' + e.message, 'err');
   } finally {
     app.saving = false;
+    renderLog();  // the summary of the finished save
     // The save card shows where the logbook goes, which changed.
     if (rerender && app.current === 'save') render();
     else refresh();
@@ -2244,6 +2304,7 @@ async function saveDraftToNomad() {
     showBanner('Saving the draft failed: ' + e.message, 'error');
   } finally {
     app.saving = false;
+    renderLog();  // the summary of the finished save
     refresh();
   }
 }

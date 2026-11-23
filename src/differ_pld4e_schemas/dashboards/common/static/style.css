@@ -7,6 +7,8 @@
   --error: #d32f2f;
   --error-light: #fdecea;
   --warning: #ed6c02;
+  --warning-light: #fff4e5;
+  --warning-dark: #8a4500;
   --success: #2e7d32;
   --success-light: #edf7ed;
   --text: #1f2933;
@@ -85,6 +87,7 @@ body {
 }
 .banner.error { background: var(--error-light); color: var(--error); }
 .banner.success { background: var(--success-light); color: var(--success); }
+.banner.warning { background: var(--warning-light); color: var(--warning-dark); }
 .banner > span:first-child { flex: 1; }
 
 /* Layout */
@@ -367,6 +370,52 @@ legend { padding: 0 6px; font-weight: 600; color: var(--text-secondary); font-si
 .log .ok { color: var(--success); }
 .log .warn { color: var(--warning); }
 .log .err { color: var(--error); }
+
+/* The outcome of a save: a summary, what needs attention, links, then the steps. */
+.save-result:empty { display: none; }
+.save-result { margin-top: 16px; display: grid; gap: 12px; }
+.save-result .banner { margin: 0; font-weight: 600; }
+.save-result .btn-row { margin: 0; }
+.notices { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.notice {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 10px 14px;
+  border: 1px solid;
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.notice.warn { background: var(--warning-light); border-color: var(--warning); color: var(--warning-dark); }
+.notice.err { background: var(--error-light); border-color: var(--error); color: var(--error); }
+.notice-icon {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1;
+}
+.notice.warn .notice-icon { background: var(--warning); }
+.notice.err .notice-icon { background: var(--error); }
+.notice-body { min-width: 0; color: var(--text); }
+.notice-source { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 2px; }
+.save-steps summary { cursor: pointer; color: var(--text-secondary); font-size: 14px; }
+.save-steps .log { margin-top: 6px; }
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
 
 /* Dialog */
 .dialog-backdrop {

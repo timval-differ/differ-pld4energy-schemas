@@ -6,11 +6,14 @@ sample, so NOMAD's search knows the techniques used as methods.
 from __future__ import annotations
 
 import codecs
+import posixpath
 import re
 from copy import deepcopy
 from typing import TYPE_CHECKING
 
 import numpy as np
+from laeds_tools.parsers.sp0_reader import parse_sp0_bytes
+from laeds_tools.schema_packages.schema_package import LaedsSpectrum, Sp0Settings
 from nomad.datamodel.data import ArchiveSection, EntryData
 from nomad.datamodel.metainfo.annotations import ELNAnnotation, ELNComponentEnum
 from nomad.datamodel.metainfo.basesections import (
@@ -37,6 +40,7 @@ __all__ = [
     'InSituTechniques',
     'InSituTechniquesEntry',
     'LAEDS',
+    'LAEDSSpectrum',
     'MIC',
     'OES',
     'RHEED',
@@ -48,6 +52,7 @@ __all__ = [
 
 AWAITING_DATA = 'awaiting data'
 DATA_COMPLETE = 'complete'
+UNREADABLE_DATA = 'unreadable data'
 
 
 def _files(description):
@@ -79,8 +84,9 @@ class InSituTechnique(ArchiveSection):
         a_eln=ELNAnnotation(component=ELNComponentEnum.RichTextEditQuantity),
     )
     data_status = Quantity(
-        type=MEnum(AWAITING_DATA, DATA_COMPLETE),
-        description='Read-only: whether a data file has been added.',
+        type=MEnum(AWAITING_DATA, DATA_COMPLETE, UNREADABLE_DATA),
+        description='Read-only: whether a data file has been added, and whether '
+        'the files that are read could be read.',
     )
 
     def file_quantities(self) -> list:
@@ -306,15 +312,17 @@ def decode_export(data: bytes) -> list[str]:
 
 
 def _technique_exports(technique, archive, logger, files, reader) -> list:
-    """Each file of `files` read with `reader(path, lines)`; unreadable ones are
-    reported and skipped."""
+    """Each file of `files` read with `reader(path, data)` from its bytes;
+    unreadable ones are reported and skipped, and mark the technique's data as
+    unreadable (its data read before is not kept, as it may be stale)."""
     exports = []
     for path in files or []:
         try:
             with archive.m_context.raw_file(path, 'rb') as binary:
-                exports.append(reader(path, decode_export(binary.read())))
+                exports.append(reader(path, binary.read()))
         except (NotImplementedError, OSError, ValueError) as error:
             logger.warning(f'{technique.m_def.label}: could not read {path}: {error}')
+            technique.data_status = UNREADABLE_DATA
     return exports
 
 
@@ -347,7 +355,7 @@ class RHEED(InSituTechnique, PlotSection):
             archive,
             logger,
             self.roi_intensity_export_files,
-            ROIIntensityMap.read,
+            lambda path, data: ROIIntensityMap.read(path, decode_export(data)),
         )
         self.figures = [f for m in self.roi_intensities for f in m.figures()]
 
@@ -484,9 +492,11 @@ class MIC(InSituTechnique, PlotSection):
         if archive.m_context is None:
             return
 
-        def read(path, lines):
+        def read(path, data):
             return CurvatureData.read(
-                path, lines, lambda message: logger.warning(f'MIC: {path}: {message}')
+                path,
+                decode_export(data),
+                lambda message: logger.warning(f'MIC: {path}: {message}'),
             )
 
         self.curvature_data = _technique_exports(
@@ -495,17 +505,89 @@ class MIC(InSituTechnique, PlotSection):
         self.figures = [f for d in self.curvature_data for f in d.figures()]
 
 
+def spectrum_entry_file(path: str) -> str:
+    """
+    The ELN entry that laeds_tools' Sp0Parser writes next to an .sp0 file
+    (`<name>.archive.json`); keep in step with Sp0Parser.parse. The path is
+    normalized as NOMAD's mainfiles are, as the entry id is made from it.
+    """
+    return f'{posixpath.splitext(posixpath.normpath(path))[0]}.archive.json'
+
+
+class LAEDSSpectrum(ArchiveSection):
+    """
+    One LA-EDS spectrum, read from an Iridium .sp0 file with laeds_tools. The
+    file has no energy axis: E = CalZero + channel_number * CalGain.
+    """
+
+    m_def = Section(label='LA-EDS spectrum')
+    file = Quantity(type=str, a_browser={'adaptor': 'RawFileAdaptor'})
+    spectrum_entry = Quantity(
+        type=Reference(LaedsSpectrum.m_def),
+        description='The editable entry of this spectrum, made from the .sp0 file, '
+        'where the run conditions are filled in.',
+    )
+    settings = SubSection(section_def=Sp0Settings)
+    energy = Quantity(type=float, shape=['*'], unit='eV')
+    intensity = Quantity(
+        type=float, shape=['*'], description='Counts per channel, from the file.'
+    )
+
+    @classmethod
+    def read(cls, path: str, data: bytes) -> LAEDSSpectrum:
+        spectrum = parse_sp0_bytes(data, source=path)
+        settings = Sp0Settings.from_spectrum(spectrum)
+        if settings.calibration_gain is None:
+            raise ValueError('no energy calibration (CalGain) in the header')
+        zero = settings.calibration_zero
+        return cls(
+            file=path,
+            settings=settings,
+            energy=energy_axis(
+                spectrum.number_of_channels,
+                zero.to('eV').magnitude if zero is not None else 0,
+                settings.calibration_gain.to('eV').magnitude,
+            ),
+            intensity=np.asarray(spectrum.counts, dtype=float),
+        )
+
+
+def _spectra_figure(spectra) -> PlotlyFigure:
+    import plotly.graph_objects as go
+
+    figure = go.Figure()
+    for index, spectrum in enumerate(spectra):
+        figure.add_trace(
+            go.Scatter(
+                x=spectrum.energy.to('keV').magnitude,
+                y=spectrum.intensity,
+                name=_file_name(spectrum.file),
+                mode='lines',
+                line={'width': 2, 'color': SERIES_COLORS[index % len(SERIES_COLORS)]},
+            )
+        )
+    figure.update_layout(
+        xaxis_title='Energy (keV)', yaxis_title='Intensity (counts)', showlegend=True
+    )
+    return PlotlyFigure(label='LA-EDS spectra', figure=figure.to_plotly_json())
+
+
 class LAEDS(InSituTechnique, PlotSection):
     """
     Low-angle energy-dispersive spectrum (RSX1000, later RaySpec RSX2000).
 
-    The .sp0 file stores intensity per channel, the energy per channel and the
-    number of channels, but no energy axis. The axis is rebuilt as
-    E = E0 + channel_number * energy_per_channel.
+    Each .sp0 file is read into `spectra`, with its energy axis from the
+    calibration in the file. Without a file, a spectrum can be entered by hand:
+    `intensity` with E = E0 + channel_number * energy_per_channel.
     """
 
     m_def = Section(label='LA-EDS')
     sp0_files = _files('Spectrum files (.sp0).')
+    spectra = SubSection(
+        section_def=LAEDSSpectrum,
+        repeats=True,
+        description='Read-only: read from the .sp0 files.',
+    )
     energy_offset = Quantity(
         type=float,
         unit='eV',
@@ -524,20 +606,32 @@ class LAEDS(InSituTechnique, PlotSection):
     intensity = Quantity(type=float, shape=['*'])
     energy = Quantity(type=float, shape=['*'], unit='eV')
 
-    # TODO: read intensity, energy per channel and number of channels from the
-    # .sp0 file once an example file is available. Keep the reader separate so it
-    # can be swapped when the RSX2000 format arrives.
-
     def normalize(self, archive: EntryArchive, logger: BoundLogger) -> None:
         super().normalize(archive, logger)
+        if archive.m_context is not None:
+            # Without the upload's files, keep what was read before.
+            self.spectra = _technique_exports(
+                self, archive, logger, self.sp0_files, LAEDSSpectrum.read
+            )
+            # A reference by mainfile needs the upload (none e.g. in a local parse).
+            upload_id = getattr(archive.m_context, 'upload_id', None) or getattr(
+                archive.metadata, 'upload_id', None
+            )
+            for spectrum in self.spectra:
+                entry_file = spectrum_entry_file(spectrum.file)
+                # Only link an entry that exists: Sp0Parser makes it when the
+                # file is processed, and a reprocess links it otherwise.
+                if upload_id and archive.m_context.raw_path_exists(entry_file):
+                    spectrum.spectrum_entry = (
+                        f'../upload/archive/mainfile/{entry_file}#/data'
+                    )
+                self._check_calibration(spectrum, logger)
+        if self.spectra:
+            self.figures = [_spectra_figure(self.spectra)]
+            return
         if self.intensity is None:
-            if self.sp0_files:
-                # The files are kept, but not read yet (see the TODO above).
-                self.data_status = AWAITING_DATA
-                logger.warning(
-                    'LA-EDS: .sp0 files are not read yet, so the spectrum is not '
-                    'stored or plotted.'
-                )
+            if archive.m_context is not None:
+                self.figures = []  # e.g. the files that were read are removed
             return
         channels = len(self.intensity)
         if self.number_of_channels is not None and self.number_of_channels != channels:
@@ -566,6 +660,24 @@ class LAEDS(InSituTechnique, PlotSection):
             xaxis_title='Energy (eV)', yaxis_title='Intensity (counts)'
         )
         self.figures = [PlotlyFigure(label='Spectrum', figure=figure.to_plotly_json())]
+
+    def _check_calibration(self, spectrum: LAEDSSpectrum, logger: BoundLogger) -> None:
+        """Warn when E0 or the energy per channel entered by hand is not the
+        calibration in the file, which is used."""
+        settings = spectrum.settings
+        for label, entered, in_file in (
+            ('E0', self.energy_offset, settings.calibration_zero),
+            ('energy per channel', self.energy_per_channel, settings.calibration_gain),
+        ):
+            if entered is None:
+                continue
+            file_value = in_file.to('eV').magnitude if in_file is not None else 0.0
+            if not np.isclose(entered.to('eV').magnitude, file_value):
+                logger.warning(
+                    f'LA-EDS {label} {entered.to("eV").magnitude:g} eV differs from '
+                    f'{file_value:g} eV in {_file_name(spectrum.file)}; the value '
+                    'in the file is used.'
+                )
 
 
 class SE(InSituTechnique):

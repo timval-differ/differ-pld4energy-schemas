@@ -6,6 +6,8 @@ the database and to other samples resolved.
 
 import copy
 import json
+import shutil
+from pathlib import Path
 
 import pytest
 from helpers import pld_forms as pld
@@ -24,9 +26,18 @@ def _with_existing_sample():
     return data
 
 
-SP0_NOT_READ = (
-    'LA-EDS: .sp0 files are not read yet, so the spectrum is not stored or plotted.'
+SP0_EXAMPLE = (
+    Path(__file__).resolve().parents[1]
+    / 'data/exports/LAEDS/t90s_d140cm_f1.65A_P1e-8_light-on.sp0'
 )
+# The test forms enter E0 and the energy per channel by hand, which differ
+# from the calibration in the example spectrum.
+SP0_CALIBRATION_DIFFERS = {
+    'LA-EDS E0 100 eV differs from 0 eV in spectrum.sp0; the value in the file '
+    'is used.',
+    'LA-EDS energy per channel 10 eV differs from 5 eV in spectrum.sp0; the value '
+    'in the file is used.',
+}
 
 FORMS = {
     'LA-PLD': (pld, pld.FORM),
@@ -51,12 +62,28 @@ def _write(directory, module, data):
 def test_dashboard_files_process_without_errors(tmp_path, name):
     module, data = FORMS[name]
     result = _write(tmp_path, module, data)
+    # The LA-EDS spectrum the PLD forms list, as uploaded by the dashboard.
+    for measurement in data.get('in_situ', []):
+        for path in measurement.get('la_eds_sp0_files', []):
+            (tmp_path / path).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(SP0_EXAMPLE, tmp_path / path)
     archive, logs, context = process_file(
         tmp_path, result['logbook_file'], other_uploads=database_uploads()
     )
     assert_no_errors(logs)
-    # The test forms list an LA-EDS .sp0 file, which is not read yet.
-    assert set(warnings(logs)) <= {SP0_NOT_READ}
+    assert set(warnings(logs)) <= SP0_CALIBRATION_DIFFERS
+    la_eds = [
+        laeds
+        for measurement in getattr(archive.data, 'in_situ_measurements', None) or []
+        for laeds in measurement.la_eds
+    ]
+    # Each form that lists an LA-EDS spectrum has it read.
+    listed = [m for m in data.get('in_situ', []) if m.get('la_eds_sp0_files')]
+    assert len(la_eds) == len(listed)
+    for laeds in la_eds:
+        assert len(laeds.spectra) == len(laeds.sp0_files)
+        labels = [figure.label for figure in archive.data.figures]
+        assert any(label.endswith('LA-EDS spectra') for label in labels)
     assert archive.metadata.entry_type == type(archive.data).__name__
     # The dashboard writes the Sample files itself; the normalizer adds none.
     assert context.created == []

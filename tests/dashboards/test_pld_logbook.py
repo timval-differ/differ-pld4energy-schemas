@@ -129,6 +129,9 @@ def test_exported_data_files_have_charts():
     # The columns are named as in the header of an EZ-Curve export.
     columns = [c for plot in mic['plots'] for c in plot['columns']]
     assert 'Sagittal Stress x Thickness' in columns
+    la_eds = fields['la_eds_sp0_files']['chart']
+    assert la_eds['format'] == 'sp0'
+    assert la_eds['x_unit'] == 'keV'
     assert fields['rheed_pattern_export_files'].get('chart') is None
 
 

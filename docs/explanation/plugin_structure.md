@@ -113,7 +113,9 @@ method, elements and lab ID; see [Search](explanation.md#search).
   that logbook; shared content lives in base classes and `process_steps.py`.
 - **Exported data files** (RHEED, MIC) are read in `in_situ.py`. Instrument
   exports come in several encodings (the MIC export has a Latin-1 header), so
-  they are read as bytes and decoded as a whole (`decode_export`).
+  they are read as bytes and decoded as a whole (`decode_export`). The
+  dashboard's `charts.js` reads the same files in the browser to plot them on
+  the page and in the PDF report (`FILE_CHARTS` in `pld_logbook/spec.py`).
 
 ## Part 2: the dashboards
 
@@ -171,10 +173,10 @@ transpiler; Node is only used to type-check and test them.
 | --- | --- | --- |
 | `app.js` | The page: start page, form rendering, NOMAD lookups, dialogs, save, drafts, PDF report. Holds the page's state in one `app` object. | `rules.js`, `charts.js`, `files.js`, `nomad-api.js`, `pdf.js`, `config.js`, `dom.js`, `util.js` |
 | `rules.js` | Computed values and validation, the counterpart of `rules.py` (`createRules(ctx)` reads `ctx.spec`, `ctx.refs` and `ctx.pendingFiles` when a rule runs). | `constants.js`, `files.js`, `util.js` |
-| `charts.js` | Reading and plotting exported data files. | `dom.js`, `files.js`, `util.js` |
+| `charts.js` | Reading and plotting exported data files (text exports, and LA-EDS `.sp0` spectra as `in_situ.py` reads them). | `dom.js`, `files.js`, `util.js` |
 | `files.js` | Data files chosen but not uploaded yet: the `pending:<id>/<name>` tokens in the form, and the folders and unique names a save uploads them to. | – |
 | `nomad-api.js` | Requests to NOMAD (with the session cookie) and to the dashboard's API. | `config.js`, `util.js` |
-| `pdf.js` | A small PDF writer for the report (the sandboxed frame ignores `window.print()`). | – |
+| `pdf.js` | A small PDF writer for the report, with the plots of its data files (the sandboxed frame ignores `window.print()`). | `charts.js`, `util.js` |
 | `config.js` | URLs from the page's location: `API`, `GUI`, `DASHBOARD`. | – |
 | `dom.js` | `el()`: elements built in code, never from HTML strings. | – |
 | `util.js`, `constants.js` | Stateless helpers (dates, file names, upload paths), and values mirrored from Python (`NEW_SAMPLE`, `MADE_HERE`, `LEVELS`; `test_page_constants_match_python` checks them). | – |

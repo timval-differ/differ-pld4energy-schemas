@@ -20,7 +20,7 @@ import {
   api, dashboard, entryHash, folderFileNames, processingProblems, putArchive, putRawFile, rawExists,
   rawFileBytes, readArchiveData, readNomadDraft,
 } from './nomad-api.js';
-import {renderFileCharts} from './charts.js';
+import {filePlots, renderFileCharts} from './charts.js';
 import {displayName, fileFieldsOf, isImage, parsePending, pendingToken, planUploads, stripPending, uniqueName} from './files.js';
 import {uid, clockIn, fileNameFor, entryRef, uploadPath, validUploadId, formatNumber} from './util.js';
 
@@ -48,6 +48,7 @@ const app = {
   labDatabase: undefined,
   databaseLoading: false, // a newly chosen database is being loaded
   pendingFiles: {}, // id -> File chosen but not uploaded yet (see files.js)
+  exportingPdf: false, // the PDF report is being made (its data files read)
   // Counts the logbooks put in the form: a save that ends after another
   // logbook was opened does not change the new one.
   generation: 0,
@@ -128,6 +129,11 @@ const UNVERIFIED_EDIT = 'It referred to a logbook that could not be verified, '
 /* The upload the logbook is saved to whatever is chosen, or null. */
 function formUpload() {
   return app.edit ? app.edit.upload_id : app.source;
+}
+
+/* Where the form's files are read from, for plotting them (charts.js). */
+function fileSources() {
+  return {pendingFiles: app.pendingFiles, uploadId: formUpload(), readRaw: rawFileBytes};
 }
 
 function showBanner(message, kind, action) {
@@ -1019,7 +1025,7 @@ function refresh() {
           onclick: () => removeFile(r.local, r.field.key, r.path, index),
         }, '✕'))));
       if (!(value || []).length) r.fileList.append(el('span', {class: 'muted'}, 'No files added'));
-      if (r.charts && visible) renderFileCharts(r, value, {pendingFiles: app.pendingFiles, uploadId: formUpload(), readRaw: rawFileBytes});
+      if (r.charts && visible) renderFileCharts(r, value, fileSources());
     }
     if (kind === 'step_choice') renderStepChoices(r);
     if (kind === 'sample_mask') renderSampleMask(r);
@@ -2170,8 +2176,32 @@ function reportFields(fields, local) {
       if (field.label !== group) blocks.push({kind: 'group', text: group});
     }
     blocks.push({kind: 'row', label: field.label, value});
+    // Plotted data files: their charts follow, once read (see withCharts).
+    if (field.kind === 'files' && field.chart) blocks.push({kind: 'file-charts', chart: field.chart, files: local[field.key]});
   }
   return blocks.length ? blocks : [{kind: 'note', text: 'Nothing filled in.'}];
+}
+
+/*
+ * The report with the charts of its data files, as on the page. Saved files
+ * are read from NOMAD, also those not plotted on the page yet; a file that
+ * cannot be read or plotted is named in a note.
+ */
+async function withCharts(blocks) {
+  const sources = fileSources();
+  const charts = async (name, chart) => {
+    const fileName = displayName(name);
+    try {
+      const plots = await filePlots(chart, name, sources);
+      return plots.map((plot) => ({kind: 'chart', caption: fileName, ...plot}));
+    } catch (error) {
+      return [{kind: 'note', text: `Could not plot ${fileName}: ${error.message}`}];
+    }
+  };
+  const expanded = await Promise.all(blocks.map(async (block) => (block.kind === 'file-charts'
+    ? (await Promise.all((block.files || []).map((name) => charts(name, block.chart)))).flat()
+    : [block])));
+  return expanded.flat();
 }
 
 function reportBlocks() {
@@ -2209,10 +2239,34 @@ function reportBlocks() {
 /*
  * A PDF file made in the browser and downloaded. NOMAD shows the dashboard in a
  * sandboxed frame in which browsers ignore window.print(), but allow downloads.
+ * Saved data files are read from NOMAD for their charts first.
  */
-function exportPdf() {
+async function exportPdf() {
+  if (app.exportingPdf) return;
+  app.exportingPdf = true;
+  // The report of the logbook in the form now, even if another is opened while its files are read.
+  const generation = app.generation;
   const title = `${client().title} ${runLabel(app.form)}`;
-  const blob = makePdf(reportBlocks(), title);
+  const banner = document.getElementById('banner');
+  const message = 'Plotting the data files for the PDF…';
+  let blocks;
+  try {
+    const report = reportBlocks();
+    if (report.some((b) => b.kind === 'file-charts')) showBanner(message);
+    blocks = await withCharts(report);
+  } catch (error) {
+    showBanner('Could not make the PDF: ' + error.message, 'error');
+    return;
+  } finally {
+    app.exportingPdf = false;
+    // Only the banner shown here: one shown meanwhile (e.g. a save error) stays.
+    if (!banner.hidden && banner.textContent.startsWith(message)) banner.hidden = true;
+  }
+  if (app.generation !== generation) {
+    showBanner('Another logbook was opened while the PDF was made: export it again.', 'error');
+    return;
+  }
+  const blob = makePdf(blocks, title);
   const fileName = title.replace(/ · /g, ' ').replace(/:/g, '-').replace(/[^\w .-]+/g, '_') + '.pdf';
   const link = el('a', {href: URL.createObjectURL(blob), download: fileName});
   document.body.append(link);

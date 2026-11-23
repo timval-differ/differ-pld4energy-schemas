@@ -635,11 +635,17 @@ def _mic_plot(title, column, unit):
     }
 
 
-# Exported data files the page plots when they are added. `delimiter` separates
-# the columns (None: white space); the first column is the time in s. A plot
-# shows the `columns` named in the file's header, or all others if None.
+# Exported data files the page plots when they are added, and puts in the PDF
+# report. A text export (`format` 'columns') has its columns separated by
+# `delimiter` (None: white space), the first being the x axis; an Iridium .sp0
+# spectrum (`format` 'sp0') is read as energy and counts, as in in_situ.LAEDS.
+# `x_title` and `x_unit` describe the x axis. A plot shows the `columns` named
+# in the file's header, or all others if None.
+_TIME_AXIS = {'x_title': 'Time (s)', 'x_unit': 's'}
 FILE_CHARTS = {
     'rheed_roi_intensity_export_files': {
+        'format': 'columns',
+        **_TIME_AXIS,
         'delimiter': None,
         'plots': [
             {
@@ -651,10 +657,25 @@ FILE_CHARTS = {
         ],
     },
     'mic_export_files': {
+        'format': 'columns',
+        **_TIME_AXIS,
         'delimiter': ';',
         'plots': [
             _mic_plot('Stress x thickness', 'Stress x Thickness', 'GPa·nm'),
             _mic_plot('Curvature', 'Curvature', '1/km'),
+        ],
+    },
+    'la_eds_sp0_files': {
+        'format': 'sp0',
+        'x_title': 'Energy (keV)',
+        'x_unit': 'keV',
+        'plots': [
+            {
+                'title': 'LA-EDS spectrum',
+                'y_title': 'Intensity (counts)',
+                'columns': None,
+                'name': 'Counts',
+            }
         ],
     },
 }

@@ -4,12 +4,13 @@ import {el} from './dom.js';
 import {formatNumber} from './util.js';
 
 /*
- * Exported data files (e.g. RHEED ROI intensities, MIC curvature) are plotted
- * as soon as they are added, from the file in the browser; once saved, from
- * NOMAD on request. The field's `chart` (FILE_CHARTS in spec.py) says how to
- * read the file and what to plot. The NOMAD entry plots the same data.
+ * Exported data files (e.g. RHEED ROI intensities, MIC curvature, LA-EDS
+ * spectra) are plotted as soon as they are added, from the file in the browser;
+ * once saved, from NOMAD on request. The field's `chart` (FILE_CHARTS in
+ * spec.py) says how to read the file and what to plot. The NOMAD entry plots
+ * the same data, and the PDF report (pdf.js) draws the same plots.
  */
-const SERIES_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'];
+export const SERIES_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'];
 export const CHART_POINTS = 1000;
 const SVG = 'http://www.w3.org/2000/svg';
 
@@ -64,6 +65,58 @@ export function readColumns(text, delimiter) {
   return {header, columns};
 }
 
+/* A number of an .sp0 header line, or NaN. */
+const sp0Number = (text) => (text.trim() === '' ? NaN : Number(text));
+
+/*
+ * Energy (keV) and counts of an Iridium .sp0 spectrum, read as laeds_tools'
+ * parse_sp0_bytes and in_situ.LAEDSSpectrum.read do: after the two lines of
+ * settings, "key",value lines (some in ***Block*** sections), then one count
+ * per channel. E = CalZero + channel * CalGain, in eV.
+ */
+export function readSp0(text) {
+  const lines = text.split(/\r\n|\r|\n/);
+  if (!lines[0].startsWith('Iridium')) throw new Error('not an Iridium .sp0 file');
+  const first = lines.findIndex((line) => line.startsWith('"'));
+  if (first < 0 || first + 1 >= lines.length) throw new Error('settings rows not found');
+  // Without prototypes: the keys come from the file (e.g. "***__proto__***").
+  const blocks = Object.create(null);
+  const parameters = Object.create(null);
+  let block = null;
+  let i = first + 2;
+  for (; i < lines.length && lines[i].startsWith('"'); i++) {
+    const [, key, value] = /^"([^"]*)",?(.*)$/.exec(lines[i]) || [];
+    if (key === undefined) throw new Error(`line ${i + 1} is not "key",value`);
+    if (key.startsWith('***End')) block = null;
+    else if (key.startsWith('***')) block = blocks[key.replace(/\*/g, '')] ??= Object.create(null);
+    else (block || parameters)[key] = sp0Number(value);
+  }
+  const counts = [];
+  for (; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    if (!/^\s*[-+]?\d+\s*$/.test(lines[i])) throw new Error(`line ${i + 1} is not a count`);
+    counts.push(Number(lines[i]));
+  }
+  if (!counts.length) throw new Error('no counts in the file');
+  const channels = parameters['Number of Channels'];
+  if (channels !== undefined && channels !== counts.length) {
+    throw new Error(`header says ${channels} channels but found ${counts.length} counts`);
+  }
+  const calibration = blocks.EnergyCalibrationInformation || Object.create(null);
+  const gain = 'CalGain' in calibration ? calibration.CalGain : parameters['eV per Channel'];
+  if (!Number.isFinite(gain)) throw new Error('no energy calibration (CalGain) in the header');
+  const zero = Number.isFinite(calibration.CalZero) ? calibration.CalZero : 0;
+  return {
+    header: ['Energy (keV)', 'Counts'],
+    columns: [counts.map((_, channel) => (zero + channel * gain) / 1000), counts],
+  };
+}
+
+/* Header and columns of a file's text, in the chart's `format`. */
+export function readChartData(chart, text) {
+  return chart.format === 'sp0' ? readSp0(text) : readColumns(text, chart.delimiter);
+}
+
 /* The mean of each block of samples, keeping at most `points`. */
 export function blockMean(values, points) {
   const size = Math.ceil(values.length / points);
@@ -76,7 +129,7 @@ export function blockMean(values, points) {
   return means;
 }
 
-/* The plots of a chart definition: [{title, yTitle, x, series: [{name, values}]}]. */
+/* The plots of a chart definition: [{title, xTitle, xUnit, yTitle, x, series: [{name, values}]}]. */
 export function chartPlots(chart, {header, columns}) {
   const name = (column) => column.split('(')[0].trim().toLowerCase();
   const x = blockMean(columns[0], CHART_POINTS);
@@ -90,8 +143,10 @@ export function chartPlots(chart, {header, columns}) {
         return index < 0 ? null : {name: plot.names[i], values: columns[index]};
       }).filter(Boolean);
     }
-    series = series.map((s) => ({...s, values: blockMean(s.values, CHART_POINTS)}));
-    return {title: plot.title, yTitle: plot.y_title, x, series};
+    // A series without a single number has nothing to draw.
+    series = series.filter((s) => s.values.some(Number.isFinite))
+      .map((s) => ({...s, values: blockMean(s.values, CHART_POINTS)}));
+    return {title: plot.title, xTitle: chart.x_title, xUnit: chart.x_unit, yTitle: plot.y_title, x, series};
   }).filter((plot) => plot.series.length);
   if (!plots.length) throw new Error('none of the expected columns found');
   return plots;
@@ -120,7 +175,7 @@ export function niceTicks(min, max, count = 5, outward = false) {
 }
 
 /*
- * A line chart of one plot against the time, with a crosshair tooltip. It is
+ * A line chart of one plot (against the time, or the energy), with a crosshair tooltip. It is
  * drawn at the width it gets (and redrawn when that changes), so that its text
  * keeps the size of the page's text instead of being scaled with the chart.
  */
@@ -141,13 +196,13 @@ export function lineChart(plot, fileName) {
   const draw = (W) => {
     const sx = (v) => m.left + ((v - xMin) / (xMax - xMin || 1)) * (W - m.left - m.right);
     const svg = svgEl('svg', {width: W, height: H, viewBox: `0 0 ${W} ${H}`, class: 'chart-svg', role: 'img',
-      'aria-label': `${plot.title} against time, ${fileName}`});
+      'aria-label': `${plot.title} against ${plot.xTitle}, ${fileName}`});
     for (const t of yTicks) {
       svg.append(svgEl('line', {x1: m.left, x2: W - m.right, y1: sy(t), y2: sy(t), class: 'chart-grid'}),
         svgEl('text', {x: m.left - 8, y: sy(t), class: 'chart-tick', 'text-anchor': 'end', 'dominant-baseline': 'middle'},
           formatNumber(t)));
     }
-    // About one time tick per 110 px.
+    // About one x tick per 110 px.
     for (const t of niceTicks(xMin, xMax, Math.max(2, Math.floor((W - m.left - m.right) / 110)))) {
       svg.append(svgEl('line', {x1: sx(t), x2: sx(t), y1: H - m.bottom, y2: H - m.bottom + 5, class: 'chart-axis'}),
         svgEl('text', {x: sx(t), y: H - m.bottom + 20, class: 'chart-tick', 'text-anchor': 'middle'}, formatNumber(t)));
@@ -155,7 +210,7 @@ export function lineChart(plot, fileName) {
     const middle = (m.top + H - m.bottom) / 2;
     svg.append(
       svgEl('line', {x1: m.left, x2: W - m.right, y1: H - m.bottom, y2: H - m.bottom, class: 'chart-axis'}),
-      svgEl('text', {x: (m.left + W - m.right) / 2, y: H - 8, class: 'chart-label', 'text-anchor': 'middle'}, 'Time (s)'),
+      svgEl('text', {x: (m.left + W - m.right) / 2, y: H - 8, class: 'chart-label', 'text-anchor': 'middle'}, plot.xTitle),
       svgEl('text', {x: 16, y: middle, class: 'chart-label', 'text-anchor': 'middle',
         transform: `rotate(-90 16 ${middle})`}, plot.yTitle));
     series.forEach((s, i) => {
@@ -193,7 +248,7 @@ export function lineChart(plot, fileName) {
         dots[i].setAttribute('visibility', shown ? 'visible' : 'hidden');
         if (shown) { dots[i].setAttribute('cx', sx(x[j])); dots[i].setAttribute('cy', sy(s.values[j])); }
       });
-      tooltip.replaceChildren(el('div', {class: 'chart-tooltip-time'}, `${formatNumber(x[j])} s`),
+      tooltip.replaceChildren(el('div', {class: 'chart-tooltip-time'}, `${formatNumber(x[j])} ${plot.xUnit}`),
         ...series.map((s, i) => el('div', {class: 'chart-tooltip-row'},
           el('span', {class: 'chart-swatch', style: `background:${color(i)}`}),
           el('span', {}, s.name), el('span', {class: 'chart-tooltip-value'}, formatNumber(s.values[j])))));
@@ -224,34 +279,60 @@ export function lineChart(plot, fileName) {
 /* Parsed plots by File (added here) or by path (saved in NOMAD), read once. */
 const chartCache = new Map();
 
-async function plotFile(box, chart, key, fileName, read) {
-  box.replaceChildren(el('span', {class: 'muted small'}, `Reading ${fileName}…`));
+/*
+ * Where a file of the form is read from: a file still to be uploaded
+ * (`pendingFiles`, by id; see files.js) from the browser; a saved one from
+ * NOMAD with `readRaw` (giving the file's bytes), from the upload the form's
+ * files are in (`uploadId`). Null if neither has it.
+ */
+function fileSource(name, {pendingFiles, uploadId, readRaw}) {
+  const token = parsePending(name);
+  const file = token ? pendingFiles[token.id] : undefined;
+  if (file) return {key: file, read: () => file.arrayBuffer()};
+  if (uploadId) return {key: `${uploadId}/${name}`, read: () => readRaw(uploadId, name)};
+  return null;
+}
+
+function cachedPlots(chart, {key, read}) {
   if (!chartCache.has(key)) {
-    // Let the message show before a large file is parsed.
-    chartCache.set(key, new Promise((resolve) => setTimeout(resolve)).then(read)
-      .then((bytes) => chartPlots(chart, readColumns(decodeExport(bytes), chart.delimiter))));
+    // Let a message show before a large file is parsed.
+    const plots = new Promise((resolve) => setTimeout(resolve)).then(read)
+      .then((bytes) => chartPlots(chart, readChartData(chart, decodeExport(bytes))));
+    // A file that could not be read is tried again next time; the error
+    // itself goes to whoever awaits the plots.
+    plots.catch(() => chartCache.delete(key));
+    chartCache.set(key, plots);
   }
+  return chartCache.get(key);
+}
+
+/* The plots of one file of a field with a `chart`, read once (see fileSource for `sources`). */
+export function filePlots(chart, name, sources) {
+  const source = fileSource(name, sources);
+  if (!source) return Promise.reject(new Error('the file is neither in this browser nor saved in NOMAD'));
+  return cachedPlots(chart, source);
+}
+
+async function plotFile(box, chart, source, fileName) {
+  box.replaceChildren(el('span', {class: 'muted small'}, `Reading ${fileName}…`));
   try {
-    const plots = await chartCache.get(key);
+    const plots = await cachedPlots(chart, source);
     box.replaceChildren(...plots.map((plot) => lineChart(plot, fileName)));
   } catch (error) {
-    chartCache.delete(key);
     box.replaceChildren(el('span', {class: 'chart-error'}, `Could not plot ${fileName}: ${error.message}`));
   }
 }
 
 /*
  * The charts of the files of a field, redrawn only when its files change. A
- * file still to be uploaded (`pendingFiles`, by id; see files.js) is plotted from the
- * browser; a saved one on request, read from NOMAD with `readRaw` (giving the
- * file's bytes) from the
- * upload the form's files are in (`uploadId`).
+ * file still to be uploaded is plotted straight away; a saved one on request
+ * (see fileSource for `sources`).
  */
-export function renderFileCharts(r, value, {pendingFiles, uploadId, readRaw}) {
+export function renderFileCharts(r, value, sources) {
   const files = value || [];
   const pending = files.map((name) => {
     const token = parsePending(name);
-    return token ? pendingFiles[token.id] : undefined;
+    return token ? sources.pendingFiles[token.id] : undefined;
   });
   const key = files.join('|') + '|' + pending.map(Boolean).join();
   if (r.charts.dataset.key === key) return;
@@ -259,15 +340,11 @@ export function renderFileCharts(r, value, {pendingFiles, uploadId, readRaw}) {
   r.charts.replaceChildren(...files.map((name, index) => {
     const fileName = displayName(name);
     const box = el('div', {class: 'file-chart'});
-    const file = pending[index];
-    if (file) {
-      plotFile(box, r.field.chart, file, fileName, () => file.arrayBuffer());
-    } else if (uploadId) {
-      const cacheKey = `${uploadId}/${name}`;
-      const plot = () => plotFile(box, r.field.chart, cacheKey, fileName, () => readRaw(uploadId, name));
-      if (chartCache.has(cacheKey)) plot();
-      else box.append(el('button', {type: 'button', class: 'btn btn-text', onclick: plot}, `Plot ${fileName}`));
-    }
+    const source = fileSource(name, sources);
+    if (!source) return box;
+    const plot = () => plotFile(box, r.field.chart, source, fileName);
+    if (pending[index] || chartCache.has(source.key)) plot();
+    else box.append(el('button', {type: 'button', class: 'btn btn-text', onclick: plot}, `Plot ${fileName}`));
     return box;
   }));
 }

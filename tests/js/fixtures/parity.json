@@ -14014,6 +14014,7 @@
        "archive": "rheed.roi_intensity_export_files",
        "chart": {
         "delimiter": null,
+        "format": "columns",
         "plots": [
          {
           "columns": null,
@@ -14021,7 +14022,9 @@
           "title": "ROI intensity",
           "y_title": "Intensity (a.u.)"
          }
-        ]
+        ],
+        "x_title": "Time (s)",
+        "x_unit": "s"
        },
        "group": "RHEED (KSA 400)",
        "key": "rheed_roi_intensity_export_files",
@@ -14074,6 +14077,7 @@
        "archive": "mic.export_files",
        "chart": {
         "delimiter": ";",
+        "format": "columns",
         "plots": [
          {
           "columns": [
@@ -14099,7 +14103,9 @@
           "title": "Curvature",
           "y_title": "Curvature (1/km)"
          }
-        ]
+        ],
+        "x_title": "Time (s)",
+        "x_unit": "s"
        },
        "group": "MIC (EZ-Curve)",
        "key": "mic_export_files",
@@ -14170,7 +14176,19 @@
       {
        "accept": ".sp0",
        "archive": "la_eds.sp0_files",
-       "chart": null,
+       "chart": {
+        "format": "sp0",
+        "plots": [
+         {
+          "columns": null,
+          "name": "Counts",
+          "title": "LA-EDS spectrum",
+          "y_title": "Intensity (counts)"
+         }
+        ],
+        "x_title": "Energy (keV)",
+        "x_unit": "keV"
+       },
        "group": "LA-EDS (RSX1000)",
        "key": "la_eds_sp0_files",
        "kind": "files",

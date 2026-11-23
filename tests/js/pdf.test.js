@@ -114,3 +114,60 @@ test('line breaks in a value start new lines', async () => {
   const lines = shownTexts(pdf).filter((line) => !line.includes('page'));
   assert.deepEqual(lines, ['Comments', 'Comment 1', 'Comment 2', 'Comment 3', '', 'Comment 4']);
 });
+
+/* A plot as charts.js's chartPlots gives it, with the file as its caption. */
+const CHART = {
+  kind: 'chart', title: 'ROI intensity', caption: 'step1.txt', xTitle: 'Time (s)', yTitle: 'Intensity (a.u.)',
+  x: [0, 1, 2, 3], series: [{name: 'ROI 1', values: [1, 2, NaN, 4]}, {name: 'ROI 2', values: [2, 3, 4, 5]}],
+};
+
+test('a chart is drawn as lines, with its axes and legend', async () => {
+  const pdf = await pdfText([...REPORT, CHART]);
+  assert.equal(pageCount(pdf), 1);
+  const texts = shownTexts(pdf);
+  for (const t of ['ROI intensity', 'step1.txt', 'ROI 1', 'ROI 2', 'Time (s)', 'Intensity (a.u.)', '0', '3', '5']) {
+    assert.ok(texts.includes(t), t);
+  }
+  // A path per series in its colour (charts.js's first two), broken at the missing value.
+  const paths = [...pdf.matchAll(/([\d.]+ [\d.]+ [\d.]+) RG 0\.8 w 1 j 1 J\n([\s\S]*?)S/g)];
+  assert.deepEqual(paths.map(([, colour]) => colour), ['0.165 0.471 0.839', '0.922 0.408 0.204']);
+  assert.deepEqual(paths[0][2].trim().split('\n').map((op) => op.split(' ')[2]), ['m', 'l', 'm']);
+  assert.deepEqual(paths[1][2].trim().split('\n').map((op) => op.split(' ')[2]), ['m', 'l', 'l', 'l']);
+  // The y title reads upwards.
+  assert.match(pdf, /0 1 -1 0 [\d.]+ [\d.]+ Tm \(Intensity \\\(a\.u\.\\\)\) Tj/);
+  assert.ok(/^[\x00-\x7f]*$/.test(pdf));
+});
+
+test('one series has no legend; a chart that does not fit starts a new page', async () => {
+  const single = {...CHART, series: [CHART.series[1]]};
+  const rows = Array.from({length: 50}, (_, i) => ({kind: 'row', label: `Field ${i}`, value: `${i}`}));
+  const pdf = await pdfText([...rows, single]);
+  assert.ok(!shownTexts(pdf).includes('ROI 2'));
+  assert.equal(pageCount(pdf), 2);
+  const streams = [...pdf.matchAll(/stream\n([\s\S]*?)\nendstream/g)].map(([, s]) => s);
+  assert.ok(streams[1].includes('(ROI intensity) Tj') && streams[1].includes(' RG '));
+  // Everything on the second page stays between its margins.
+  const ys = [...streams[1].matchAll(/([\d.]+) ([\d.]+) [ml]\n/g)].map(([, , yv]) => Number(yv));
+  assert.ok(Math.min(...ys) > 50 && Math.max(...ys) < 841.89 - 50);
+});
+
+test('a report with charts is still a well-formed PDF', async () => {
+  const pdf = await pdfText([...REPORT, CHART, CHART, CHART, CHART]);
+  assert.ok(pageCount(pdf) >= 2);
+  const xref = Number(/startxref\n(\d+)\n/.exec(pdf)[1]);
+  const offsets = [...pdf.slice(xref).matchAll(/^(\d{10}) 00000 n $/gm)].map(([, o]) => Number(o));
+  offsets.forEach((offset, i) => assert.ok(pdf.startsWith(`${i + 1} 0 obj\n`, offset), `object ${i + 1}`));
+  for (const [, length, content] of pdf.matchAll(/<< \/Length (\d+) >>\nstream\n([\s\S]*?)\nendstream/g)) {
+    assert.equal(content.length, Number(length));
+  }
+});
+
+test('a chart without numbers becomes a note, not NaN in the PDF', async () => {
+  const empty = {...CHART, x: [], series: [{name: 'Counts', values: []}]};
+  const blank = {...CHART, series: [{name: 'ROI 1', values: [NaN, NaN, NaN, NaN]}]};
+  const pdf = await pdfText([empty, blank]);
+  assert.ok(!/NaN|Infinity|undefined/.test(pdf));
+  const texts = shownTexts(pdf);
+  assert.ok(texts.includes('ROI intensity (step1.txt): no data to plot.'));
+  assert.ok(!pdf.includes(' RG '));
+});

@@ -138,14 +138,21 @@ publishing interconnected data:
   `../upload/archive/mainfile/<file>#<path>`. That form names the entry by its
   file in the same upload, so it holds in any NOMAD the ZIP is uploaded to,
   under any upload ID.
-- It adds the plugin's schemas as a YAML schema (`yaml_schema.py`) and
-  rewrites every `m_def` that names a section of the plugin by its Python name
-  into `../upload/raw/schema/differ_pld4e_schemas.archive.yaml#<section>`. The
-  central NOMAD runs neither this plugin nor nomad-material-processing, so the
-  YAML schema also holds every section of nomad-material-processing that the
-  plugin builds on, and refers only to NOMAD's own sections. It is made from
-  the plugin's definitions at export time, so it always matches the version
-  that wrote the data. Normalizers are code and do not come along.
+- It writes each archive with the data NOMAD stored for its entry when it
+  processed it, in place of the data in the file. The central NOMAD does not
+  run the Oasis's plugins, so what their normalizers filled in (values read
+  from data files, plots) would otherwise be missing there. The processed data
+  is standardised NOMAD data, which the central NOMAD can show and search as
+  it is.
+- It adds the schemas of the plugins the entries use as YAML schemas
+  (`yaml_schema.py`), one file per plugin, `schema/<plugin>.archive.yaml`, and
+  rewrites every `m_def` that names a section by its Python name into
+  `../upload/raw/schema/<plugin>.archive.yaml#<section>`. Sections that the
+  plugins build on from other plugins (nomad-material-processing) get a file
+  of their own, and a section in another file is named by its file, so
+  together the files refer only to NOMAD's own sections. They are made from the
+  definitions at export time, so they always match the versions that wrote the
+  data. Normalizers are code and do not come along.
 - It refuses to make a ZIP with a reference it cannot keep working: an entry
   that is gone, an upload the user cannot see, an entry in another NOMAD, a
   form of reference it cannot rewrite. A published upload with references

@@ -1,15 +1,18 @@
 """
-This plugin's schemas as a YAML schema, for NOMADs that do not run the plugin.
+Schemas of plugins as YAML schemas, for NOMADs that do not run those plugins.
 
-The central NOMAD does not have this plugin or nomad-material-processing. An
-exported upload brings its schemas along as one `.archive.yaml` schema file
-(https://docs.nomad-lab.eu/howto/schemas/define.html), and its entries name
-their sections in that file instead of by Python name.
+The central NOMAD has neither this plugin nor the other plugins of the Oasis
+(nomad-material-processing, laeds_tools, ...). An exported upload brings the
+schemas of its entries along as YAML schema files
+(https://docs.nomad-lab.eu/howto/schemas/define.html), one per plugin:
+'schema/<plugin>.archive.yaml'. Its entries name their sections in those files
+instead of by Python name.
 
-The YAML schema holds every section of the plugin and every section they build
-on from outside NOMAD itself (from nomad-material-processing), so it only relies
-on NOMAD's own sections. It describes the data; the plugin's Python code
-(normalizers, dashboards) does not come along.
+The files hold every section of the schema packages the upload uses and every
+section those build on outside NOMAD itself, so together they rely only on
+NOMAD's own sections. A section in another file is named by its file:
+'../upload/raw/schema/<plugin>.archive.yaml#<section>'. They describe the data;
+the plugins' Python code (normalizers, dashboards) does not come along.
 
 References are written from the definitions, not by rewriting what
 `m_to_dict` writes: NOMAD 2.0 writes a reference quantity's target as a path in
@@ -22,19 +25,21 @@ import re
 import sys
 from dataclasses import dataclass
 from functools import cache
-from importlib.metadata import PackageNotFoundError, version
+from importlib.metadata import PackageNotFoundError, packages_distributions, version
 
 import yaml
 from nomad.metainfo import Reference, Section
 
-__all__ = ['SCHEMA_PATH', 'YamlSchema', 'plugin_yaml_schema', 'yaml_schema']
+__all__ = [
+    'SCHEMA_DIRECTORY',
+    'YamlSchemas',
+    'schema_path',
+    'section_of',
+    'yaml_schemas',
+]
 
-# Where the schema is in an exported upload.
-SCHEMA_PATH = 'schema/differ_pld4e_schemas.archive.yaml'
-
-# Distinct from the plugin's package, which NOMAD registers by name where the
-# plugin runs.
-PACKAGE_NAME = 'differ_pld4e_schemas_yaml'
+# Where the schemas are in an exported upload.
+SCHEMA_DIRECTORY = 'schema'
 
 # A Python name of a definition, as NOMAD writes it ('a.b.Name').
 _PYTHON_NAME = re.compile(r'[A-Za-z_]\w*(?:\.\w+)+')
@@ -44,8 +49,33 @@ _PYTHON_NAME = re.compile(r'[A-Za-z_]\w*(?:\.\w+)+')
 _POSITION_KEYS = ('m_def', 'm_parent_index', 'm_parent_sub_section')
 
 
+def schema_path(plugin: str) -> str:
+    """The YAML schema file of `plugin` (its top-level Python package)."""
+    return f'{SCHEMA_DIRECTORY}/{plugin}.archive.yaml'
+
+
+def _plugin(section: Section) -> str:
+    return section.qualified_name().split('.')[0]
+
+
 def _is_nomad(section: Section) -> bool:
-    return section.qualified_name().split('.')[0] == 'nomad'
+    return _plugin(section) == 'nomad'
+
+
+def section_of(python_name: str) -> Section | None:
+    """
+    The section an entry names by `python_name` (its `m_def`), if any.
+
+    Entries name a section by any module that has it, for example
+    'differ_pld4e_schemas.pld_deposition.SAPLDLogbook'. Only modules that are
+    already imported are looked in: this imports nothing named in an upload.
+    """
+    module_name, _, attribute = python_name.rpartition('.')
+    module = sys.modules.get(module_name)
+    # From the module's namespace: a module's __getattr__ may import.
+    found = vars(module).get(attribute) if module is not None else None
+    definition = getattr(found, 'm_def', None) if isinstance(found, type) else None
+    return definition if isinstance(definition, Section) else None
 
 
 def _depends_on(section: Section) -> list[Section]:
@@ -60,15 +90,15 @@ def _depends_on(section: Section) -> list[Section]:
     return names
 
 
-def _sections(package) -> list[Section]:
+def _sections(packages: list) -> list[Section]:
     """
-    The sections of `package` and those they build on outside NOMAD, each after
+    The sections of `packages` and those they build on outside NOMAD, each after
     its base sections.
 
     NOMAD sets up the sections of a YAML schema in the order they are written,
     and a section inherits what its base sections have when it is set up.
     """
-    found = list(package.section_definitions)
+    found = [section for package in packages for section in package.section_definitions]
     included = {id(section) for section in found}
     index = 0
     while index < len(found):
@@ -94,26 +124,27 @@ def _sections(package) -> list[Section]:
     return ordered
 
 
-def _names(sections: list[Section], package) -> dict[int, str]:
+def _names(sections: list[Section], packages: list) -> dict[int, str]:
     """
-    The name of each section in the YAML schema.
+    The name of each section in the file of its plugin.
 
-    The package's own sections keep theirs. A section from elsewhere is renamed
-    after its module where the name is taken (the plugin's PLDTarget extends
-    nomad-material-processing's PLDTarget, which becomes 'pld_PLDTarget').
+    The sections of `packages` keep theirs. A section that builds on is renamed
+    after its module where the name is taken in its file.
     """
-    own = list(package.section_definitions)
+    own = [section for package in packages for section in package.section_definitions]
     own_ids = {id(section) for section in own}
     names: dict[int, str] = {}
-    taken: set[str] = set()
+    taken: set[tuple[str, str]] = set()
     for section in own + [s for s in sections if id(s) not in own_ids]:
-        name = section.name
-        if name in taken:
+        plugin, name = _plugin(section), section.name
+        if (plugin, name) in taken:
             module = section.qualified_name().rsplit('.', 2)[-2]
             name = f'{module}_{name}'
-        if name in taken:
-            raise ValueError(f'Two sections would be called {name} in the YAML schema.')
-        taken.add(name)
+        if (plugin, name) in taken:
+            raise ValueError(
+                f'Two sections would be called {name} in the YAML schema of {plugin}.'
+            )
+        taken.add((plugin, name))
         names[id(section)] = name
     return names
 
@@ -136,16 +167,19 @@ def _by_name(items: list[dict], definitions) -> dict[str, dict]:
 
 
 class _Writer:
-    def __init__(self, sections: list[Section], package):
-        self.sections = sections
-        self.names = _names(sections, package)
+    def __init__(self, sections: list[Section], packages: list):
+        self.names = _names(sections, packages)
 
-    def reference(self, section: Section) -> str:
-        if id(section) in self.names:
-            return self.names[id(section)]
+    def reference(self, section: Section, plugin: str) -> str:
+        """`section` as the file of `plugin` refers to it."""
         if _is_nomad(section):
             return section.qualified_name()
-        raise ValueError(f'{section.qualified_name()} is not in the YAML schema.')
+        if id(section) not in self.names:
+            raise ValueError(f'{section.qualified_name()} is not in a YAML schema.')
+        name = self.names[id(section)]
+        if _plugin(section) == plugin:
+            return name
+        return f'../upload/raw/{schema_path(_plugin(section))}#{name}'
 
     def section(self, section: Section) -> dict:
         if section.inner_section_definitions:
@@ -154,11 +188,12 @@ class _Writer:
                 f'{section.qualified_name()} has inner sections, which the YAML '
                 f'schema does not support.'
             )
+        plugin = _plugin(section)
         result = _without_position(section.m_to_dict(with_meta=False))
         del result['name']
         if section.base_sections:
             result['base_sections'] = [
-                self.reference(base) for base in section.base_sections
+                self.reference(base, plugin) for base in section.base_sections
             ]
         if section.quantities:
             result['quantities'] = _by_name(result['quantities'], section.quantities)
@@ -167,7 +202,7 @@ class _Writer:
                     if not isinstance(quantity.type.target_section_def, Section):
                         raise ValueError(f'{quantity} refers to a quantity.')
                     result['quantities'][quantity.name]['type']['type_data'] = (
-                        self.reference(quantity.type.target_section_def)
+                        self.reference(quantity.type.target_section_def, plugin)
                     )
         if section.sub_sections:
             result['sub_sections'] = _by_name(
@@ -175,7 +210,7 @@ class _Writer:
             )
             for sub_section in section.sub_sections:
                 result['sub_sections'][sub_section.name]['sub_section'] = (
-                    self.reference(sub_section.sub_section)
+                    self.reference(sub_section.sub_section, plugin)
                 )
         return result
 
@@ -202,84 +237,93 @@ def _outside_nomad(value, where: str = '') -> list[str]:
     return []
 
 
-def _plugin_version() -> str:
-    try:
-        return version('differ_pld4e_schemas')
-    except PackageNotFoundError:
-        return 'unknown'
+@cache  # installed distributions do not change while NOMAD runs; listing is slow
+def _distributions() -> dict[str, list[str]]:
+    return packages_distributions()
+
+
+def _distribution(plugin: str) -> str:
+    """The installed distribution of `plugin` and its version, e.g. 'x 1.0'."""
+    for name in _distributions().get(plugin, []):
+        try:
+            return f'{name} {version(name)}'
+        except PackageNotFoundError:
+            continue
+    return plugin
+
+
+def _description(plugin: str, own: bool) -> str:
+    distribution = _distribution(plugin)
+    if own:
+        return (
+            f'The schemas of the NOMAD plugin {distribution}, written as a YAML '
+            f'schema so that NOMAD can read these entries without the plugin. It '
+            f"describes the data only: the plugin's code does not run here."
+        )
+    return (
+        f'The sections of {distribution} that the other schemas in this folder '
+        f'build on, written as a YAML schema.'
+    )
 
 
 @dataclass(frozen=True)
-class YamlSchema:
-    """The YAML schema's text, and the name in it of each section it holds."""
+class YamlSchemas:
+    """The YAML schema files by path, and where each section is in them."""
 
-    text: str
-    names: dict[str, str]  # by the section's Python name
+    files: dict[str, str]
+    locations: dict[str, tuple[str, str]]  # by Python name: (path, name)
 
-    def section_name(self, python_name: str) -> str | None:
-        """
-        The name in the schema of the section an entry names by `python_name`
-        (its `m_def`), or None if the schema does not hold it.
-
-        Entries name a section by any module that has it, for example
-        'differ_pld4e_schemas.pld_deposition.SAPLDLogbook'. Only modules that
-        are already imported are looked in: this imports nothing.
-        """
-        if python_name in self.names:
-            return self.names[python_name]
-        module, _, attribute = python_name.rpartition('.')
-        definition = getattr(
-            getattr(sys.modules.get(module), attribute, None), 'm_def', None
-        )
-        if not isinstance(definition, Section):
-            return None
-        return self.names.get(definition.qualified_name())
+    def reference(self, section: Section) -> str:
+        """How an entry names `section`, a section of these schemas, as its `m_def`."""
+        path, name = self.locations[section.qualified_name()]
+        return f'../upload/raw/{path}#{name}'
 
 
-def yaml_schema(package, description: str) -> YamlSchema:
-    """`package` and the sections it builds on outside NOMAD, as a YAML schema."""
-    sections = _sections(package)
-    writer = _Writer(sections, package)
-    definitions = {
-        'name': PACKAGE_NAME,
-        'description': description,
-        'sections': {
-            writer.names[id(section)]: writer.section(section) for section in sections
-        },
+def yaml_schemas(packages: list) -> YamlSchemas:
+    """
+    The schema `packages` and the sections they build on outside NOMAD, as one
+    YAML schema file per plugin.
+    """
+    sections = _sections(packages)
+    writer = _Writer(sections, packages)
+    own_plugins = {
+        _plugin(section)
+        for package in packages
+        for section in package.section_definitions
     }
-    outside = _outside_nomad(definitions, 'definitions')
-    if outside:
-        raise ValueError(
-            'The YAML schema still names definitions outside NOMAD:\n'
-            + '\n'.join(outside)
+    plugins = list(dict.fromkeys(_plugin(section) for section in sections))
+
+    files = {}
+    for plugin in plugins:
+        definitions = {
+            'name': f'{plugin}_yaml',
+            'description': _description(plugin, plugin in own_plugins),
+            'sections': {
+                writer.names[id(section)]: writer.section(section)
+                for section in sections
+                if _plugin(section) == plugin
+            },
+        }
+        outside = _outside_nomad(definitions, schema_path(plugin))
+        if outside:
+            raise ValueError(
+                'The YAML schema still names definitions outside NOMAD:\n'
+                + '\n'.join(outside)
+            )
+        header = (
+            f'# Written when this upload was exported for publication from an\n'
+            f'# Oasis with {_distribution(plugin)}. Entries refer to its sections\n'
+            f"# as '../upload/raw/{schema_path(plugin)}#<section>'.\n"
         )
-    text = yaml.safe_dump(
-        {'definitions': definitions}, sort_keys=False, allow_unicode=True, width=88
-    )
-    names = {
-        section.qualified_name(): writer.names[id(section)] for section in sections
+        files[schema_path(plugin)] = header + yaml.safe_dump(
+            {'definitions': definitions}, sort_keys=False, allow_unicode=True, width=88
+        )
+
+    locations = {
+        section.qualified_name(): (
+            schema_path(_plugin(section)),
+            writer.names[id(section)],
+        )
+        for section in sections
     }
-    return YamlSchema(text=text, names=names)
-
-
-@cache
-def plugin_yaml_schema() -> YamlSchema:
-    """This plugin's schemas as a YAML schema."""
-    from differ_pld4e_schemas.schema_packages.schema_package import m_package
-
-    plugin_version = _plugin_version()
-    description = (
-        f'The schemas of the differ_pld4e_schemas NOMAD plugin {plugin_version} '
-        f'(PLD4Energy lab, DIFFER), written as a YAML schema so that NOMAD can '
-        f'read these entries without the plugin. It includes the sections of '
-        f'nomad-material-processing that they build on. It describes the data '
-        f"only: the plugin's code, which fills in some values and makes the "
-        f'sample entries, does not run here.'
-    )
-    schema = yaml_schema(m_package, description)
-    header = (
-        f'# Written by differ_pld4e_schemas {plugin_version} when this upload was\n'
-        f'# exported for publication. Entries refer to its sections as\n'
-        f"# '../upload/raw/{SCHEMA_PATH}#<section>'.\n"
-    )
-    return YamlSchema(text=header + schema.text, names=schema.names)
+    return YamlSchemas(files=files, locations=locations)

@@ -15,7 +15,7 @@ classifiers = [
 ]
 name = "differ_pld4e_schemas"
 description = "NOMAD schemas and the PLD and sputter logbook dashboards of the PLD4Energy lab at DIFFER"
-version = "0.5.2"
+version = "0.6.0"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
@@ -151,3 +151,5 @@ skip = [".github/*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["tests"]
+# pytest-asyncio warns until it is set; each test gets its own event loop.
+asyncio_default_fixture_loop_scope = "function"

@@ -6,8 +6,9 @@ import {readFileSync} from 'node:fs';
 import {describe, test} from 'node:test';
 
 import {
-  CHART_POINTS, blockMean, chartPlots, decodeExport, niceTicks, readColumns,
+  CHART_POINTS, blockMean, chartPlots, decodeExport, filePlots, niceTicks, readChartData, readColumns, readSp0,
 } from '../../src/differ_pld4e_schemas/dashboards/common/static/charts.js';
+import {pendingToken} from '../../src/differ_pld4e_schemas/dashboards/common/static/files.js';
 
 const parity = JSON.parse(readFileSync(new URL('./fixtures/parity.json', import.meta.url), 'utf8'));
 // As the page reads them: the bytes, decoded like in_situ.decode_export.
@@ -26,6 +27,97 @@ function chartDefinitions() {
   return found;
 }
 const [RHEED_CHART, MIC_CHART] = ['null', ';'].map((d) => chartDefinitions().find((c) => String(c.delimiter) === d));
+const LAEDS_CHART = chartDefinitions().find((c) => c.format === 'sp0');
+const SP0 = 'LAEDS/t90s_d140cm_f1.65A_P1e-8_light-on.sp0';
+
+describe('reading LA-EDS .sp0 spectra (as laeds_tools.parsers.sp0_reader)', () => {
+  test('energy from the calibration in the header, and the counts', () => {
+    const {header, columns: [energy, counts]} = readSp0(exports(SP0));
+    assert.deepEqual(header, ['Energy (keV)', 'Counts']);
+    // As read by laeds_tools: 4096 channels, CalZero 0 and CalGain 5 eV.
+    assert.equal(counts.length, 4096);
+    assert.equal(counts.reduce((a, b) => a + b, 0), 873943);
+    assert.equal(Math.max(...counts), 32441);
+    assert.equal(counts.indexOf(32441), 351);
+    assert.equal(energy[0], 0);
+    assert.equal(energy[351], 1.755);
+    assert.equal(energy[4095], 20.475);
+  });
+
+  test('a calibration offset, or the gain as eV per Channel', () => {
+    const sp0 = (header) => `Iridium V5.13\nSpectrum\n"Name","kV"\n"x",30\n${header}"Number of Channels",3\n 1\n 2\n 3\n`;
+    const offset = readSp0(sp0('"***EnergyCalibrationInformation***",1\n"CalZero",-100\n"CalGain",10\n"***EndEnergyCalibrationInformation***"\n'));
+    assert.deepEqual(offset.columns, [[-0.1, -0.09, -0.08], [1, 2, 3]]);
+    assert.deepEqual(readSp0(sp0('"eV per Channel",20\n')).columns[0], [0, 0.02, 0.04]);
+  });
+
+  test('broken files are reported', () => {
+    assert.throws(() => readSp0('Time (s);x\n1;2'), /not an Iridium .sp0 file/);
+    const sp0 = (rest) => `Iridium V5.13\n"Name"\n"x"\n${rest}`;
+    assert.throws(() => readSp0(sp0('"Number of Channels",2\n 1\n 2\n')), /no energy calibration/);
+    // A CalGain outside the calibration block is not the calibration (as in laeds_tools).
+    assert.throws(() => readSp0(sp0('"CalGain",5\n"Number of Channels",2\n 1\n 2\n')), /no energy calibration/);
+    assert.throws(() => readSp0(sp0('"eV per Channel",5\n"Number of Channels",3\n 1\n 2\n')), /header says 3 channels but found 2/);
+    assert.throws(() => readSp0(sp0('"eV per Channel",5\n 1\n 2.5\n')), /line 6 is not a count/);
+    assert.throws(() => readSp0(sp0('"eV per Channel",5\n"Number of Channels",0\n')), /no counts in the file/);
+  });
+
+  test('keys from the file do not reach object prototypes', () => {
+    const sp0 = 'Iridium V5.13\r\n"Name"\r\n"x"\r\n"***__proto__***",1\r\n"polluted",5\r\n"***End__proto__***"\r\n'
+      + '"__proto__",7\r\n"eV per Channel",10\r\n 4\r\n 6\r\n';
+    assert.deepEqual(readSp0(sp0).columns, [[0, 0.01], [4, 6]]);
+    assert.equal(/** @type {any} */ ({}).polluted, undefined);
+  });
+
+  test('the LA-EDS chart plots the spectrum against the energy', () => {
+    assert.equal(LAEDS_CHART.x_unit, 'keV');
+    const [plot, ...more] = chartPlots(LAEDS_CHART, readChartData(LAEDS_CHART, exports(SP0)));
+    assert.equal(more.length, 0);
+    assert.equal(plot.xTitle, 'Energy (keV)');
+    assert.equal(plot.yTitle, 'Intensity (counts)');
+    assert.deepEqual(plot.series.map((s) => s.name), ['Counts']);
+    // 4096 channels, averaged in blocks of 5.
+    assert.equal(plot.x.length, 820);
+    assert.ok(Math.abs(plot.x[1] - 0.035) < 1e-12);
+  });
+});
+
+describe('the plots of a field\'s files', () => {
+  const rheed = () => readFileSync(new URL('../data/exports/RHEED/step1.txt', import.meta.url));
+
+  test('a file still to be uploaded is read in the browser', async () => {
+    const file = {arrayBuffer: async () => rheed()};
+    const sources = {pendingFiles: {a1: file}, uploadId: null, readRaw: () => assert.fail('not from NOMAD')};
+    const plots = await filePlots(RHEED_CHART, pendingToken('a1', 'step1.txt'), sources);
+    assert.deepEqual(plots[0].series.map((s) => s.name), ['ROI 1', 'ROI 2', 'ROI 3']);
+    assert.equal(plots[0].xTitle, 'Time (s)');
+  });
+
+  test('a saved file is read from NOMAD once', async () => {
+    const reads = [];
+    const sources = {pendingFiles: {}, uploadId: 'up1', readRaw: async (upload, path) => { reads.push([upload, path]); return rheed(); }};
+    const first = await filePlots(RHEED_CHART, 'rheed/step1.txt', sources);
+    const again = await filePlots(RHEED_CHART, 'rheed/step1.txt', sources);
+    assert.equal(again, first);
+    assert.deepEqual(reads, [['up1', 'rheed/step1.txt']]);
+  });
+
+  test('a file that could not be read is tried again', async () => {
+    let fail = true;
+    const sources = {pendingFiles: {}, uploadId: 'up2', readRaw: async () => {
+      if (fail) throw new Error('HTTP 503');
+      return rheed();
+    }};
+    await assert.rejects(filePlots(RHEED_CHART, 'step1.txt', sources), /HTTP 503/);
+    fail = false;
+    assert.equal((await filePlots(RHEED_CHART, 'step1.txt', sources)).length, 1);
+  });
+
+  test('a file in neither place is reported', async () => {
+    await assert.rejects(filePlots(RHEED_CHART, pendingToken('gone', 'x.txt'), {pendingFiles: {}, uploadId: null}),
+      /neither in this browser nor saved in NOMAD/);
+  });
+});
 
 describe('reading exported text files (as in_situ.read_columns)', () => {
   test('a header line, then columns of numbers', () => {
@@ -79,6 +171,11 @@ describe('plots', () => {
     assert.equal(plots[0].x[0], 0.0100000000002183);
     assert.equal(plots[0].series[1].values[0], 0.870112194638309);
     assert.equal(plots[1].series[0].values[0], 14.6924654976594);
+  });
+
+  test('a series without numbers is left out', () => {
+    const [plot] = chartPlots(RHEED_CHART, {header: null, columns: [[0, 1], [NaN, NaN], [1, 2]]});
+    assert.deepEqual(plot.series.map((s) => s.name), ['ROI 2']);
   });
 
   test('a file without the expected columns is reported', () => {

@@ -6,9 +6,12 @@
  *
  * It only knows what the report needs: text in the standard Helvetica fonts
  * (which every PDF reader has, so nothing is embedded), wrapped to the page
- * width, horizontal rules and page numbers. Characters outside the Windows
- * Latin-1 character set are printed as "?".
+ * width, horizontal rules, line charts of the plotted data files (drawn as
+ * vector graphics, like the page's charts.js) and page numbers. Characters
+ * outside the Windows Latin-1 character set are printed as "?".
  */
+import {SERIES_COLORS, niceTicks} from './charts.js';
+import {formatNumber} from './util.js';
 
 /* Character widths of Helvetica and Helvetica-Bold (per 1000 units), ' ' to '~'. */
 const PDF_WIDTHS = {
@@ -111,9 +114,36 @@ const PDF_STYLES = {
   row: {font: 'regular', size: 9.5, grey: 0, before: 0, after: 1.5},
 };
 
+/* How a chart is set: font sizes, and the height of its plot area. */
+const PDF_CHART = {title: 9.5, caption: 8, tick: 7.5, label: 8.5, legend: 8, plot: 170, before: 10, after: 8};
+
+/* A colour '#rrggbb' as PDF RGB values. */
+function pdfRgb(hex) {
+  return [1, 3, 5].map((i) => (parseInt(hex.slice(i, i + 2), 16) / 255).toFixed(3)).join(' ');
+}
+
+/* The legend of a chart's series, packed into lines: [[{name, x, colour}]]. */
+function pdfLegend(series, width) {
+  const lines = [[]];
+  let x = 0;
+  series.forEach((s, i) => {
+    const name = pdfEncode(s.name);
+    const itemWidth = 11 + pdfTextWidth(name, 'regular', PDF_CHART.legend) + 14;
+    if (x && x + itemWidth > width) {
+      lines.push([]);
+      x = 0;
+    }
+    lines[lines.length - 1].push({name, x, colour: pdfRgb(SERIES_COLORS[i % SERIES_COLORS.length])});
+    x += itemWidth;
+  });
+  return lines;
+}
+
 /*
  * The report as a PDF. `blocks` is a list of {kind, text} with the kinds of
- * PDF_STYLES; a `row` has a `label` and a `value` in two columns instead.
+ * PDF_STYLES; a `row` has a `label` and a `value` in two columns instead; a
+ * `chart` is a plot of charts.js's chartPlots ({title, xTitle, yTitle, x,
+ * series: [{name, values}]}) with a `caption` (its file).
  */
 export function makePdf(blocks, title) {
   const page = {width: 595.28, height: 841.89, margin: 50};
@@ -132,8 +162,93 @@ export function makePdf(blocks, title) {
     ops.push(`BT /${style.font === 'bold' ? 'F2' : 'F1'} ${style.size} Tf ${colour} `
       + `${x.toFixed(2)} ${y.toFixed(2)} Td ${pdfString(line)} Tj ET`);
   };
+  const chart = (block) => {
+    const c = PDF_CHART;
+    const titleLines = pdfWrap(block.title, 'bold', c.title, width);
+    const captionLines = block.caption ? pdfWrap(block.caption, 'regular', c.caption, width) : [];
+    const legend = block.series.length > 1 ? pdfLegend(block.series, width) : [];
+    const textHeight = titleLines.length * c.title * 1.25 + (captionLines.length + legend.length) * c.caption * 1.4;
+    // Below the plot area: the x tick labels and the x title.
+    const height = c.before + textHeight + 12 + c.plot + 28 + c.after;
+    if (y - height < page.margin && y < page.height - page.margin) newPage();
+    if (y < page.height - page.margin) y -= c.before;
+    const lines = (list, font, size, grey, leading) => list.forEach((line) => {
+      y -= leading;
+      text(line, page.margin, {font, size, grey});
+    });
+    lines(titleLines, 'bold', c.title, 0, c.title * 1.25);
+    lines(captionLines, 'regular', c.caption, 0.35, c.caption * 1.4);
+    for (const items of legend) {
+      y -= c.caption * 1.4;
+      for (const item of items) {
+        const x = page.margin + item.x;
+        ops.push(`${item.colour} rg ${x.toFixed(2)} ${(y + 0.5).toFixed(2)} 8 5 re f`);
+        text(item.name, x + 11, {font: 'regular', size: c.legend, grey: 0});
+      }
+    }
+
+    // The plot area, scaled as in charts.js's lineChart.
+    const {x: xs, series} = block;
+    const all = series.flatMap((s) => s.values).filter(Number.isFinite);
+    let [yMin, yMax] = [Math.min(...all), Math.max(...all)];
+    if (yMin === yMax) [yMin, yMax] = [yMin - 1, yMax + 1];
+    const yTicks = niceTicks(yMin, yMax, 5, true);
+    [yMin, yMax] = [yTicks[0], yTicks[yTicks.length - 1]];
+    const [xMin, xMax] = [xs[0], xs[xs.length - 1]];
+    const top = y - 12;
+    const bottom = top - c.plot;
+    const left = page.margin + 50;
+    const right = page.margin + width - 6;
+    const sx = (v) => left + ((v - xMin) / (xMax - xMin || 1)) * (right - left);
+    const sy = (v) => bottom + ((v - yMin) / (yMax - yMin)) * (top - bottom);
+    const label = (value, x, at, align) => {
+      const line = pdfEncode(value);
+      const shift = {left: 0, middle: 0.5, right: 1}[align] * pdfTextWidth(line, 'regular', c.tick);
+      y = at;
+      text(line, x - shift, {font: 'regular', size: c.tick, grey: 0.3});
+    };
+    for (const t of yTicks) {
+      ops.push(`0.88 G 0.4 w ${left} ${sy(t).toFixed(2)} m ${right} ${sy(t).toFixed(2)} l S`);
+      label(formatNumber(t), left - 5, sy(t) - c.tick * 0.35, 'right');
+    }
+    ops.push(`0.45 G 0.6 w ${left} ${bottom.toFixed(2)} m ${right} ${bottom.toFixed(2)} l S`);
+    for (const t of niceTicks(xMin, xMax, 6)) {
+      ops.push(`0.45 G 0.6 w ${sx(t).toFixed(2)} ${bottom.toFixed(2)} m ${sx(t).toFixed(2)} ${(bottom - 3).toFixed(2)} l S`);
+      label(formatNumber(t), sx(t), bottom - 12, 'middle');
+    }
+    const xTitle = pdfEncode(block.xTitle);
+    y = bottom - 25;
+    text(xTitle, (left + right) / 2 - pdfTextWidth(xTitle, 'regular', c.label) / 2, {font: 'regular', size: c.label, grey: 0});
+    // The y title, turned a quarter to read upwards.
+    const yTitle = pdfEncode(block.yTitle);
+    const middle = (top + bottom) / 2 - pdfTextWidth(yTitle, 'regular', c.label) / 2;
+    ops.push(`BT /F1 ${c.label} Tf 0 g 0 1 -1 0 ${(page.margin + 8).toFixed(2)} ${middle.toFixed(2)} Tm ${pdfString(yTitle)} Tj ET`);
+    // The lines, broken where a value is missing.
+    series.forEach((s, i) => {
+      let path = '';
+      let pen = 'm';
+      s.values.forEach((v, j) => {
+        if (!Number.isFinite(v)) { pen = 'm'; return; }
+        path += `${sx(xs[j]).toFixed(2)} ${sy(v).toFixed(2)} ${pen}\n`;
+        pen = 'l';
+      });
+      // In q ... Q, so the round joins and caps stay with the lines.
+      if (path) ops.push(`q ${pdfRgb(SERIES_COLORS[i % SERIES_COLORS.length])} RG 0.8 w 1 j 1 J\n${path}S Q`);
+    });
+    y = bottom - 28 - c.after;
+  };
+
   newPage();
   blocks.forEach((block, index) => {
+    if (block.kind === 'chart') {
+      // Without a number to draw, the axes could not be scaled.
+      const drawable = block.x.length && block.series.some((s) => s.values.some(Number.isFinite));
+      if (drawable) {
+        chart(block);
+        return;
+      }
+      block = {kind: 'note', text: `${block.title}${block.caption ? ` (${block.caption})` : ''}: no data to plot.`};
+    }
     const style = PDF_STYLES[block.kind];
     const leading = style.size * 1.25;
     let left;

@@ -197,6 +197,11 @@ into a report and downloads it as a PDF file, named after the run. The report
 lists every section and step with the values that apply, in lab units. Sections
 the steps do not need are left out.
 
+The data files the dashboard plots (RHEED ROI intensities, MIC curvature, LA-EDS
+`.sp0` spectra) are plotted in the report as well, under the files they come
+from. Saved files are read from NOMAD for this, also those you have not plotted
+on the page; a file that cannot be read is named in the report instead.
+
 Any logbook can be exported, saved or not. Unless it is a complete logbook that
 was saved to NOMAD, the report says **DRAFT / INCOMPLETE: this is not a logged
 logbook** at the top, with the number of things still missing. The PDF is saved

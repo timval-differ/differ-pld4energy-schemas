@@ -7,6 +7,7 @@ import io
 import json
 import logging
 import zipfile
+from contextlib import contextmanager
 from http import HTTPStatus
 from types import SimpleNamespace
 
@@ -25,7 +26,6 @@ from differ_pld4e_schemas.dashboards.publication.jobs import (
 )
 from differ_pld4e_schemas.dashboards.publication.source import NomadFilesSource
 from differ_pld4e_schemas.snapshot import SnapshotError, build_snapshot
-from differ_pld4e_schemas.yaml_schema import SCHEMA_PATH
 
 # NOMAD's login check needs NOMAD's server modules, which are installed with
 # NOMAD's infrastructure extras (as in nomad-distro-dev) but not in CI. All
@@ -194,10 +194,21 @@ class _Files:
     def close(self):
         pass
 
+    @contextmanager
+    def read_archive(self, entry_id):
+        """As if processing left the data of each file as it is."""
+        path = entry_id.removeprefix('id-')
+        if path not in self.files:
+            raise KeyError(entry_id)
+        yield {entry_id: json.loads(self.files[path] or b'{}')}
 
-def _entry(path, mainfile_key=None):
+
+def _entry(path, mainfile_key=None, process_status='SUCCESS'):
     return SimpleNamespace(
-        entry_id=f'id-{path}', mainfile=path, mainfile_key=mainfile_key
+        entry_id=f'id-{path}',
+        mainfile=path,
+        mainfile_key=mainfile_key,
+        process_status=process_status,
     )
 
 
@@ -240,7 +251,11 @@ def uploads():
         )
 
     return SimpleNamespace(
-        files=files, readers=readers, read_access=read_access, entries=entries.get
+        files=files,
+        readers=readers,
+        read_access=read_access,
+        entries=lambda upload_id: entries[upload_id],
+        entry_lists=entries,
     )
 
 
@@ -275,9 +290,54 @@ def test_a_reference_into_an_upload_the_user_cannot_see_stops_the_export(uploads
         }
     )
     uploads.readers['bobs'] = {'bob'}
+    uploads.entry_lists['bobs'] = [_entry('b.archive.json')]
     with pytest.raises(SnapshotError, match='Cannot read upload private'):
         build_snapshot('bobs', _source(uploads, BOB))
     assert uploads.files['private'].opened == 0
+
+
+def test_source_reads_the_data_nomad_stored(uploads, tmp_path):
+    """From an archive file as NOMAD writes and reads it."""
+    from nomad.archive import read_archive, write_archive
+
+    stored = {
+        'm_def': 'differ_pld4e_schemas.schema_packages.schema_package.Sample',
+        'm_def_id': 'abc',
+        'name': 'S1',
+        'layers': [{'thickness': 2e-8}],
+    }
+    path = tmp_path / 'id-a.archive.json.msg'
+    write_archive(str(path), {'id-a.archive.json': {'data': stored, 'metadata': {}}})
+
+    @contextmanager
+    def from_disk(entry_id):
+        with read_archive(str(path)) as archive:
+            yield archive
+
+    uploads.files['mine'].read_archive = from_disk
+    assert _source(uploads, ALICE).processed_data('mine', 'a.archive.json') == stored
+
+
+def test_source_reads_no_data_of_entries_nomad_could_not_process(uploads):
+    uploads.entry_lists['mine'] = [_entry('a.archive.json', process_status='FAILURE')]
+    with pytest.raises(SnapshotError, match='could not process.*FAILURE'):
+        _source(uploads, ALICE).processed_data('mine', 'a.archive.json')
+    uploads.entry_lists['mine'] = [_entry('a.archive.json', process_status='RUNNING')]
+    with pytest.raises(SnapshotError, match='still processing'):
+        _source(uploads, ALICE).processed_data('mine', 'a.archive.json')
+    with pytest.raises(SnapshotError, match='no entry'):
+        _source(uploads, ALICE).processed_data('mine', 'other.archive.json')
+
+
+def test_source_reports_an_entry_without_a_stored_archive(uploads):
+    @contextmanager
+    def missing(entry_id):
+        raise KeyError(entry_id)
+        yield
+
+    uploads.files['mine'].read_archive = missing
+    with pytest.raises(SnapshotError, match='stored no archive'):
+        _source(uploads, ALICE).processed_data('mine', 'a.archive.json')
 
 
 def test_export_follows_references_into_readable_uploads(uploads):
@@ -285,7 +345,6 @@ def test_export_follows_references_into_readable_uploads(uploads):
     assert sorted(files) == [
         'a.archive.json',
         'referenced/database/t.archive.json',
-        SCHEMA_PATH,
     ]
 
 
@@ -330,7 +389,6 @@ def test_export_through_the_dashboard(client):
         assert sorted(archive.namelist()) == [
             'a.archive.json',
             'referenced/database/t.archive.json',
-            SCHEMA_PATH,
         ]
 
     # Another user knows nothing of it.

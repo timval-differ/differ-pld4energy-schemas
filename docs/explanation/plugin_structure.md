@@ -57,7 +57,7 @@ differ-pld4energy-schemas/
 │   │   database.py,             the target and substrate database upload,
 │   │   references.py            comparing and copying references
 │   ├── snapshot.py              self-contained copy of an upload for publication
-│   ├── yaml_schema.py           the schemas as a YAML schema, for the copy
+│   ├── yaml_schema.py           the plugins' schemas as YAML schemas, for the copy
 │   └── dashboards/
 │       ├── __init__.py          the three dashboard entry points
 │       ├── pld_logbook/         PLD dashboard: spec.py, rules.py, convert.py, app.py
@@ -329,8 +329,16 @@ the same paths as on disk below `dashboards/`, so the imports in
   it reads through a `Source` (here `source.py`; in the tests, uploads in
   memory) and fails with every problem listed rather than make a ZIP with
   references that lead nowhere.
-- **The schemas** come along as a YAML schema from `yaml_schema.py`, made from
-  the definitions at export time. NOMAD 2.0's `m_to_dict` writes a reference
+- **The processed data** of each archive comes from the archive NOMAD stored
+  for its entry (`source.py`, `upload_files.read_archive`). An archive file
+  whose entry failed, or has no stored data, stops the export: falling back to
+  the file would put an entry on the central NOMAD without its values.
+- **The schemas** come along as YAML schemas from `yaml_schema.py`, one file
+  per plugin, made at export time from the schema packages the entries use.
+  The sections are found by their `m_def`s among the modules NOMAD has
+  imported, so nothing named in an upload is imported. A section in another
+  plugin's file is named by its file (`../upload/raw/schema/<plugin>.archive.yaml#<section>`).
+  NOMAD 2.0's `m_to_dict` writes a reference
   quantity's target as a path in the target's own package, which inside
   another package names the wrong section. `yaml_schema.py` therefore writes
   every reference from the definition objects, not from those paths. It writes
@@ -356,8 +364,8 @@ the same paths as on disk below `dashboards/`, so the imports in
 | `tests/dashboards/test_dashboard_input.py` | Which files a save may overwrite. |
 | `tests/dashboards/test_malformed_input.py` | Malformed requests get a 400, 422 or a 200 listing the problems, never a 500. |
 | `tests/dashboards/test_page.py` | The page, versioned and revalidated static files, no blocked dialogs. |
-| `tests/test_snapshot.py` | The copy for publication: which entries are copied, how references and `m_def`s are rewritten (checked with NOMAD's own `parse_path`), and every reference that cannot be kept working. |
-| `tests/test_yaml_schema.py` | The YAML schema: every section matches the plugin's, it names nothing outside NOMAD, and exported examples read the same in a NOMAD without this plugin or nomad-material-processing. |
+| `tests/test_snapshot.py` | The copy for publication: which entries are copied, the processed data in the archives, how references and `m_def`s are rewritten (checked with NOMAD's own `parse_path`), and every reference that cannot be kept working. |
+| `tests/test_yaml_schema.py` | The YAML schemas: one file per plugin, every section matches its Python definition, they name nothing outside NOMAD and each other, and exported examples (and a spectrum of another plugin, `tests/helpers/eds_plugin.py`) read the same in a NOMAD without the plugins. |
 | `tests/dashboards/test_publication_dashboard.py` | The publication dashboard: exports in the background, seen only by their user, no files of uploads the user cannot read. |
 | `tests/helpers/` | Shared by the tests: the complete forms (`pld_forms`, `sputter_forms`), the entries they refer to (`database`), and `nomad_harness`, which processes a file like a NOMAD server without mongo or Elasticsearch. `tests/` is on the pytest `pythonpath`. |
 | `tests/js/*.test.js` | The scripts: `rules`, `parity`, `charts`, `nomad-api`, `pdf`. |

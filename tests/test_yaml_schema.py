@@ -1,6 +1,7 @@
 """
-The plugin's schemas as a YAML schema: what an exported upload brings along so
-that a NOMAD without this plugin or nomad-material-processing can read it.
+Schemas of plugins as YAML schemas, one file per plugin: what an exported
+upload brings along so that a NOMAD without this plugin, nomad-material-
+processing or the other plugins of the Oasis can read it.
 """
 
 import json
@@ -12,50 +13,119 @@ from pathlib import Path
 
 import pytest
 import yaml
+from helpers import eds_plugin
 from nomad.datamodel import EntryArchive
+from nomad.datamodel.context import ClientContext
 from nomad.metainfo import Reference
 
+from differ_pld4e_schemas.schema_packages.schema_package import m_package
 from differ_pld4e_schemas.snapshot import build_snapshot
-from differ_pld4e_schemas.yaml_schema import (
-    PACKAGE_NAME,
-    SCHEMA_PATH,
-    plugin_yaml_schema,
-)
+from differ_pld4e_schemas.yaml_schema import schema_path, section_of, yaml_schemas
 
 EXAMPLES = sorted((Path(__file__).parent / 'data').glob('*.archive.yaml'))
 assert EXAMPLES, 'the examples in tests/data are missing'
 
+OWN = schema_path('differ_pld4e_schemas')
+NMP = schema_path('nomad_material_processing')
+EDS = schema_path('helpers')
+
 
 @pytest.fixture(scope='module')
-def schema():
-    return plugin_yaml_schema()
+def schemas():
+    return yaml_schemas([m_package, eds_plugin.m_package])
 
 
-@pytest.fixture(scope='module')
-def yaml_sections(schema):
-    """The sections of the YAML schema, as NOMAD reads them, by name."""
+def _write(files, directory):
+    for path, content in files.items():
+        (directory / path).parent.mkdir(parents=True, exist_ok=True)
+        data = content.encode() if isinstance(content, str) else content
+        (directory / path).write_bytes(data)
+
+
+def _read(directory, path):
+    """An archive of `directory`, read as NOMAD reads a file of an upload."""
     with warnings.catch_warnings():
-        warnings.simplefilter('ignore')
-        archive = EntryArchive.m_from_dict(yaml.safe_load(schema.text))
-        # As NOMAD does with a schema package it loads (nomad.schemas).
-        archive.definitions.init_metainfo()
-    return {
-        section.name: section for section in archive.definitions.section_definitions
-    }
+        # NOMAD 2.0 warns about every sub-section of a YAML section that holds a
+        # section derived from the one it is defined with.
+        warnings.filterwarnings('ignore', 'is not derived from its definition')
+        return EntryArchive.m_from_dict(
+            yaml.safe_load((directory / path).read_text(encoding='utf-8')),
+            m_context=ClientContext(local_dir=str(directory), auth=object()),
+        )
 
 
-def _python_sections(schema):
-    """The sections the YAML schema holds, as the plugin defines them, by YAML name."""
-    from differ_pld4e_schemas.schema_packages.schema_package import m_package
-
+@pytest.fixture(scope='module')
+def yaml_sections(schemas, tmp_path_factory):
+    """The sections of the YAML schemas, as NOMAD reads them, by (file, name)."""
+    directory = tmp_path_factory.mktemp('upload')
+    _write(schemas.files, directory)
     sections = {}
-    todo = list(m_package.section_definitions)
+    for path in schemas.files:
+        definitions = _read(directory, path).definitions
+        for section in definitions.section_definitions:
+            # Sets the section up after its bases, as reading data of it does.
+            assert section.section_cls is not None
+            sections[path, section.name] = section
+    return sections
+
+
+def _location(section):
+    """A section of a YAML schema by (file, name); NOMAD's by Python name."""
+    package, _, name = section.qualified_name().rpartition('.')
+    if package.endswith('_yaml'):
+        return schema_path(package.removesuffix('_yaml')), name
+    return section.qualified_name()
+
+
+def test_one_schema_file_per_plugin(schemas):
+    assert sorted(schemas.files) == sorted([OWN, NMP, EDS])
+
+
+def test_schemas_rely_only_on_nomad_and_each_other(schemas):
+    for path, text in schemas.files.items():
+        # Plugins may be named only in prose and in the schema files' names.
+        outside = re.findall(
+            r'(?<![/\w])(?:differ_pld4e_schemas|nomad_material_processing|helpers)'
+            r'\.(?!archive\.yaml)\w+',
+            text,
+        )
+        assert outside == [], path
+        assert '/section_definitions/' not in text, path
+        for name in set(re.findall(r'\bnomad(?:\.\w+)+', text)):
+            assert name.startswith(('nomad.datamodel.', 'nomad.metainfo.')), name
+
+
+def test_sections_of_other_files_are_named_by_their_file(schemas):
+    own = yaml.safe_load(schemas.files[OWN])['definitions']['sections']
+    # The plugin has a PLDTarget too, which extends nomad-material-processing's.
+    assert f'../upload/raw/{NMP}#PLDTarget' in own['PLDTarget']['base_sections']
+    eds = yaml.safe_load(schemas.files[EDS])['definitions']['sections']
+    assert eds['Spectrum']['quantities']['sample']['type']['type_data'] == (
+        f'../upload/raw/{OWN}#Sample'
+    )
+
+
+def test_sections_are_found_by_any_module_that_has_them():
+    assert (
+        section_of('differ_pld4e_schemas.pld_deposition.SAPLDLogbook')
+        is (m_package.all_definitions['SAPLDLogbook'])
+    )
+    assert section_of('differ_pld4e_schemas.gone.SAPLDLogbook') is None
+    assert section_of('not_imported_module.Thing') is None
+
+
+def _python_sections(schemas):
+    """The sections the YAML schemas hold, as Python defines them, by (file, name)."""
+    sections = {}
+    todo = list(m_package.section_definitions) + list(
+        eds_plugin.m_package.section_definitions
+    )
     while todo:
         section = todo.pop()
-        name = schema.names.get(section.qualified_name())
-        if name is None or name in sections:
+        location = schemas.locations.get(section.qualified_name())
+        if location is None or location in sections:
             continue
-        sections[name] = section
+        sections[location] = section
         todo += section.base_sections
         todo += [sub_section.sub_section for sub_section in section.sub_sections]
         todo += [
@@ -64,43 +134,6 @@ def _python_sections(schema):
             if isinstance(quantity.type, Reference)
         ]
     return sections
-
-
-def test_schema_relies_only_on_nomad(schema):
-    # Other packages may be named only in prose and in the schema's own file name.
-    outside = re.findall(
-        r'(?:differ_pld4e_schemas|nomad_material_processing)\.(?!archive\.yaml)\w+',
-        schema.text,
-    )
-    assert outside == []
-    assert '/section_definitions/' not in schema.text
-    names = set(re.findall(r'\bnomad(?:\.\w+)+', schema.text))
-    for name in names:
-        assert name.startswith(('nomad.datamodel.', 'nomad.metainfo.')), name
-
-
-def test_schema_holds_nomad_material_processing_sections(schema, yaml_sections):
-    assert (
-        schema.section_name(
-            'nomad_material_processing.vapor_deposition.pvd.pld.PulsedLaserDeposition'
-        )
-        == 'PulsedLaserDeposition'
-    )
-    # The plugin has a PLDTarget too, which extends this one.
-    plugin_target = 'differ_pld4e_schemas.schema_packages.schema_package.PLDTarget'
-    nmp_target = 'nomad_material_processing.vapor_deposition.pvd.pld.PLDTarget'
-    assert schema.section_name(plugin_target) == 'PLDTarget'
-    assert schema.section_name(nmp_target) == 'pld_PLDTarget'
-    bases = [base.name for base in yaml_sections['PLDTarget'].base_sections]
-    assert 'pld_PLDTarget' in bases
-
-
-def test_sections_are_named_by_any_module_that_has_them(schema):
-    assert schema.section_name('differ_pld4e_schemas.pld_deposition.SAPLDLogbook') == (
-        'SAPLDLogbook'
-    )
-    assert schema.section_name('differ_pld4e_schemas.gone.SAPLDLogbook') is None
-    assert schema.section_name('nomad.datamodel.data.EntryData') is None
 
 
 def _annotations(definition):
@@ -120,25 +153,19 @@ def _annotations(definition):
     return result
 
 
-def _yaml_name(section):
-    """A section of the YAML schema by its name in it; NOMAD's by Python name."""
-    qualified = section.qualified_name()
-    return section.name if qualified.startswith(f'{PACKAGE_NAME}.') else qualified
-
-
-def test_yaml_sections_are_those_of_the_plugin(schema, yaml_sections):
-    python = _python_sections(schema)
+def test_yaml_sections_are_those_of_the_plugins(schemas, yaml_sections):
+    python = _python_sections(schemas)
     assert set(python) == set(yaml_sections)
 
-    def python_name(section):
-        """A section of the plugin by the name the YAML schema gives it."""
+    def python_location(section):
         qualified = section.qualified_name()
-        return schema.names.get(qualified, qualified)
+        return schemas.locations.get(qualified, qualified)
 
-    for name, section in python.items():
-        copy = yaml_sections[name]
-        assert [python_name(base) for base in section.all_base_sections] == [
-            _yaml_name(base) for base in copy.all_base_sections
+    for location, section in python.items():
+        copy = yaml_sections[location]
+        name = '#'.join(location)
+        assert [python_location(base) for base in section.all_base_sections] == [
+            _location(base) for base in copy.all_base_sections
         ], name
         assert copy.label == section.label and copy.description == section.description
         assert copy.more == section.more and copy.links == section.links, name
@@ -150,8 +177,8 @@ def test_yaml_sections_are_those_of_the_plugin(schema, yaml_sections):
             where = f'{name}.{key}'
             if isinstance(quantity.type, Reference):
                 assert isinstance(other.type, Reference), where
-                assert python_name(quantity.type.target_section_def) == _yaml_name(
-                    other.type.target_section_def
+                assert python_location(quantity.type.target_section_def) == (
+                    _location(other.type.target_section_def)
                 ), where
             else:
                 assert other.m_to_dict()['type'] == quantity.m_to_dict()['type'], where
@@ -164,12 +191,32 @@ def test_yaml_sections_are_those_of_the_plugin(schema, yaml_sections):
         for key, sub_section in section.all_sub_sections.items():
             other = copy.all_sub_sections[key]
             assert other.repeats == sub_section.repeats, f'{name}.{key}'
-            assert python_name(sub_section.sub_section) == _yaml_name(
+            assert python_location(sub_section.sub_section) == _location(
                 other.sub_section
             ), f'{name}.{key}'
 
 
+def _processed(content: bytes) -> dict:
+    """The data NOMAD stores for an archive, as the plugins read it."""
+    with warnings.catch_warnings():
+        warnings.simplefilter('ignore')
+        return EntryArchive.m_from_dict(yaml.safe_load(content)).m_to_dict()['data']
+
+
+# A spectrum entry of the other plugin, as its normalizer leaves it.
+SPECTRUM = 'eds/spectrum.archive.json'
+SPECTRUM_DATA = {
+    'm_def': 'helpers.eds_plugin.Spectrum',
+    'data_file': 'spectrum.sp0',
+    'settings': {'live_time': 100.0},
+    'energy': [10.0, 20.0, 30.0],
+    'counts': [5, 7, 2],
+}
+
+
 class _OneUpload:
+    """The examples (and the spectrum), as NOMAD processed them."""
+
     def __init__(self, files):
         self.files = files
 
@@ -182,6 +229,17 @@ class _OneUpload:
     def raw_file(self, upload_id, path):
         return self.files[path]
 
+    def processed_data(self, upload_id, path):
+        if path == SPECTRUM:
+            return SPECTRUM_DATA
+        return _processed(self.files[path])
+
+
+def _export(names):
+    files = {example.name: example.read_bytes() for example in EXAMPLES}
+    files[SPECTRUM] = json.dumps({'data': {'data_file': 'spectrum.sp0'}}).encode()
+    return build_snapshot('u', _OneUpload({name: files[name] for name in names}))
+
 
 def _without_m_def(value):
     if isinstance(value, dict):
@@ -191,14 +249,30 @@ def _without_m_def(value):
     return value
 
 
-# Reads exported entries in a NOMAD without this plugin and nomad-material-
-# processing, as the central NOMAD is: neither can be imported, nor are their
-# entry points found. NOMAD reads the schema file as it does in an upload.
+@pytest.mark.parametrize('example', EXAMPLES, ids=lambda path: path.name)
+def test_exported_entries_read_the_same_from_the_schemas(example, tmp_path):
+    files = _export([example.name])
+    _write(files, tmp_path)
+    exported = _read(tmp_path, example.name)
+    with_plugin = EntryArchive.m_from_dict(yaml.safe_load(example.read_text()))
+
+    assert type(exported.data).__module__ == 'nomad.metainfo.metainfo'
+    assert exported.data.m_def.qualified_name() == (
+        f'differ_pld4e_schemas_yaml.{with_plugin.data.m_def.name}'
+    )
+    assert _without_m_def(exported.data.m_to_dict()) == _without_m_def(
+        with_plugin.data.m_to_dict()
+    )
+
+
+# Reads exported entries in a NOMAD without the plugins, as the central NOMAD
+# is: none can be imported, nor are their entry points found. NOMAD reads the
+# schema files as it does in an upload.
 _WITHOUT_PLUGINS = """
 import importlib.abc, importlib.metadata, json, sys, warnings
 import yaml
 
-HIDDEN = ('differ_pld4e_schemas', 'nomad_material_processing')
+HIDDEN = ('differ_pld4e_schemas', 'nomad_material_processing', 'helpers')
 
 class Hide(importlib.abc.MetaPathFinder):
     def find_spec(self, name, path, target=None):
@@ -240,13 +314,8 @@ print(json.dumps(result, default=str))
 
 
 def test_exported_upload_reads_in_a_nomad_without_the_plugins(tmp_path):
-    files = build_snapshot(
-        'u', _OneUpload({example.name: example.read_bytes() for example in EXAMPLES})
-    )
-    for path, content in files.items():
-        (tmp_path / path).parent.mkdir(parents=True, exist_ok=True)
-        (tmp_path / path).write_bytes(content)
-    names = [example.name for example in EXAMPLES]
+    names = [example.name for example in EXAMPLES] + [SPECTRUM]
+    _write(_export(names), tmp_path)
     process = subprocess.run(
         [sys.executable, '-c', _WITHOUT_PLUGINS, str(tmp_path), *names],
         capture_output=True,
@@ -260,34 +329,13 @@ def test_exported_upload_reads_in_a_nomad_without_the_plugins(tmp_path):
     for example in EXAMPLES:
         read = result[example.name]
         with_plugin = EntryArchive.m_from_dict(yaml.safe_load(example.read_text()))
-        assert read['section'] == f'{PACKAGE_NAME}.{with_plugin.data.m_def.name}'
+        assert read['section'] == (
+            f'differ_pld4e_schemas_yaml.{with_plugin.data.m_def.name}'
+        )
         expected = json.loads(json.dumps(with_plugin.data.m_to_dict(), default=str))
         assert _without_m_def(read['data']) == _without_m_def(expected)
 
-
-@pytest.mark.parametrize('example', EXAMPLES, ids=lambda path: path.name)
-def test_exported_entries_read_the_same_without_the_plugin(example, schema):
-    files = build_snapshot('u', _OneUpload({example.name: example.read_bytes()}))
-    exported = yaml.safe_load(files[example.name])
-    assert files[SCHEMA_PATH] == schema.text.encode()
-
-    # Every section is named in the schema file; read it within one archive.
-    prefix = f'../upload/raw/{SCHEMA_PATH}#'
-    text = yaml.safe_dump(exported)
-    assert re.findall(r'm_def: (\S+)', text) and all(
-        m_def.startswith(prefix) for m_def in re.findall(r'm_def: (\S+)', text)
-    )
-    exported = yaml.safe_load(text.replace(prefix, ''))
-    exported['definitions'] = yaml.safe_load(schema.text)['definitions']
-    with warnings.catch_warnings():
-        # NOMAD 2.0 warns about every sub-section of a YAML section that holds a
-        # section derived from the one it is defined with.
-        warnings.filterwarnings('ignore', 'is not derived from its definition')
-        without_plugin = EntryArchive.m_from_dict(exported)
-    with_plugin = EntryArchive.m_from_dict(yaml.safe_load(example.read_text()))
-
-    assert type(without_plugin.data).__module__ == 'nomad.metainfo.metainfo'
-    assert without_plugin.data.m_def.name == with_plugin.data.m_def.name
-    assert _without_m_def(without_plugin.data.m_to_dict()) == _without_m_def(
-        with_plugin.data.m_to_dict()
-    )
+    # What the other plugin's normalizer filled in reads back as values.
+    spectrum = result[SPECTRUM]
+    assert spectrum['section'] == 'helpers_yaml.Spectrum'
+    assert _without_m_def(spectrum['data']) == _without_m_def(SPECTRUM_DATA)

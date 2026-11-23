@@ -28,6 +28,7 @@ assert EXAMPLES, 'the examples in tests/data are missing'
 OWN = schema_path('differ_pld4e_schemas')
 NMP = schema_path('nomad_material_processing')
 EDS = schema_path('helpers')
+LAEDS = schema_path('laeds_tools')
 
 
 @pytest.fixture(scope='module')
@@ -78,7 +79,8 @@ def _location(section):
 
 
 def test_one_schema_file_per_plugin(schemas):
-    assert sorted(schemas.files) == sorted([OWN, NMP, EDS])
+    # laeds_tools: the LA-EDS spectra use its sections.
+    assert sorted(schemas.files) == sorted([OWN, NMP, EDS, LAEDS])
 
 
 def test_schemas_rely_only_on_nomad_and_each_other(schemas):

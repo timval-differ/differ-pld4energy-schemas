@@ -10,9 +10,10 @@ from nomad.datamodel import EntryArchive, EntryMetadata
 from structlog.testing import CapturingLogger
 
 from differ_pld4e_schemas.in_situ import (
-    AWAITING_DATA,
+    DATA_COMPLETE,
     LAEDS,
     CurvatureData,
+    LAEDSSpectrum,
     read_columns,
     split_header,
 )
@@ -89,11 +90,15 @@ def test_la_eds_without_energy_per_channel_has_no_old_axis():
     assert not laeds.figures
 
 
-def test_la_eds_files_that_are_not_read_are_reported():
-    laeds = LAEDS(sp0_files=['spectrum.sp0'])
+def test_la_eds_spectra_are_kept_without_the_files():
+    # Without the upload's files (no context) the spectra read before stay.
+    spectrum = LAEDSSpectrum(file='a.sp0', energy=[0.0, 5.0], intensity=[1.0, 2.0])
+    laeds = LAEDS(sp0_files=['a.sp0'], spectra=[spectrum])
     records = _normalize(laeds)
-    assert laeds.data_status == AWAITING_DATA
-    assert any('.sp0 files are not read' in message for _, message in records)
+    assert laeds.data_status == DATA_COMPLETE
+    assert laeds.spectra == [spectrum]
+    assert laeds.figures
+    assert not records
 
 
 def test_impossible_transmission_is_reported():

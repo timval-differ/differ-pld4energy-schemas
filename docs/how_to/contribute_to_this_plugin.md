@@ -18,7 +18,7 @@ tests, and where to make a change. This page has the recipes for common changes.
 | `stages.py` | `HeaterStagePosition`, `TargetStage`, `CartesianHeaterScan`, `PolarHeaterScan` |
 | `sample.py` | System-agnostic samples: the `Sample` entry, the `SubstrateType` entry (the substrate database), `SampleInRun`, `Layer`, the `SampleRun` base of a run, `sample_id()` and `sample_name()` |
 | `target.py` | `Target`, and the `PLDTarget` and `SputterTarget` database entries |
-| `in_situ.py` | In-situ techniques: reading and plotting exported RHEED and MIC files, the LA-EDS energy axis |
+| `in_situ.py` | In-situ techniques: reading and plotting exported RHEED and MIC files and LA-EDS `.sp0` spectra (with laeds_tools) |
 | `composition.py` | Chemical formulas of targets and substrate types, and the elements NOMAD's search uses |
 | `database.py` | The target and substrate database: the one upload that holds every target and substrate type |
 | `schema_packages/schema_package.py` | Imports all modules and initialises the schema package |

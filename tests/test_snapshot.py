@@ -292,6 +292,7 @@ _PLUGIN = 'differ_pld4e_schemas.schema_packages.schema_package'
 _OWN = schema_path('differ_pld4e_schemas')
 _NMP = schema_path('nomad_material_processing')
 _EDS = schema_path('helpers')
+_LAEDS = schema_path('laeds_tools')
 SCHEMA = f'../upload/raw/{_OWN}#'
 
 
@@ -333,9 +334,11 @@ def _logbook_upload():
 
 def test_snapshot_holds_the_schemas_of_the_plugins_it_uses():
     files = build_snapshot(UPLOAD, _logbook_upload())
-    # nomad-material-processing too: this plugin's sections build on it.
+    # nomad-material-processing and laeds_tools too: this plugin's sections
+    # build on them.
     assert sorted(path for path in files if path.startswith('schema/')) == [
         _OWN,
+        _LAEDS,
         _NMP,
     ]
     own = yaml.safe_load(files[_OWN])['definitions']['sections']
@@ -410,6 +413,7 @@ def test_archives_hold_the_data_nomad_stored_for_them():
     assert sorted(path for path in files if path.startswith('schema/')) == [
         _OWN,
         _EDS,
+        _LAEDS,
         _NMP,
     ]
     eds = yaml.safe_load(files[_EDS])['definitions']['sections']

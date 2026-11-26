@@ -20,13 +20,13 @@ jobs:
         # The lowest and the highest supported version (pyproject.toml).
         python-version: ['3.11', '3.14']
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Install uv
-      uses: astral-sh/setup-uv@v5
+      uses: astral-sh/setup-uv@v7
       with:
           version: ${{ env.UV_VERSION }}
     - name: Setup Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v7
       with:
           python-version: ${{ matrix.python-version }}
     - name: Install dependencies
@@ -57,11 +57,11 @@ jobs:
       # Install into the project's .venv, which `uv run` uses, not the system Python.
       UV_SYSTEM_PYTHON: false
     steps:
-    - uses: actions/checkout@v4
-    - uses: astral-sh/setup-uv@v5
+    - uses: actions/checkout@v7
+    - uses: astral-sh/setup-uv@v7
       with:
           version: ${{ env.UV_VERSION }}
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@v7
       with:
           python-version: '3.12'
     - run: |
@@ -74,11 +74,11 @@ jobs:
     # The documentation builds without broken links or navigation entries.
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: astral-sh/setup-uv@v5
+    - uses: actions/checkout@v7
+    - uses: astral-sh/setup-uv@v7
       with:
           version: ${{ env.UV_VERSION }}
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@v7
       with:
           python-version: '3.12'
     - run: |
@@ -94,8 +94,8 @@ jobs:
         # The lowest supported version (package.json engines) and the current one.
         node-version: [22, 26]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
@@ -106,7 +106,7 @@ jobs:
   ruff-linting:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: astral-sh/ruff-action@v3
       - run: ruff check .
       - run: ruff format --check .
